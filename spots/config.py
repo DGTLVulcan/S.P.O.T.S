@@ -93,6 +93,15 @@ class WebConfig:
     # smoother picture if you have CPU headroom.
     stream_fps: float = 10.0
     stream_quality: int = 80
+    # Downscale the streamed picture to at most this many pixels wide (0 =
+    # send it at native resolution). Detection is NOT affected -- it always
+    # runs on the full-resolution frame; this only changes what gets pushed
+    # to the browser. A full 1080p stream measured ~18 Mbit/s, which a Pi
+    # running its own 2.4GHz access point cannot sustain: the stream backs
+    # up in TCP and the picture arrives seconds late (looking like new shots
+    # "don't appear until you refresh"). 960px is plenty on a phone and cuts
+    # that by roughly 4x.
+    stream_max_width: int = 960
 
 
 @dataclass

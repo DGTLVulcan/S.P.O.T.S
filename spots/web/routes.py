@@ -68,7 +68,40 @@ def index():
     return render_template("index.html", target=_settings().target)
 
 
-def _draw_overlay(frame, snapshot, homography):
+def _stream_target_size(width, height, max_width):
+    """Streamed frame size for a native (width, height), or None to send it
+    unscaled. Kept as one function so the click-coordinate conversion below
+    and the stream itself can never disagree about the scale in use.
+    """
+    if max_width <= 0 or width <= max_width:
+        return None
+    return (max_width, max(1, round(height * max_width / width)))
+
+
+def _view_to_frame_px(x, y):
+    """Converts a click from streamed-image pixels to native frame pixels.
+
+    The browser measures clicks against the <img>'s naturalWidth/Height,
+    which is whatever the stream is actually sending -- so once the stream
+    is downscaled, every click arrives shrunk by the same factor.
+    Calibration, the detector and the overlay all work in native frame
+    pixels, so undo it here, at the one boundary where view coordinates
+    enter the app, rather than in four separate places in the browser.
+    """
+    max_width = _settings().web.stream_max_width
+    if max_width <= 0:
+        return x, y
+    frame = _worker().get_latest_frame()
+    if frame is None:
+        return x, y
+    native_height, native_width = frame.shape[:2]
+    target = _stream_target_size(native_width, native_height, max_width)
+    if target is None:
+        return x, y
+    return x * native_width / target[0], y * native_height / target[1]
+
+
+def _draw_overlay(frame, snapshot, homography, scale=1.0):
     # Shots/stats are computed in the detector's anchor coordinate space.
     # The live feed shows the raw, unwarped camera frame, so anchor-space
     # points need the inverse homography applied to land in the right place.
@@ -86,7 +119,7 @@ def _draw_overlay(frame, snapshot, homography):
         )
         cv2.drawMarker(
             frame,
-            (int(center[0]), int(center[1])),
+            (int(center[0] * scale), int(center[1] * scale)),
             _SHOT_MARKER_BGR,
             cv2.MARKER_SQUARE if shot.is_test else cv2.MARKER_TILTED_CROSS,
             24,
@@ -98,22 +131,36 @@ def _draw_overlay(frame, snapshot, homography):
         cy_px = snapshot.calibration.origin_px[1] - cy_units / snapshot.calibration.units_per_px
         center = warp_point((cx_px, cy_px), homography_inv)
         cv2.drawMarker(
-            frame, (int(center[0]), int(center[1])), _CENTER_MARKER_BGR, cv2.MARKER_CROSS, 30, 2
+            frame,
+            (int(center[0] * scale), int(center[1] * scale)),
+            _CENTER_MARKER_BGR,
+            cv2.MARKER_CROSS,
+            30,
+            2,
         )
     return frame
 
 
-def _mjpeg_generator(worker, interval_s, quality):
+def _mjpeg_generator(worker, interval_s, quality, max_width):
     encode_params = [cv2.IMWRITE_JPEG_QUALITY, quality]
     while True:
         frame = worker.get_latest_frame()
         if frame is not None:
             snapshot = worker.state.snapshot()
             homography = worker.get_last_homography()
+            # Downscale BEFORE drawing, so markers keep a constant on-screen
+            # size and stay crisp instead of being shrunk into faint lines.
+            # Shot positions are in native frame pixels, so _draw_overlay
+            # scales them by the same factor.
+            target = _stream_target_size(frame.shape[1], frame.shape[0], max_width)
+            scale = 1.0
+            if target is not None:
+                scale = target[0] / frame.shape[1]
+                frame = cv2.resize(frame, target, interpolation=cv2.INTER_AREA)
             # No defensive copy: FrameSource.get_latest_frame() contracts to
             # hand back an array we own, so the overlay can be drawn straight
             # into it (a 1080p copy per streamed frame is not free on a Pi).
-            annotated = _draw_overlay(frame, snapshot, homography)
+            annotated = _draw_overlay(frame, snapshot, homography, scale)
             ok, buf = cv2.imencode(".jpg", annotated, encode_params)
             if ok:
                 yield (
@@ -129,7 +176,7 @@ def video_feed():
     web = _settings().web
     interval_s = 1.0 / max(web.stream_fps, 0.1)
     return Response(
-        _mjpeg_generator(_worker(), interval_s, web.stream_quality),
+        _mjpeg_generator(_worker(), interval_s, web.stream_quality, web.stream_max_width),
         mimetype="multipart/x-mixed-replace; boundary=frame",
     )
 
@@ -259,6 +306,7 @@ def api_simulate_hole():
     except (KeyError, TypeError, ValueError):
         return jsonify({"error": "x, y must both be numbers"}), 400
 
+    x, y = _view_to_frame_px(x, y)
     if not _worker().add_simulated_hole(x, y):
         return jsonify({"error": "Simulated feed isn't active"}), 409
 
@@ -274,6 +322,7 @@ def api_test_shot():
     except (KeyError, TypeError, ValueError):
         return jsonify({"error": "x, y must both be numbers"}), 400
 
+    x, y = _view_to_frame_px(x, y)
     if not _worker().add_test_shot(x, y):
         return jsonify({"error": "No active session -- click New Target first"}), 409
 
@@ -309,7 +358,9 @@ def api_calibration():
     data = request.get_json(force=True)
     try:
         p1, p2, distance = tuple(data["p1"]), tuple(data["p2"]), float(data["distance"])
-    except (KeyError, TypeError, ValueError):
+        p1 = _view_to_frame_px(float(p1[0]), float(p1[1]))
+        p2 = _view_to_frame_px(float(p2[0]), float(p2[1]))
+    except (KeyError, TypeError, ValueError, IndexError):
         return jsonify({"error": "p1, p2 must be [x, y] pairs and distance a number"}), 400
 
     try:
@@ -332,6 +383,7 @@ def api_calibration_center():
     except (KeyError, TypeError, ValueError):
         return jsonify({"error": "x, y must both be numbers"}), 400
 
+    x, y = _view_to_frame_px(x, y)
     if not _worker().mark_center(x, y):
         return jsonify({"error": "Calibrate scale first, then mark the target's center"}), 409
 

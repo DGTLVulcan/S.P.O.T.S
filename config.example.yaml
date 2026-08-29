@@ -78,3 +78,10 @@ web:
   # lower stream_quality) if the dashboard feels sluggish.
   stream_fps: 10
   stream_quality: 80
+  # Cap the streamed picture's width in pixels (0 = native resolution).
+  # Detection always uses the full-resolution frame regardless of this --
+  # it only affects what is sent to the browser. A native 1080p stream
+  # measured ~18 Mbit/s, more than a Pi hosting its own 2.4GHz WiFi can
+  # carry, so the picture arrives late and new shots look like they only
+  # appear after a page refresh. Raise it if your link has the headroom.
+  stream_max_width: 960
