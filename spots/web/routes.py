@@ -141,36 +141,70 @@ def _draw_overlay(frame, snapshot, homography, scale=1.0):
     return frame
 
 
+def _render_frame_jpeg(worker, quality, max_width):
+    """Grabs the current frame, draws the overlay on it and JPEG-encodes it.
+    Returns the encoded bytes, or None if no frame is available yet.
+    """
+    frame = worker.get_latest_frame()
+    if frame is None:
+        return None
+    snapshot = worker.state.snapshot()
+    homography = worker.get_last_homography()
+    # Downscale BEFORE drawing, so markers keep a constant on-screen size
+    # and stay crisp instead of being shrunk into faint lines. Shot
+    # positions are in native frame pixels, so _draw_overlay scales them by
+    # the same factor.
+    target = _stream_target_size(frame.shape[1], frame.shape[0], max_width)
+    scale = 1.0
+    if target is not None:
+        scale = target[0] / frame.shape[1]
+        frame = cv2.resize(frame, target, interpolation=cv2.INTER_AREA)
+    # No defensive copy: FrameSource.get_latest_frame() contracts to hand
+    # back an array we own, so the overlay can be drawn straight into it
+    # (a 1080p copy per streamed frame is not free on a Pi).
+    annotated = _draw_overlay(frame, snapshot, homography, scale)
+    ok, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, quality])
+    return buf.tobytes() if ok else None
+
+
+@bp.route("/frame.jpg")
+def frame_jpeg():
+    """One frame, fetched on demand by the dashboard.
+
+    The dashboard pulls frames one at a time rather than consuming the
+    MJPEG stream below, because a push stream has no backpressure: it
+    keeps emitting on a timer whether or not the client is keeping up,
+    and the excess piles into the kernel socket buffer (a couple of MB is
+    ~70 frames here). Over a link slower than the emit rate -- which is
+    what a Pi hosting its own 2.4GHz AP is -- the picture you see ends up
+    being whatever was queued seconds ago, and reloading the page is the
+    only way to discard the backlog. Pulling one frame at a time means
+    only ever one is in flight, so latency is a single round trip and the
+    rate self-adjusts to whatever the link can actually carry.
+    """
+    web = _settings().web
+    data = _render_frame_jpeg(_worker(), web.stream_quality, web.stream_max_width)
+    if data is None:
+        abort(503)
+    response = Response(data, mimetype="image/jpeg")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
+
+
 def _mjpeg_generator(worker, interval_s, quality, max_width):
-    encode_params = [cv2.IMWRITE_JPEG_QUALITY, quality]
     while True:
-        frame = worker.get_latest_frame()
-        if frame is not None:
-            snapshot = worker.state.snapshot()
-            homography = worker.get_last_homography()
-            # Downscale BEFORE drawing, so markers keep a constant on-screen
-            # size and stay crisp instead of being shrunk into faint lines.
-            # Shot positions are in native frame pixels, so _draw_overlay
-            # scales them by the same factor.
-            target = _stream_target_size(frame.shape[1], frame.shape[0], max_width)
-            scale = 1.0
-            if target is not None:
-                scale = target[0] / frame.shape[1]
-                frame = cv2.resize(frame, target, interpolation=cv2.INTER_AREA)
-            # No defensive copy: FrameSource.get_latest_frame() contracts to
-            # hand back an array we own, so the overlay can be drawn straight
-            # into it (a 1080p copy per streamed frame is not free on a Pi).
-            annotated = _draw_overlay(frame, snapshot, homography, scale)
-            ok, buf = cv2.imencode(".jpg", annotated, encode_params)
-            if ok:
-                yield (
-                    b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
-                )
+        data = _render_frame_jpeg(worker, quality, max_width)
+        if data is not None:
+            yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + data + b"\r\n"
         time.sleep(interval_s)
 
 
 @bp.route("/video_feed")
 def video_feed():
+    """Continuous MJPEG stream. The dashboard no longer uses this (see
+    /frame.jpg for why); kept because it is handy to point VLC/ffplay at,
+    and it works fine on a link with headroom.
+    """
     # Resolve everything needing app context up front: the generator is
     # consumed by the WSGI server after this request's context is gone.
     web = _settings().web

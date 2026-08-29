@@ -1,6 +1,5 @@
 (function () {
   const feed = document.getElementById("feed");
-  const feedBaseSrc = feed.src;
   const statusEl = document.getElementById("status");
   const newTargetBtn = document.getElementById("new-target");
   const calibrateBtn = document.getElementById("calibrate");
@@ -223,12 +222,9 @@
     try {
       await postJson("/api/feed", { target });
       updateFeedUI(target);
-      // The <img> is bound to a long-lived MJPEG stream opened when the page
-      // loaded; some browsers (notably iOS Safari) don't reliably keep
-      // rendering new multipart frames pushed down an already-open stream,
-      // so a feed switch server-side didn't visually show up until a full
-      // page reload. Forcing a fresh request picks up the new source right away.
-      feed.src = feedBaseSrc + (feedBaseSrc.includes("?") ? "&" : "?") + "t=" + Date.now();
+      // Nothing to do to the picture itself: frames are pulled one at a
+      // time (see pumpFrames), so the next one already comes from the new
+      // source.
       setStatus("Feed switched -- click New Target, then re-calibrate.");
     } catch (err) {
       setStatus("Feed switch error: " + err.message);
@@ -259,6 +255,13 @@
   //    (zoom pan center, and hole placement, which draws into that canvas
   //    before any cropping happens).
   feed.addEventListener("click", async (ev) => {
+    // Every coordinate below is derived from naturalWidth/Height; before the
+    // first frame has decoded those are 0, which would silently send (0, 0)
+    // for a calibration point or a shot.
+    if (!feed.naturalWidth || !feed.naturalHeight) {
+      setStatus("Waiting for the first video frame...");
+      return;
+    }
     const rect = feed.getBoundingClientRect();
     const viewX = (ev.clientX - rect.left) * (feed.naturalWidth / rect.width);
     const viewY = (ev.clientY - rect.top) * (feed.naturalHeight / rect.height);
@@ -531,9 +534,67 @@
     renderTargetDiagram("hud-target-diagram", diagramShots, diagramCenter);
   }
 
+  // Pull the video one frame at a time instead of consuming a continuous
+  // MJPEG stream. A push stream has no backpressure -- the server keeps
+  // emitting on a timer whether or not the link can carry it, and the
+  // excess sits in the socket buffer, so over a slow link (the Pi hosting
+  // its own 2.4GHz AP) you end up watching a picture from several seconds
+  // ago, and only reloading the page clears the backlog. Requesting the
+  // next frame only once the previous one has arrived keeps exactly one
+  // frame in flight, so latency is a single round trip and the frame rate
+  // settles at whatever the link can actually sustain.
+  const FRAME_MIN_INTERVAL_MS = 100; // ceiling of ~10 fps on a fast link
+  const FRAME_RETRY_MS = 1000;
+  let feedObjectUrl = null;
+
+  function showFrame(blob) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(blob);
+      let settled = false;
+      // Release the previous blob only once the new one is actually
+      // decoded and on screen, otherwise the image can flash empty.
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (feedObjectUrl) URL.revokeObjectURL(feedObjectUrl);
+        feedObjectUrl = url;
+        resolve();
+      };
+      // Never let a frame that fires neither load nor error wedge the loop
+      // permanently -- this runs unattended at the range.
+      const timer = setTimeout(done, 5000);
+      feed.onload = done;
+      feed.onerror = done;
+      feed.src = url;
+    });
+  }
+
+  async function pumpFrames() {
+    for (;;) {
+      const startedAt = Date.now();
+      try {
+        const resp = await fetch("/frame.jpg?t=" + startedAt, { cache: "no-store" });
+        if (!resp.ok) throw new Error(String(resp.status));
+        await showFrame(await resp.blob());
+      } catch (err) {
+        // No frame yet (503 before the camera warms up) or a dropped
+        // connection -- back off a little and keep trying rather than
+        // leaving a dead picture until the user reloads.
+        await new Promise((r) => setTimeout(r, FRAME_RETRY_MS));
+        continue;
+      }
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < FRAME_MIN_INTERVAL_MS) {
+        await new Promise((r) => setTimeout(r, FRAME_MIN_INTERVAL_MS - elapsed));
+      }
+    }
+  }
+
   setInterval(refreshShots, 1000);
   refreshShots();
   loadZoom();
   loadFeed();
   loadDistance();
+  pumpFrames();
 })();
