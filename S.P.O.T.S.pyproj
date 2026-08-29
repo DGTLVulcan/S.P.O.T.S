@@ -46,6 +46,9 @@
     <Content Include="spots\web\templates\session_detail.html" />
     <Content Include="spots\web\static\style.css" />
     <Content Include="spots\web\static\app.js" />
+    <Content Include="spots\web\static\theme.js" />
+    <Content Include="spots\web\static\settings.js" />
+    <Content Include="spots\web\templates\settings.html" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="spots\" />

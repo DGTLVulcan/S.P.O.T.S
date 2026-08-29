@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S.P.O.T.S - Settings</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="appbar">
+    <div class="brand">
+      <h1>S.P.O.T.S</h1>
+      <span class="subtitle">Settings</span>
+    </div>
+    <nav class="icon-nav">
+      <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
+      <a class="icon-btn" href="{{ url_for('spots.index') }}" title="Back to live view" aria-label="Back to live view">&#8962;</a>
+    </nav>
+  </header>
+
+  <main>
+    {% if saved %}<div class="banner success full-width">Settings saved.</div>{% endif %}
+    {% if error %}<div class="banner error full-width">{{ error }}</div>{% endif %}
+
+    <form method="post" class="settings-grid full-width">
+      <div class="card">
+        <h2>Target</h2>
+        <div class="field">
+          <label for="unit_name">Unit name</label>
+          <input type="text" id="unit_name" name="target.unit_name" value="{{ settings.target.unit_name }}" required>
+          <span class="hint">Shown next to every measurement (e.g. "cm", "mm", "in").</span>
+        </div>
+        <div class="field">
+          <label for="width_units">Target width</label>
+          <input type="number" step="any" id="width_units" name="target.width_units" value="{{ settings.target.width_units }}" required>
+          <span class="hint">Reference only -- actual scale comes from the Calibrate step on the live view.</span>
+        </div>
+        <div class="field">
+          <label for="best_subgroup_sizes">Best subgroup sizes</label>
+          <input type="text" id="best_subgroup_sizes" name="target.best_subgroup_sizes"
+                 value="{{ settings.target.best_subgroup_sizes | join(', ') }}">
+          <span class="hint">Comma-separated (e.g. "3, 5") -- tightest N-shot subgroup reported once that many shots exist.</span>
+        </div>
+        <div class="field">
+          <label for="best_subgroup_max_shots">Best subgroup search cap</label>
+          <input type="number" id="best_subgroup_max_shots" name="target.best_subgroup_max_shots"
+                 value="{{ settings.target.best_subgroup_max_shots }}" required>
+          <span class="hint">Subgroup search is combinatorial; skipped above this many shots in a session.</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Detection</h2>
+        <div class="field">
+          <label for="diff_threshold">Diff threshold</label>
+          <input type="number" id="diff_threshold" name="detection.diff_threshold" value="{{ settings.detection.diff_threshold }}" required>
+          <span class="hint">Lower catches holes on dark rings (less contrast there); raise if outdoor lighting flicker causes false positives.</span>
+        </div>
+        <div class="field">
+          <label for="min_hole_area_px">Min hole area (px&sup2;)</label>
+          <input type="number" id="min_hole_area_px" name="detection.min_hole_area_px" value="{{ settings.detection.min_hole_area_px }}" required>
+        </div>
+        <div class="field">
+          <label for="max_hole_area_px">Max hole area (px&sup2;)</label>
+          <input type="number" id="max_hole_area_px" name="detection.max_hole_area_px" value="{{ settings.detection.max_hole_area_px }}" required>
+        </div>
+        <div class="field">
+          <label for="min_circularity">Min circularity</label>
+          <input type="number" step="0.05" min="0" max="1" id="min_circularity" name="detection.min_circularity" value="{{ settings.detection.min_circularity }}" required>
+        </div>
+        <div class="field">
+          <label for="min_shot_spacing_px">Debounce match distance (px)</label>
+          <input type="number" id="min_shot_spacing_px" name="detection.min_shot_spacing_px" value="{{ settings.detection.min_shot_spacing_px }}" required>
+        </div>
+        <div class="field">
+          <label for="debounce_frames">Debounce frames</label>
+          <input type="number" min="1" id="debounce_frames" name="detection.debounce_frames" value="{{ settings.detection.debounce_frames }}" required>
+        </div>
+        <div class="field">
+          <label for="realignment_min_matches">Re-alignment min. feature matches</label>
+          <input type="number" id="realignment_min_matches" name="detection.realignment_min_matches" value="{{ settings.detection.realignment_min_matches }}" required>
+        </div>
+
+        <div class="restart-note">&#9888; The fields below need an app restart to take effect.</div>
+
+        <div class="field">
+          <label for="sample_fps">Detection sample rate (fps)</label>
+          <input type="number" step="any" id="sample_fps" name="detection.sample_fps" value="{{ settings.detection.sample_fps }}" required>
+        </div>
+        <div class="field checkbox-field">
+          <input type="checkbox" id="realignment_enabled" name="detection.realignment_enabled" {% if settings.detection.realignment_enabled %}checked{% endif %}>
+          <label for="realignment_enabled">Wind/shockwave re-alignment enabled</label>
+        </div>
+        <div class="field">
+          <label for="realignment_method">Re-alignment method</label>
+          <select id="realignment_method" name="detection.realignment_method">
+            <option value="orb" {% if settings.detection.realignment_method == 'orb' %}selected{% endif %}>ORB (fast, recommended for Pi)</option>
+            <option value="sift" {% if settings.detection.realignment_method == 'sift' %}selected{% endif %}>SIFT (slower, more precise)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Camera Connection</h2>
+        <div class="restart-note">&#9888; All fields here need an app restart to take effect.</div>
+        <div class="field">
+          <label for="source">Source</label>
+          <select id="source" name="camera.source">
+            <option value="synthetic" {% if settings.camera.source == 'synthetic' %}selected{% endif %}>Synthetic (dev/test, no hardware)</option>
+            <option value="zcam" {% if settings.camera.source == 'zcam' %}selected{% endif %}>Z CAM (network)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="ip">Camera IP</label>
+          <input type="text" id="ip" name="camera.ip" value="{{ settings.camera.ip }}">
+        </div>
+        <div class="field">
+          <label for="stream_width">Stream width</label>
+          <input type="number" id="stream_width" name="camera.stream_width" value="{{ settings.camera.stream_width }}" required>
+        </div>
+        <div class="field">
+          <label for="stream_height">Stream height</label>
+          <input type="number" id="stream_height" name="camera.stream_height" value="{{ settings.camera.stream_height }}" required>
+        </div>
+        <div class="field">
+          <label for="stream_bitrate">Stream bitrate (bps)</label>
+          <input type="number" id="stream_bitrate" name="camera.stream_bitrate" value="{{ settings.camera.stream_bitrate }}" required>
+        </div>
+      </div>
+
+      <div class="card">
+        <button type="submit" class="primary">Save Settings</button>
+      </div>
+    </form>
+
+    <div class="card full-width">
+      <h2>Camera Controls</h2>
+      <div id="camera-controls-root">
+        <p class="empty-state">Loading...</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='settings.js') }}"></script>
+</body>
+</html>

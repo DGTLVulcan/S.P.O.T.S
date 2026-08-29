@@ -37,6 +37,7 @@ class _State:
     calibration: Calibration | None = None
     shots: list[ShotRecord] = field(default_factory=list)
     stats: GroupStats | None = None
+    distance_m: float = 0.0
 
 
 class SessionState:
@@ -53,15 +54,50 @@ class SessionState:
                 calibration=self._state.calibration,
                 shots=list(self._state.shots),
                 stats=self._state.stats,
+                distance_m=self._state.distance_m,
             )
 
-    def reset(self, session_id: int, calibration: Calibration | None) -> None:
+    def reset(self, session_id: int, calibration: Calibration | None, distance_m: float) -> None:
         with self._lock:
-            self._state = _State(session_id=session_id, calibration=calibration)
+            self._state = _State(session_id=session_id, calibration=calibration, distance_m=distance_m)
 
-    def set_calibration(self, calibration: Calibration | None) -> None:
+    def set_distance(self, distance_m: float) -> None:
+        with self._lock:
+            self._state.distance_m = distance_m
+
+    def set_calibration(self, calibration: Calibration | None, unit_name: str) -> None:
         with self._lock:
             self._state.calibration = calibration
+            self._recompute_units_locked(unit_name)
+
+    def set_origin(self, origin_px: tuple[float, float], unit_name: str) -> bool:
+        """Updates just the origin (target center) of the CURRENT calibration,
+        leaving its scale (units_per_px) untouched. Returns False if there's
+        no calibration to update yet (caller should ask for scale calibration
+        first -- an origin alone can't convert pixels to real-world units).
+        """
+        with self._lock:
+            if self._state.calibration is None:
+                return False
+            self._state.calibration.origin_px = origin_px
+            self._recompute_units_locked(unit_name)
+            return True
+
+    def _recompute_units_locked(self, unit_name: str) -> None:
+        """Re-derives every recorded shot's x_units/y_units from its stored
+        pixel position under the CURRENT calibration. Without this, changing
+        calibration (scale or origin) mid-session would leave already-shown
+        shots computed against the old one -- inconsistent with new shots
+        and with the origin the diagram/overlay now draws around.
+        """
+        cal = self._state.calibration
+        for shot in self._state.shots:
+            if cal is not None:
+                shot.x_units, shot.y_units = cal.to_units((shot.x_px, shot.y_px))
+            else:
+                shot.x_units, shot.y_units = None, None
+        points = [(s.x_units, s.y_units) for s in self._state.shots if s.x_units is not None]
+        self._state.stats = compute_group_stats(points, unit_name) if points else None
 
     def add_shot(self, record: ShotRecord, unit_name: str) -> None:
         with self._lock:
@@ -111,7 +147,8 @@ class DetectionWorker:
             frame = self._frame_source.get_latest_frame()
             if frame is None:
                 continue
-            for shot in self._detector.process_frame(frame):
+            zoom_level, _, _ = self.get_zoom()
+            for shot in self._detector.process_frame(frame, zoom_level=zoom_level):
                 self._commit_shot(shot.seq, shot.x_px, shot.y_px, frame)
 
     def _commit_shot(self, seq: int, x_px: float, y_px: float, frame_bgr: np.ndarray) -> None:
@@ -167,6 +204,41 @@ class DetectionWorker:
             logger.exception("Failed to save snapshot for shot #%d", seq)
             return None
 
+    def set_zoom(self, level: float, center_x: float, center_y: float) -> None:
+        set_zoom = getattr(self._frame_source, "set_zoom", None)
+        if callable(set_zoom):
+            set_zoom(level, center_x, center_y)
+
+    def get_zoom(self) -> tuple[float, float, float]:
+        get_zoom = getattr(self._frame_source, "get_zoom", None)
+        return get_zoom() if callable(get_zoom) else (1.0, 0.5, 0.5)
+
+    def get_active_feed(self) -> str:
+        get_active = getattr(self._frame_source, "get_active", None)
+        return get_active() if callable(get_active) else "synthetic"
+
+    def switch_feed(self, target: str) -> None:
+        """Raises on failure (e.g. camera unreachable) -- caller's problem
+        to report, not the worker's to swallow.
+        """
+        self._frame_source.switch_to(target)
+
+    def get_zcam_client(self):
+        get_client = getattr(self._frame_source, "get_zcam_client", None)
+        return get_client() if callable(get_client) else None
+
+    def add_simulated_hole(self, x: float, y: float) -> bool:
+        """Places a virtual bullet hole for the synthetic source to render
+        and the detector to pick up next cycle. Returns False (rather than
+        raising) when the active feed isn't synthetic, since that's a
+        routine "wrong mode" case the caller should just report cleanly.
+        """
+        add_hole = getattr(self._frame_source, "add_hole", None)
+        if not callable(add_hole):
+            return False
+        add_hole(x, y)
+        return True
+
     def new_target(self, calibration: Calibration | None = None) -> None:
         # Dev/test-only hook: SyntheticFrameSource clears its fabricated holes
         # here, before the reference frame is captured, so the reference is
@@ -179,11 +251,47 @@ class DetectionWorker:
         if frame is None:
             raise RuntimeError("No frame available yet to set as reference")
         self._detector.reset(frame)
-        session_id = self._storage.new_session(self._target_config.unit_name)
-        self.state.reset(session_id, calibration)
+        session_id = self._storage.new_session(
+            self._target_config.unit_name, self._target_config.distance_m
+        )
+        self.state.reset(session_id, calibration, self._target_config.distance_m)
 
     def set_calibration(self, calibration: Calibration) -> None:
-        self.state.set_calibration(calibration)
+        self.state.set_calibration(calibration, self._target_config.unit_name)
+        self._persist_shot_units()
+
+    def set_distance(self, distance_m: float) -> None:
+        """Updates the CURRENT session's distance (not just the config
+        default for the next New Target), and persists it so session
+        history reflects the correction too -- e.g. the target got moved,
+        or the wrong distance was entered to begin with.
+        """
+        self._target_config.distance_m = distance_m
+        self.state.set_distance(distance_m)
+        snapshot = self.state.snapshot()
+        if snapshot.session_id is not None:
+            self._storage.update_session_distance(snapshot.session_id, distance_m)
+
+    def mark_center(self, x_px: float, y_px: float) -> bool:
+        """Sets the target's true center as the calibration origin, so shots
+        are reported (and the target diagram drawn) relative to the actual
+        bullseye rather than wherever the first calibration click landed.
+        Returns False if scale hasn't been calibrated yet -- there's no
+        Calibration object for an origin-only update to attach to.
+        """
+        ok = self.state.set_origin((x_px, y_px), self._target_config.unit_name)
+        if ok:
+            self._persist_shot_units()
+        return ok
+
+    def _persist_shot_units(self) -> None:
+        snapshot = self.state.snapshot()
+        if snapshot.session_id is None:
+            return
+        for shot in snapshot.shots:
+            self._storage.update_shot_units(
+                snapshot.session_id, shot.seq, shot.x_units, shot.y_units
+            )
 
     def undo_last(self) -> None:
         self._detector.undo_last()

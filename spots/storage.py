@@ -35,18 +35,29 @@ class Storage:
             self._conn.commit()
 
     def _migrate_locked(self) -> None:
-        columns = {row[1] for row in self._conn.execute("PRAGMA table_info(shots)")}
-        if "snapshot_path" not in columns:
+        shot_columns = {row[1] for row in self._conn.execute("PRAGMA table_info(shots)")}
+        if "snapshot_path" not in shot_columns:
             self._conn.execute("ALTER TABLE shots ADD COLUMN snapshot_path TEXT")
 
-    def new_session(self, unit_name: str) -> int:
+        session_columns = {row[1] for row in self._conn.execute("PRAGMA table_info(sessions)")}
+        if "distance_m" not in session_columns:
+            self._conn.execute("ALTER TABLE sessions ADD COLUMN distance_m REAL")
+
+    def new_session(self, unit_name: str, distance_m: float | None = None) -> int:
         with self._lock:
             cur = self._conn.execute(
-                "INSERT INTO sessions (created_at, unit_name) VALUES (?, ?)",
-                (time.time(), unit_name),
+                "INSERT INTO sessions (created_at, unit_name, distance_m) VALUES (?, ?, ?)",
+                (time.time(), unit_name, distance_m),
             )
             self._conn.commit()
             return cur.lastrowid
+
+    def update_session_distance(self, session_id: int, distance_m: float | None) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE sessions SET distance_m = ? WHERE id = ?", (distance_m, session_id)
+            )
+            self._conn.commit()
 
     def add_shot(
         self,
@@ -67,6 +78,16 @@ class Storage:
             )
             self._conn.commit()
             return cur.lastrowid
+
+    def update_shot_units(
+        self, session_id: int, seq: int, x_units: float | None, y_units: float | None
+    ) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE shots SET x_units = ?, y_units = ? WHERE session_id = ? AND seq = ?",
+                (x_units, y_units, session_id, seq),
+            )
+            self._conn.commit()
 
     def delete_last_shot(self, session_id: int) -> None:
         with self._lock:
@@ -116,11 +137,12 @@ class Storage:
     def get_session(self, session_id: int) -> dict | None:
         with self._lock:
             row = self._conn.execute(
-                "SELECT id, created_at, unit_name FROM sessions WHERE id = ?", (session_id,)
+                "SELECT id, created_at, unit_name, distance_m FROM sessions WHERE id = ?",
+                (session_id,),
             ).fetchone()
         if row is None:
             return None
-        return {"id": row[0], "created_at": row[1], "unit_name": row[2]}
+        return {"id": row[0], "created_at": row[1], "unit_name": row[2], "distance_m": row[3]}
 
     def close(self) -> None:
         with self._lock:

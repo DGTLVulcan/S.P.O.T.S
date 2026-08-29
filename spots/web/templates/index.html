@@ -7,47 +7,112 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <header>
-    <h1>S.P.O.T.S</h1>
-    <span class="subtitle">Shot Positioning and Optical Tracking System</span>
-    <nav><a href="{{ url_for('spots.sessions_list') }}">Session History</a></nav>
+  <header class="appbar">
+    <div class="brand">
+      <h1>S.P.O.T.S</h1>
+      <span class="subtitle">Shot Positioning and Optical Tracking System</span>
+    </div>
+    <nav class="icon-nav">
+      <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
+      <a class="icon-btn" href="{{ url_for('spots.sessions_list') }}" title="Session history" aria-label="Session history">&#128337;</a>
+      <a class="icon-btn" href="{{ url_for('spots.settings_page') }}" title="Settings" aria-label="Settings">&#9881;</a>
+    </nav>
   </header>
 
   <main>
     <section class="video-panel">
-      <img id="feed" src="{{ url_for('spots.video_feed') }}" alt="live target feed">
-      <div class="controls">
-        <button id="new-target">New Target</button>
-        <button id="calibrate">Calibrate</button>
-        <button id="undo">Undo Last Shot</button>
-        <a id="export-csv" class="button-link disabled">Export CSV</a>
+      <div class="card">
+        <div class="video-frame">
+          <img id="feed" src="{{ url_for('spots.video_feed') }}" alt="live target feed">
+          <div class="badge-row">
+            <span id="badge-feed" class="badge good"><span class="dot"></span>Simulated</span>
+            <span id="badge-calibration" class="badge warn"><span class="dot"></span>Not calibrated</span>
+            <span id="badge-session" class="badge" style="display:none;"></span>
+          </div>
+        </div>
+        <div class="controls" style="margin-top: 1rem;">
+          <button id="feed-synthetic" class="primary">Simulated</button>
+          <button id="feed-zcam">Live Feed</button>
+        </div>
+        <p id="feed-hint" class="status">Simulated target active &mdash; click the feed to place a virtual bullet hole.</p>
+        <div class="controls">
+          <button id="new-target" class="primary">New Target</button>
+          <button id="calibrate">Calibrate</button>
+          <button id="mark-center">Mark Center</button>
+          <button id="undo">Undo Last Shot</button>
+          <a id="export-csv" class="btn disabled">Export CSV</a>
+        </div>
+        <div class="controls" style="margin-top: 0.6rem; align-items: center;">
+          <label class="field-row" style="gap: 0.5rem;">
+            <span style="color: var(--ink-secondary); font-size: 0.85rem;">Zoom</span>
+            <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1">
+            <output id="zoom-value">1.0x</output>
+          </label>
+          <button id="zoom-center-btn">Center Zoom Here</button>
+        </div>
+        <div class="controls" style="margin-top: 0.6rem; align-items: center;">
+          <label class="field-row" style="gap: 0.5rem;">
+            <span style="color: var(--ink-secondary); font-size: 0.85rem;">Distance to target</span>
+            <input type="number" id="distance-input" min="0" step="0.5" style="width: 80px;" placeholder="0">
+            <span style="color: var(--ink-secondary); font-size: 0.85rem;">m</span>
+          </label>
+          <span class="hint">For MOA -- needs unit set to mm/cm/m/in/ft in Settings.</span>
+        </div>
+        <p id="status" class="status"></p>
       </div>
-      <p id="status" class="status"></p>
     </section>
 
     <section class="stats-panel">
-      <h2>Group Stats</h2>
-      <dl id="stats">
-        <dt>Shots</dt><dd id="stat-count">0</dd>
-        <dt>Extreme spread</dt><dd id="stat-spread">-</dd>
-        <dt>Mean radius</dt><dd id="stat-radius">-</dd>
-        <dt>Std dev</dt><dd id="stat-std">-</dd>
-      </dl>
+      <div class="card">
+        <h2>Group Stats</h2>
+        <div class="stat-grid">
+          <div class="stat-tile">
+            <div class="label">Shots</div>
+            <div class="value" id="stat-count">0</div>
+          </div>
+          <div class="stat-tile">
+            <div class="label">Extreme spread</div>
+            <div class="value" id="stat-spread">&ndash;</div>
+            <div class="hint" id="stat-spread-moa"></div>
+          </div>
+          <div class="stat-tile">
+            <div class="label">Mean radius</div>
+            <div class="value" id="stat-radius">&ndash;</div>
+          </div>
+          <div class="stat-tile">
+            <div class="label">Std dev</div>
+            <div class="value" id="stat-std">&ndash;</div>
+          </div>
+        </div>
 
-      <h2>Best Subgroups</h2>
-      <dl id="best-subgroups"><dt>-</dt><dd>-</dd></dl>
+        <svg id="target-diagram" class="target-diagram" viewBox="0 0 200 200" role="img" aria-label="Shot group diagram"></svg>
+        <div class="legend-row">
+          <span><span class="swatch" style="background: var(--shot-marker);"></span>Shot</span>
+          <span><span class="swatch" style="background: var(--center-marker); border-radius: 2px;"></span>Group center</span>
+        </div>
+      </div>
 
-      <h2>Shots</h2>
-      <table id="shot-table">
-        <thead><tr><th>#</th><th>X</th><th>Y</th></tr></thead>
-        <tbody></tbody>
-      </table>
+      <div class="card">
+        <h2>Shots</h2>
+        <div class="table-scroll">
+          <table id="shot-table">
+            <thead><tr><th>#</th><th>X</th><th>Y</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Best Subgroups</h2>
+        <div class="stat-grid" id="best-subgroups"></div>
+      </div>
     </section>
   </main>
 
   <script>
     window.SPOTS_UNIT_NAME = {{ target.unit_name | tojson }};
   </script>
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

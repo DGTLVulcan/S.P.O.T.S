@@ -7,63 +7,84 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <header>
-    <h1>S.P.O.T.S</h1>
-    <span class="subtitle">Session {{ session.id }} &middot; {{ session.created_at_str }}</span>
-    <nav>
-      <a href="{{ url_for('spots.sessions_list') }}">Session History</a>
-      &middot;
-      <a href="{{ url_for('spots.export_csv', session_id=session.id) }}">Export CSV</a>
+  <header class="appbar">
+    <div class="brand">
+      <h1>S.P.O.T.S</h1>
+      <span class="subtitle">Session {{ session.id }} &middot; {{ session.created_at_str }}</span>
+    </div>
+    <nav class="icon-nav">
+      <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
+      <a class="btn" href="{{ url_for('spots.export_csv', session_id=session.id) }}">Export CSV</a>
+      <a class="icon-btn" href="{{ url_for('spots.sessions_list') }}" title="Session history" aria-label="Session history">&#128337;</a>
+      <a class="icon-btn" href="{{ url_for('spots.index') }}" title="Back to live view" aria-label="Back to live view">&#8962;</a>
     </nav>
   </header>
 
   <main>
-    <section class="stats-panel">
-      <h2>Group Stats</h2>
-      {% if stats %}
-      <dl>
-        <dt>Shots</dt><dd>{{ stats.shot_count }}</dd>
-        <dt>Extreme spread</dt><dd>{{ "%.2f"|format(stats.extreme_spread) }} {{ unit_name }}</dd>
-        <dt>Mean radius</dt><dd>{{ "%.2f"|format(stats.mean_radius) }} {{ unit_name }}</dd>
-        <dt>Std dev</dt><dd>{{ "%.2f"|format(stats.std_dev) }} {{ unit_name }}</dd>
-      </dl>
-      {% else %}
-      <p>No calibrated shots in this session.</p>
-      {% endif %}
+    <section style="flex: 1 1 320px; min-width: 280px; display: flex; flex-direction: column; gap: 1.25rem;">
+      <div class="card">
+        <h2>Group Stats</h2>
+        {% if stats %}
+        <div class="stat-grid">
+          <div class="stat-tile"><div class="label">Shots</div><div class="value">{{ stats.shot_count }}</div></div>
+          <div class="stat-tile">
+            <div class="label">Extreme spread</div>
+            <div class="value">{{ "%.2f"|format(stats.extreme_spread) }}<span class="unit"> {{ unit_name }}</span></div>
+            {% if stats_moa is not none %}<div class="hint">{{ "%.2f"|format(stats_moa) }} MOA</div>{% endif %}
+          </div>
+          <div class="stat-tile"><div class="label">Mean radius</div><div class="value">{{ "%.2f"|format(stats.mean_radius) }}<span class="unit"> {{ unit_name }}</span></div></div>
+          <div class="stat-tile"><div class="label">Std dev</div><div class="value">{{ "%.2f"|format(stats.std_dev) }}<span class="unit"> {{ unit_name }}</span></div></div>
+        </div>
+        {% else %}
+        <p class="empty-state">No calibrated shots in this session.</p>
+        {% endif %}
+      </div>
 
       {% if best_subgroups %}
-      <h2>Best Subgroups</h2>
-      <dl>
-        {% for n, bs in best_subgroups.items() %}
-        <dt>Best {{ n }}-shot</dt><dd>{{ "%.2f"|format(bs.extreme_spread) }} {{ unit_name }}</dd>
-        {% endfor %}
-      </dl>
+      <div class="card">
+        <h2>Best Subgroups</h2>
+        <div class="stat-grid">
+          {% for n, bs in best_subgroups.items() %}
+          <div class="stat-tile">
+            <div class="label">Best {{ n }}-shot</div>
+            <div class="value">{{ "%.2f"|format(bs.extreme_spread) }}<span class="unit"> {{ unit_name }}</span></div>
+            {% if best_subgroups_moa[n] is not none %}<div class="hint">{{ "%.2f"|format(best_subgroups_moa[n]) }} MOA</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
       {% endif %}
     </section>
 
-    <section class="stats-panel" style="flex-basis: 100%;">
-      <h2>Shots</h2>
-      <table>
-        <thead><tr><th>#</th><th>X ({{ unit_name }})</th><th>Y ({{ unit_name }})</th><th>Time</th><th>Snapshot</th></tr></thead>
-        <tbody>
-          {% for s in shots %}
-          <tr>
-            <td>{{ s.seq }}</td>
-            <td>{{ "%.2f"|format(s.x_units) if s.x_units is not none else "-" }}</td>
-            <td>{{ "%.2f"|format(s.y_units) if s.y_units is not none else "-" }}</td>
-            <td>{{ s.created_at_str }}</td>
-            <td>
-              {% if s.snapshot_path %}
-              <a href="{{ url_for('spots.snapshot_file', relpath=s.snapshot_path) }}" target="_blank">view</a>
-              {% else %}
-              -
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <section class="full-width">
+      <div class="card">
+        <h2>Shots</h2>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>#</th><th>X ({{ unit_name }})</th><th>Y ({{ unit_name }})</th><th>Time</th><th>Snapshot</th></tr></thead>
+            <tbody>
+              {% for s in shots %}
+              <tr>
+                <td>{{ s.seq }}</td>
+                <td>{{ "%.2f"|format(s.x_units) if s.x_units is not none else "-" }}</td>
+                <td>{{ "%.2f"|format(s.y_units) if s.y_units is not none else "-" }}</td>
+                <td>{{ s.created_at_str }}</td>
+                <td>
+                  {% if s.snapshot_path %}
+                  <a href="{{ url_for('spots.snapshot_file', relpath=s.snapshot_path) }}" target="_blank">view</a>
+                  {% else %}
+                  -
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
   </main>
+
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
 </body>
 </html>

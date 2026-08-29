@@ -79,6 +79,20 @@ class ZCamClient:
         ip = self._base.removeprefix("http://")
         return f"rtsp://{ip}/live_stream"
 
+    def get_setting(self, key: str) -> dict:
+        """Queries a camera setting via /ctrl/get?k=<key>. Response shape
+        depends on the setting's type: choice ({"value","opts"}), range
+        ({"value","min","max","step"}), or string ({"value"}) -- always
+        includes "ro" (read-only) as documented in Z-Camera-Doc's api.js.
+        """
+        return self._get("/ctrl/get", k=key)
+
+    def set_setting(self, key: str, value) -> dict:
+        """Applies a camera setting via /ctrl/set?<key>=<value> (the query
+        parameter *is* the setting's key name, per api.js: `/ctrl/set?${key}=${value}`).
+        """
+        return self._get("/ctrl/set", **{key: value})
+
     def close(self) -> None:
         self._stop_heartbeat.set()
         if self._heartbeat_thread is not None:

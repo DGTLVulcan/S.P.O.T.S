@@ -2,25 +2,33 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import os
 import time
 from datetime import datetime
 
 import cv2
+import requests
 from flask import (
     Blueprint,
     Response,
     abort,
     current_app,
     jsonify,
+    redirect,
     render_template,
     request,
     send_from_directory,
+    url_for,
 )
 
+from spots.camera.client import ZCamError
+from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
 from spots.vision.calibration import Calibration
 from spots.vision.detection import invert_homography, warp_point
-from spots.vision.groups import best_subgroup, compute_group_stats
+from spots.vision.groups import best_subgroup, compute_group_stats, to_moa
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("spots", __name__)
 
@@ -40,6 +48,20 @@ def _storage():
     return current_app.config["STORAGE"]
 
 
+def _zcam_client():
+    # Dynamic, not a fixed startup value: the Z CAM connection is now made
+    # lazily on first switch to the live feed (see SwitchableFrameSource),
+    # so this may go from None to a real client mid-run.
+    return _worker().get_zcam_client()
+
+
+# BGR (OpenCV) equivalents of the validated blue/red pair from the design
+# system's categorical palette -- shots and the group-center marker, chosen
+# so they clear the CVD/normal-vision separation checks (unlike red/orange).
+_SHOT_MARKER_BGR = (214, 120, 42)  # #2a78d6
+_CENTER_MARKER_BGR = (72, 73, 227)  # #e34948
+
+
 @bp.route("/")
 def index():
     return render_template("index.html", target=_settings().target)
@@ -54,7 +76,12 @@ def _draw_overlay(frame, snapshot, homography):
     for shot in snapshot.shots:
         center = warp_point((shot.x_px, shot.y_px), homography_inv)
         cv2.drawMarker(
-            frame, (int(center[0]), int(center[1])), (0, 0, 255), cv2.MARKER_TILTED_CROSS, 24, 2
+            frame,
+            (int(center[0]), int(center[1])),
+            _SHOT_MARKER_BGR,
+            cv2.MARKER_TILTED_CROSS,
+            24,
+            2,
         )
     if snapshot.stats is not None and snapshot.calibration is not None:
         cx_units, cy_units = snapshot.stats.center
@@ -62,7 +89,7 @@ def _draw_overlay(frame, snapshot, homography):
         cy_px = snapshot.calibration.origin_px[1] - cy_units / snapshot.calibration.units_per_px
         center = warp_point((cx_px, cy_px), homography_inv)
         cv2.drawMarker(
-            frame, (int(center[0]), int(center[1])), (255, 128, 0), cv2.MARKER_CROSS, 30, 2
+            frame, (int(center[0]), int(center[1])), _CENTER_MARKER_BGR, cv2.MARKER_CROSS, 30, 2
         )
     return frame
 
@@ -89,7 +116,7 @@ def video_feed():
     )
 
 
-def _stats_dict(stats):
+def _stats_dict(stats, unit_name, distance_m):
     if stats is None:
         return None
     return {
@@ -98,12 +125,14 @@ def _stats_dict(stats):
         "extreme_spread": stats.extreme_spread,
         "mean_radius": stats.mean_radius,
         "std_dev": stats.std_dev,
+        "extreme_spread_moa": to_moa(stats.extreme_spread, unit_name, distance_m),
     }
 
 
-def _best_subgroups_dict(points, unit_name):
+def _best_subgroups_dict(points, unit_name, distance_m):
     return {
-        str(n): _stats_dict(stats) for n, stats in _best_subgroups_for_points(points, unit_name).items()
+        str(n): _stats_dict(stats, unit_name, distance_m)
+        for n, stats in _best_subgroups_for_points(points, unit_name).items()
     }
 
 
@@ -117,6 +146,7 @@ def api_shots():
             "session_id": snapshot.session_id,
             "calibrated": snapshot.calibration is not None,
             "unit_name": unit_name,
+            "distance_m": snapshot.distance_m,
             "shots": [
                 {
                     "seq": s.seq,
@@ -125,10 +155,95 @@ def api_shots():
                 }
                 for s in snapshot.shots
             ],
-            "stats": _stats_dict(snapshot.stats),
-            "best_subgroups": _best_subgroups_dict(points, unit_name),
+            "stats": _stats_dict(snapshot.stats, unit_name, snapshot.distance_m),
+            "best_subgroups": _best_subgroups_dict(points, unit_name, snapshot.distance_m),
         }
     )
+
+
+@bp.route("/api/zoom")
+def api_zoom_get():
+    level, center_x, center_y = _worker().get_zoom()
+    return jsonify({"level": level, "center_x": center_x, "center_y": center_y})
+
+
+@bp.route("/api/zoom", methods=["POST"])
+def api_zoom_set():
+    data = request.get_json(force=True)
+    try:
+        # Clamp here too (not just in ZoomFrameSource) so config.yaml always
+        # matches what's actually active.
+        level = max(1.0, float(data["level"]))
+        center_x = min(max(0.0, float(data["center_x"])), 1.0)
+        center_y = min(max(0.0, float(data["center_y"])), 1.0)
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "level, center_x, center_y must all be numbers"}), 400
+
+    _worker().set_zoom(level, center_x, center_y)
+
+    settings = _settings()
+    settings.camera.digital_zoom = level
+    settings.camera.zoom_center_x = center_x
+    settings.camera.zoom_center_y = center_y
+    settings.save()
+
+    return jsonify({"ok": True, "level": level, "center_x": center_x, "center_y": center_y})
+
+
+@bp.route("/api/distance")
+def api_distance_get():
+    return jsonify({"distance_m": _settings().target.distance_m})
+
+
+@bp.route("/api/distance", methods=["POST"])
+def api_distance_set():
+    data = request.get_json(force=True)
+    try:
+        distance_m = max(0.0, float(data["distance_m"]))
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "distance_m must be a number"}), 400
+
+    _worker().set_distance(distance_m)
+    _settings().save()
+
+    return jsonify({"ok": True, "distance_m": distance_m})
+
+
+@bp.route("/api/feed")
+def api_feed_get():
+    return jsonify({"active": _worker().get_active_feed()})
+
+
+@bp.route("/api/feed", methods=["POST"])
+def api_feed_set():
+    data = request.get_json(force=True)
+    target = data.get("target")
+    if target not in ("synthetic", "zcam"):
+        return jsonify({"error": "target must be 'synthetic' or 'zcam'"}), 400
+
+    try:
+        _worker().switch_feed(target)
+    except (requests.RequestException, ZCamError) as exc:
+        return jsonify({"error": f"Could not connect to the Z CAM: {exc}"}), 502
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"ok": True, "active": target})
+
+
+@bp.route("/api/simulate/hole", methods=["POST"])
+def api_simulate_hole():
+    data = request.get_json(force=True)
+    try:
+        x = float(data["x"])
+        y = float(data["y"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "x, y must both be numbers"}), 400
+
+    if not _worker().add_simulated_hole(x, y):
+        return jsonify({"error": "Simulated feed isn't active"}), 409
+
+    return jsonify({"ok": True})
 
 
 @bp.route("/api/session/new", methods=["POST"])
@@ -149,12 +264,35 @@ def api_undo():
 @bp.route("/api/calibration", methods=["POST"])
 def api_calibration():
     data = request.get_json(force=True)
-    p1, p2, distance = data["p1"], data["p2"], float(data["distance"])
-    calibration = Calibration.from_two_points(
-        tuple(p1), tuple(p2), distance, _settings().target.unit_name, origin_px=tuple(p1)
-    )
+    try:
+        p1, p2, distance = tuple(data["p1"]), tuple(data["p2"]), float(data["distance"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "p1, p2 must be [x, y] pairs and distance a number"}), 400
+
+    try:
+        calibration = Calibration.from_two_points(
+            p1, p2, distance, _settings().target.unit_name, origin_px=p1
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
     _worker().set_calibration(calibration)
     return jsonify({"ok": True, "units_per_px": calibration.units_per_px})
+
+
+@bp.route("/api/calibration/center", methods=["POST"])
+def api_calibration_center():
+    data = request.get_json(force=True)
+    try:
+        x = float(data["x"])
+        y = float(data["y"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "x, y must both be numbers"}), 400
+
+    if not _worker().mark_center(x, y):
+        return jsonify({"error": "Calibrate scale first, then mark the target's center"}), 409
+
+    return jsonify({"ok": True})
 
 
 def _best_subgroups_for_points(points, unit_name):
@@ -192,6 +330,7 @@ def session_detail(session_id):
     for s in shots:
         s["created_at_str"] = _fmt_ts(s["created_at"])
     points = [(s["x_units"], s["y_units"]) for s in shots if s["x_units"] is not None]
+    distance_m = session["distance_m"]
     stats = compute_group_stats(points, unit_name)
     best_subgroups = _best_subgroups_for_points(points, unit_name)
     return render_template(
@@ -199,7 +338,11 @@ def session_detail(session_id):
         session=session,
         shots=shots,
         stats=stats,
+        stats_moa=to_moa(stats.extreme_spread, unit_name, distance_m) if stats else None,
         best_subgroups=best_subgroups,
+        best_subgroups_moa={
+            n: to_moa(bs.extreme_spread, unit_name, distance_m) for n, bs in best_subgroups.items()
+        },
         unit_name=unit_name,
     )
 
@@ -231,3 +374,186 @@ def export_csv(session_id):
     resp = Response(buf.getvalue(), mimetype="text/csv")
     resp.headers["Content-Disposition"] = f"attachment; filename=spots_session_{session_id}.csv"
     return resp
+
+
+# Fields that take effect immediately because the running worker/detector
+# hold a live reference to the same Settings.target / Settings.detection
+# objects being edited. Everything else (camera connection, sample rate,
+# re-alignment on/off/method) is baked into objects built once at app
+# startup, so those are saved to config.yaml but need a restart to apply.
+_HOT_RELOAD_DETECTION_FIELDS = {
+    "diff_threshold",
+    "min_hole_area_px",
+    "max_hole_area_px",
+    "min_circularity",
+    "min_shot_spacing_px",
+    "debounce_frames",
+    "realignment_min_matches",
+}
+_RESTART_REQUIRED_DETECTION_FIELDS = {"sample_fps", "realignment_enabled", "realignment_method"}
+
+
+def _parse_int(form, name, errors):
+    try:
+        return int(form[name])
+    except (KeyError, ValueError):
+        errors.append(f"'{name}' must be a whole number")
+        return None
+
+
+def _parse_float(form, name, errors):
+    try:
+        return float(form[name])
+    except (KeyError, ValueError):
+        errors.append(f"'{name}' must be a number")
+        return None
+
+
+def _parse_subgroup_sizes(form, errors):
+    raw = form.get("target.best_subgroup_sizes", "")
+    try:
+        sizes = [int(part.strip()) for part in raw.split(",") if part.strip()]
+    except ValueError:
+        errors.append("'Best subgroup sizes' must be a comma-separated list of whole numbers")
+        return None
+    if any(n <= 0 for n in sizes):
+        errors.append("'Best subgroup sizes' must all be positive")
+        return None
+    return sizes
+
+
+def _apply_settings_form(settings, form) -> list[str]:
+    errors: list[str] = []
+
+    unit_name = form.get("target.unit_name", "").strip()
+    if not unit_name:
+        errors.append("Unit name can't be empty")
+    width_units = _parse_float(form, "target.width_units", errors)
+    best_subgroup_sizes = _parse_subgroup_sizes(form, errors)
+    best_subgroup_max_shots = _parse_int(form, "target.best_subgroup_max_shots", errors)
+
+    diff_threshold = _parse_int(form, "detection.diff_threshold", errors)
+    min_hole_area_px = _parse_int(form, "detection.min_hole_area_px", errors)
+    max_hole_area_px = _parse_int(form, "detection.max_hole_area_px", errors)
+    min_circularity = _parse_float(form, "detection.min_circularity", errors)
+    min_shot_spacing_px = _parse_int(form, "detection.min_shot_spacing_px", errors)
+    debounce_frames = _parse_int(form, "detection.debounce_frames", errors)
+    sample_fps = _parse_float(form, "detection.sample_fps", errors)
+    realignment_min_matches = _parse_int(form, "detection.realignment_min_matches", errors)
+    realignment_method = form.get("detection.realignment_method", "orb")
+    if realignment_method not in ("orb", "sift"):
+        errors.append("Re-alignment method must be 'orb' or 'sift'")
+
+    camera_source = form.get("camera.source", "synthetic")
+    if camera_source not in ("zcam", "synthetic"):
+        errors.append("Camera source must be 'zcam' or 'synthetic'")
+    camera_ip = form.get("camera.ip", "").strip()
+    stream_width = _parse_int(form, "camera.stream_width", errors)
+    stream_height = _parse_int(form, "camera.stream_height", errors)
+    stream_bitrate = _parse_int(form, "camera.stream_bitrate", errors)
+
+    if (
+        min_hole_area_px is not None
+        and max_hole_area_px is not None
+        and min_hole_area_px > max_hole_area_px
+    ):
+        errors.append("Min hole area can't be larger than max hole area")
+
+    if errors:
+        return errors
+
+    settings.target.unit_name = unit_name
+    settings.target.width_units = width_units
+    settings.target.best_subgroup_sizes = best_subgroup_sizes
+    settings.target.best_subgroup_max_shots = best_subgroup_max_shots
+
+    settings.detection.diff_threshold = diff_threshold
+    settings.detection.min_hole_area_px = min_hole_area_px
+    settings.detection.max_hole_area_px = max_hole_area_px
+    settings.detection.min_circularity = min_circularity
+    settings.detection.min_shot_spacing_px = min_shot_spacing_px
+    settings.detection.debounce_frames = debounce_frames
+    settings.detection.realignment_min_matches = realignment_min_matches
+    # Restart-required fields still get written so config.yaml is correct
+    # for next launch, even though the running worker won't pick them up.
+    settings.detection.sample_fps = sample_fps
+    settings.detection.realignment_enabled = "detection.realignment_enabled" in form
+    settings.detection.realignment_method = realignment_method
+
+    settings.camera.source = camera_source
+    settings.camera.ip = camera_ip
+    settings.camera.stream_width = stream_width
+    settings.camera.stream_height = stream_height
+    settings.camera.stream_bitrate = stream_bitrate
+
+    settings.save()
+    return []
+
+
+@bp.route("/settings", methods=["GET", "POST"])
+def settings_page():
+    settings = _settings()
+    if request.method == "POST":
+        errors = _apply_settings_form(settings, request.form)
+        if errors:
+            return redirect(url_for("spots.settings_page", error=" / ".join(errors)))
+        return redirect(url_for("spots.settings_page", saved=1))
+
+    return render_template(
+        "settings.html",
+        settings=settings,
+        saved=request.args.get("saved"),
+        error=request.args.get("error"),
+    )
+
+
+def _camera_control_dict(client, control) -> dict | None:
+    try:
+        raw = client.get_setting(control.key)
+    except (requests.RequestException, ZCamError):
+        logger.exception("Failed to read camera control %s", control.key)
+        return None
+    result = {
+        "key": control.key,
+        "label": control.label,
+        "value": raw.get("value"),
+        "type": raw.get("type"),
+        "ro": bool(raw.get("ro")),
+    }
+    if raw.get("type") == 1:
+        result["opts"] = raw.get("opts", [])
+    elif raw.get("type") == 2:
+        result["min"] = raw.get("min")
+        result["max"] = raw.get("max")
+        result["step"] = raw.get("step")
+    return result
+
+
+@bp.route("/api/camera/controls")
+def api_camera_controls_get():
+    client = _zcam_client()
+    if client is None:
+        return jsonify({"available": False, "reason": "Camera source is synthetic", "controls": []})
+
+    controls = [c for c in (_camera_control_dict(client, c) for c in CAMERA_CONTROLS) if c]
+    return jsonify({"available": True, "controls": controls})
+
+
+@bp.route("/api/camera/controls", methods=["POST"])
+def api_camera_controls_set():
+    client = _zcam_client()
+    if client is None:
+        return jsonify({"error": "Camera source is synthetic, no hardware to control"}), 503
+
+    data = request.get_json(force=True)
+    key = data.get("key")
+    if key not in CAMERA_CONTROL_KEYS:
+        return jsonify({"error": f"Unknown or unsupported control key: {key!r}"}), 400
+
+    try:
+        client.set_setting(key, data.get("value"))
+        updated = client.get_setting(key)
+    except (requests.RequestException, ZCamError) as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    return jsonify({"ok": True, "value": updated.get("value")})

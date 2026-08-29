@@ -3,10 +3,11 @@ from __future__ import annotations
 import atexit
 import logging
 
+import requests
 from flask import Flask
 
-from spots.camera.client import ZCamClient
-from spots.camera.source import FrameSource, RtspFrameSource, SyntheticFrameSource
+from spots.camera.client import ZCamClient, ZCamError
+from spots.camera.source import RtspFrameSource, SwitchableFrameSource, SyntheticFrameSource, ZoomFrameSource
 from spots.config import Settings
 from spots.storage import Storage
 from spots.web.routes import bp
@@ -15,11 +16,8 @@ from spots.worker import DetectionWorker
 logger = logging.getLogger(__name__)
 
 
-def _build_frame_source(settings: Settings) -> tuple[FrameSource, ZCamClient | None]:
-    if settings.camera.source == "synthetic":
-        return SyntheticFrameSource(), None
-
-    if settings.camera.source == "zcam":
+def _make_zcam_factory(settings: Settings):
+    def factory():
         client = ZCamClient(
             settings.camera.ip,
             settings.camera.stream_width,
@@ -29,11 +27,34 @@ def _build_frame_source(settings: Settings) -> tuple[FrameSource, ZCamClient | N
         client.connect()
         return RtspFrameSource(client.rtsp_url()), client
 
-    raise ValueError(f"Unknown camera.source: {settings.camera.source!r}")
+    return factory
 
 
 def create_app(settings: Settings) -> Flask:
-    frame_source, zcam_client = _build_frame_source(settings)
+    switchable = SwitchableFrameSource(SyntheticFrameSource(), _make_zcam_factory(settings))
+    if settings.camera.source == "zcam":
+        # Preserves prior behavior for anyone who already configured "zcam"
+        # as their default: connect eagerly at startup rather than waiting
+        # for a dashboard toggle. But the camera being unreachable (powered
+        # off, unplugged, asleep) must never take the whole app down with
+        # it -- fall back to synthetic and let the dashboard's Live Feed
+        # toggle retry once the camera's actually up.
+        try:
+            switchable.switch_to("zcam")
+        except (requests.RequestException, ZCamError) as exc:
+            logger.warning(
+                "Could not connect to Z CAM at startup (%s) -- starting on the "
+                "synthetic feed instead. Use the Live Feed toggle once the "
+                "camera is reachable.",
+                exc,
+            )
+
+    frame_source = ZoomFrameSource(
+        switchable,
+        settings.camera.digital_zoom,
+        settings.camera.zoom_center_x,
+        settings.camera.zoom_center_y,
+    )
     storage = Storage(settings.storage.db_path)
     worker = DetectionWorker(
         frame_source, storage, settings.target, settings.detection, settings.storage.snapshot_dir
@@ -42,6 +63,7 @@ def create_app(settings: Settings) -> Flask:
 
     def _shutdown():
         worker.stop()
+        zcam_client = switchable.get_zcam_client()
         if zcam_client is not None:
             zcam_client.close()
         storage.close()

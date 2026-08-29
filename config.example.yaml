@@ -9,6 +9,12 @@ camera:
   stream_width: 1920
   stream_height: 1080
   stream_bitrate: 8000000
+  # Software crop+resize zoom, for when the lens can't get physically close
+  # enough to fill the frame with the target. 1.0 = no zoom. Adjustable live
+  # from the dashboard; these are just the startup defaults.
+  digital_zoom: 1.0
+  zoom_center_x: 0.5
+  zoom_center_y: 0.5
 
 target:
   # Real-world width of the paper target, used for pixel <-> real-world
@@ -16,6 +22,11 @@ target:
   # (cm, mm, ...) - just be consistent.
   width_units: 59.0
   unit_name: cm
+  # Distance to target in meters, for converting group size to MOA (0 =
+  # not set, MOA omitted). Adjustable live from the dashboard; MOA only
+  # works when unit_name is one of mm/cm/m/in/ft, since that's what can be
+  # converted to meters.
+  distance_m: 0.0
   # "Best N-shot subgroup" sizes to report once that many shots exist.
   best_subgroup_sizes: [3, 5]
   # Above this many shots in a session, the subgroup search is skipped
@@ -24,7 +35,12 @@ target:
 
 detection:
   sample_fps: 3
-  diff_threshold: 35
+  # Low enough to catch a hole on a dark printed ring (much less contrast
+  # than on a light ring); noise is rejected by hole area/circularity and
+  # the 2-frame debounce below, not by a high threshold. Raise if outdoor
+  # lighting flicker causes false positives; lower if dark-ring holes still
+  # aren't registering.
+  diff_threshold: 20
   # Bullet hole size range in pixels-squared, before calibration scaling.
   # Tune these after seeing real footage; defaults assume a medium pistol
   # caliber hole at a typical pistol-bay target distance/zoom.

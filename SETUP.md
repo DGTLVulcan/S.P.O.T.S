@@ -55,16 +55,37 @@ Then from your phone, browse to `http://<pi-ip>:8080/`.
 1. Mount the camera on a tripod aimed at the target, connect power.
 2. Power on the Pi (a USB power bank works fine).
 3. Load the dashboard on your phone.
-4. Click **Calibrate**, then click two points on the target a known distance
+4. If the lens can't get physically close enough to fill the frame with the
+   target, use the **Zoom** slider (and **Center Zoom Here** to pan) on the
+   live view first -- see Digital zoom below. Do this before calibrating,
+   since changing zoom afterward moves everything and invalidates it.
+5. Click **Calibrate**, then click two points on the target a known distance
    apart (e.g. the printed target's left/right edge), and enter that
-   real-world distance when prompted. This only needs to be redone if the
-   camera moves.
-5. Click **New Target** right before shooting starts (with a clean target in
+   real-world distance when prompted. Only needs to be redone if the camera
+   moves, or if you change zoom again.
+6. Click **New Target** right before shooting starts (with a clean target in
    frame) — this captures the reference frame everything is diffed against.
-6. Shoot. New holes should appear on the feed with a stat panel updating
+7. Shoot. New holes should appear on the feed with a stat panel updating
    live. Use **Undo Last Shot** if wind/debris triggers a false positive.
-7. Review past strings any time from **Session History**, including a
+8. Review past strings any time from **Session History**, including a
    snapshot image of each shot and a CSV export.
+
+## Digital zoom
+
+If the lens can't physically get close enough to fill the frame with the
+target, use the **Zoom** slider on the live view (1x-5x) plus **Center Zoom
+Here** to pan (click the feed after enabling it). This is a software
+crop+resize, not an optical zoom -- it trades resolution for framing, so
+prefer getting physically closer or using a longer lens first if that's an
+option. Detection accounts for the zoom level automatically (a hole's pixel
+footprint grows with the square of zoom level, and the area filter scales to
+match), so no threshold re-tuning is needed after zooming.
+
+Changing zoom or pan moves every pixel in the frame, exactly like moving the
+camera would -- it invalidates the current calibration and reference frame,
+so re-run Calibrate and New Target afterward. The setting persists across
+restarts (saved to `config.yaml`), so you only need to dial it in once per
+camera setup, not every session.
 
 ## Wind / shockwave re-alignment
 

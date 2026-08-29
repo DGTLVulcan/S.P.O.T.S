@@ -50,6 +50,7 @@ _BLUR_KERNEL = (5, 5)
 _MORPH_KERNEL = np.ones((5, 5), np.uint8)
 _LOWE_RATIO = 0.75
 _RANSAC_REPROJ_THRESHOLD_PX = 5.0
+_CLAHE = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
 
 
 @dataclass
@@ -90,6 +91,15 @@ def invert_homography(homography: np.ndarray | None) -> np.ndarray | None:
 
 def _preprocess(frame_bgr: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+    # CLAHE (local contrast normalization) before differencing: a hole on a
+    # dark printed ring can differ from that ring by less than diff_threshold
+    # in raw intensity (e.g. hole=10 vs a dark ring=40 is only a diff of 30),
+    # while the same hole against a light ring differs by 200+ -- so a single
+    # global threshold either misses dark-ring holes or is too sensitive to
+    # noise everywhere else. CLAHE equalizes contrast within local tiles, so
+    # a hole reads as a strong local change regardless of the ring shade
+    # underneath it, without needing a fragile per-target threshold tune.
+    gray = _CLAHE.apply(gray)
     return cv2.GaussianBlur(gray, _BLUR_KERNEL, 0)
 
 
@@ -193,7 +203,7 @@ class ShotDetector:
         height, width = self._anchor.shape
         return cv2.warpPerspective(gray, homography, (width, height))
 
-    def process_frame(self, frame_bgr: np.ndarray) -> list[Shot]:
+    def process_frame(self, frame_bgr: np.ndarray, zoom_level: float = 1.0) -> list[Shot]:
         if self._reference is None:
             return []
 
@@ -209,10 +219,17 @@ class ShotDetector:
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, _MORPH_KERNEL)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+        # Digital zoom crops+upscales, so a hole's pixel footprint grows with
+        # the SQUARE of zoom level -- the area thresholds are configured for
+        # 1x and need the same scaling, or a zoomed-in hole reads as "too big".
+        area_scale = zoom_level**2
+        min_area = cfg.min_hole_area_px * area_scale
+        max_area = cfg.max_hole_area_px * area_scale
+
         candidates: list[tuple[float, float, float]] = []
         for contour in contours:
             area = cv2.contourArea(contour)
-            if not (cfg.min_hole_area_px <= area <= cfg.max_hole_area_px):
+            if not (min_area <= area <= max_area):
                 continue
             perimeter = cv2.arcLength(contour, True)
             if perimeter <= 0:

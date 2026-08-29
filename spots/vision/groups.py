@@ -42,6 +42,34 @@ def compute_group_stats(points: list[tuple[float, float]], unit_name: str) -> Gr
     )
 
 
+# Only units we know a fixed conversion for -- an arbitrary custom
+# unit_name (anything else the user typed in Settings) can't be converted
+# to meters, so MOA is simply omitted rather than guessed at.
+_UNIT_TO_METERS = {
+    "mm": 0.001,
+    "cm": 0.01,
+    "m": 1.0,
+    "in": 0.0254,
+    "ft": 0.3048,
+}
+_ARCMINUTES_PER_DEGREE = 60.0
+
+
+def to_moa(size: float, unit_name: str, distance_m: float | None) -> float | None:
+    """Converts a linear group size to MOA (minutes of angle) at a given
+    distance. Returns None if there's no usable distance or the unit isn't
+    one of the fixed conversions above -- callers should treat that as "MOA
+    not available" rather than an error.
+    """
+    if not distance_m or distance_m <= 0:
+        return None
+    factor = _UNIT_TO_METERS.get(unit_name.strip().lower())
+    if factor is None:
+        return None
+    size_m = size * factor
+    return math.degrees(math.atan(size_m / distance_m)) * _ARCMINUTES_PER_DEGREE
+
+
 def best_subgroup(points: list[tuple[float, float]], n: int, unit_name: str) -> GroupStats | None:
     """Tightest N-shot subset by extreme spread, out of however many shots
     exist -- the standard "best N-shot group" precision-shooting metric.
