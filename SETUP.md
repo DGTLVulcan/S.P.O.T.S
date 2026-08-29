@@ -122,6 +122,28 @@ idempotent and picks up wherever a previous run left off, including if it
 aborted partway through (e.g. an apt package error before reaching the
 network/service steps).
 
+### Getting normal WiFi/internet back on the Pi
+
+Once `setup-network.sh` has run, `wlan0` is a dedicated access point and
+won't join your home WiFi (or get internet) on its own. To leave range mode
+and reconnect it as a normal client:
+
+```bash
+sudo SPOTS_WIFI_SSID="YourHomeNetwork" SPOTS_WIFI_PASSWORD="yourpassword" \
+  bash ~/spots/scripts/stop-network.sh
+# or, once your installed `spots` command has this flag:
+spots -stopnetwork
+```
+
+Omit the env vars to just take `wlan0` out of AP mode without reconnecting
+it anywhere (e.g. if you'll connect it manually or it already knows a
+network). `eth0`/`spots-eth` is left alone unless you set
+`SPOTS_RESET_ETH=1` -- if you're SSH'd into the Pi *through* eth0, your
+session's address almost certainly came from spots-eth's own DHCP server,
+so reverting it will likely drop that session; only do that from the
+console, or a connection you don't need to keep. Run `spots -initnetwork`
+(or `setup-network.sh`) again whenever you're ready to go back to range mode.
+
 ## At the range
 
 1. Mount the camera on a tripod aimed at the target, connect it to the Pi's

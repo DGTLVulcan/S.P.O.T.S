@@ -17,6 +17,7 @@ cd "$INSTALL_DIR"
 update=0
 init_network=0
 init_service=0
+stop_network=0
 for arg in "$@"; do
   case "$arg" in
     -update|--update)
@@ -28,12 +29,16 @@ for arg in "$@"; do
     -initservice|--initservice)
       init_service=1
       ;;
+    -stopnetwork|--stopnetwork)
+      stop_network=1
+      ;;
     *)
       echo "spots: unknown argument '$arg'" >&2
-      echo "usage: spots [-update] [-initnetwork] [-initservice]" >&2
+      echo "usage: spots [-update] [-initnetwork] [-initservice] [-stopnetwork]" >&2
       echo "  -update       pull latest changes and reinstall dependencies" >&2
       echo "  -initnetwork  force (re)run the WiFi AP / camera DHCP setup" >&2
       echo "  -initservice  force (re)install the systemd autostart service" >&2
+      echo "  -stopnetwork  take wlan0 out of AP mode to get normal WiFi/internet back" >&2
       exit 1
       ;;
   esac
@@ -73,6 +78,11 @@ if [ "$init_network" -eq 1 ]; then
   sudo bash "$INSTALL_DIR/scripts/setup-network.sh"
 fi
 
+if [ "$stop_network" -eq 1 ]; then
+  echo "==> Taking the Pi out of range-network mode"
+  sudo bash "$INSTALL_DIR/scripts/stop-network.sh"
+fi
+
 if [ "$init_service" -eq 1 ]; then
   echo "==> (Re)installing the systemd autostart service"
   sed \
@@ -85,7 +95,7 @@ if [ "$init_service" -eq 1 ]; then
   echo "==> spots.service installed and started -- it will now also start on boot"
 fi
 
-if [ "$init_network" -eq 1 ] || [ "$init_service" -eq 1 ]; then
+if [ "$init_network" -eq 1 ] || [ "$init_service" -eq 1 ] || [ "$stop_network" -eq 1 ]; then
   exit 0
 fi
 
