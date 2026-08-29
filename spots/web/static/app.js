@@ -1,5 +1,6 @@
 (function () {
   const feed = document.getElementById("feed");
+  const feedBaseSrc = feed.src;
   const statusEl = document.getElementById("status");
   const newTargetBtn = document.getElementById("new-target");
   const calibrateBtn = document.getElementById("calibrate");
@@ -222,6 +223,12 @@
     try {
       await postJson("/api/feed", { target });
       updateFeedUI(target);
+      // The <img> is bound to a long-lived MJPEG stream opened when the page
+      // loaded; some browsers (notably iOS Safari) don't reliably keep
+      // rendering new multipart frames pushed down an already-open stream,
+      // so a feed switch server-side didn't visually show up until a full
+      // page reload. Forcing a fresh request picks up the new source right away.
+      feed.src = feedBaseSrc + (feedBaseSrc.includes("?") ? "&" : "?") + "t=" + Date.now();
       setStatus("Feed switched -- click New Target, then re-calibrate.");
     } catch (err) {
       setStatus("Feed switch error: " + err.message);
