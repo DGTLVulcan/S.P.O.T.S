@@ -550,7 +550,8 @@ tbody tr:hover { background: var(--page); }
   font-weight: 500;
   line-height: 1.2;
 }
-.session-delete-btn:hover { border-color: var(--critical); color: var(--critical); }
+.session-delete-btn:hover,
+#delete-all-sessions:hover { border-color: var(--critical); color: var(--critical); }
 .session-name { font-weight: 600; }
 
 .table-scroll { overflow-x: auto; }

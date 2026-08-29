@@ -424,6 +424,34 @@ def api_calibration_center():
     return jsonify({"ok": True})
 
 
+def _purge_snapshots(snapshot_paths, session_ids):
+    """Removes snapshot images for deleted sessions, then their now-empty
+    directories -- otherwise they accumulate on the SD card with no session
+    left pointing at them.
+    """
+    snapshot_dir = os.path.abspath(_settings().storage.snapshot_dir)
+    for relpath in snapshot_paths:
+        candidate = os.path.abspath(os.path.join(snapshot_dir, relpath))
+        # Never follow a stored path outside the snapshot directory.
+        # commonpath() also raises for paths on different drives.
+        try:
+            inside = os.path.commonpath([snapshot_dir, candidate]) == snapshot_dir
+        except ValueError:
+            inside = False
+        if not inside:
+            logger.warning("Refusing to delete snapshot outside %s: %s", snapshot_dir, candidate)
+            continue
+        try:
+            os.remove(candidate)
+        except OSError:
+            logger.warning("Could not remove snapshot %s", candidate)
+    for session_id in session_ids:
+        try:
+            os.rmdir(os.path.join(snapshot_dir, str(session_id)))
+        except OSError:
+            pass  # not empty or not there -- harmless either way
+
+
 @bp.route("/api/session/<int:session_id>/rename", methods=["POST"])
 def api_rename_session(session_id):
     data = request.get_json(force=True)
@@ -440,25 +468,7 @@ def api_delete_session(session_id):
     if _storage().get_session(session_id) is None:
         return jsonify({"error": f"No session #{session_id}"}), 404
 
-    snapshot_paths = _storage().delete_session(session_id)
-
-    # Drop the snapshot images too, or they accumulate on the SD card with
-    # no session left pointing at them.
-    snapshot_dir = os.path.abspath(_settings().storage.snapshot_dir)
-    for relpath in snapshot_paths:
-        candidate = os.path.abspath(os.path.join(snapshot_dir, relpath))
-        # Never follow a stored path outside the snapshot directory.
-        if os.path.commonpath([snapshot_dir, candidate]) != snapshot_dir:
-            continue
-        try:
-            os.remove(candidate)
-        except OSError:
-            logger.warning("Could not remove snapshot %s", candidate)
-    session_dir = os.path.join(snapshot_dir, str(session_id))
-    try:
-        os.rmdir(session_dir)
-    except OSError:
-        pass  # not empty or not there -- harmless either way
+    _purge_snapshots(_storage().delete_session(session_id), [session_id])
 
     # If the session being deleted is the one on screen, clear it rather
     # than leaving the dashboard showing shots that no longer exist.
@@ -466,6 +476,15 @@ def api_delete_session(session_id):
         _worker().clear_session()
 
     return jsonify({"ok": True})
+
+
+@bp.route("/api/sessions/delete_all", methods=["POST"])
+def api_delete_all_sessions():
+    session_ids = [s["id"] for s in _storage().list_sessions()]
+    _purge_snapshots(_storage().delete_all_sessions(), session_ids)
+    # Everything is gone, including whatever the dashboard was attached to.
+    _worker().clear_session()
+    return jsonify({"ok": True, "deleted": len(session_ids)})
 
 
 @bp.route("/api/calibration/reset", methods=["POST"])

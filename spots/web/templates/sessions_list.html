@@ -22,6 +22,11 @@
   <main>
     <div class="card full-width">
       {% if sessions %}
+      <div class="controls" style="justify-content: flex-end; margin-bottom: 0.75rem;">
+        <button id="delete-all-sessions" data-count="{{ sessions|length }}">
+          Delete All Sessions
+        </button>
+      </div>
       <div class="table-scroll">
         <table>
           <thead><tr><th>Session</th><th>Started</th><th>Shots</th><th>Unit</th><th>Distance</th><th></th></tr></thead>
@@ -61,7 +66,6 @@
     (function () {
       const statusEl = document.getElementById("session-status");
       const tbody = document.querySelector("tbody");
-      if (!tbody) return;
 
       async function post(url, body) {
         const resp = await fetch(url, {
@@ -73,6 +77,32 @@
         if (!resp.ok) throw new Error(data.error || resp.statusText);
         return data;
       }
+
+      const deleteAllBtn = document.getElementById("delete-all-sessions");
+      if (deleteAllBtn) {
+        deleteAllBtn.addEventListener("click", async () => {
+          const count = deleteAllBtn.dataset.count;
+          // Deliberately a two-step confirmation: this wipes every recorded
+          // string and their snapshots, and there is no undo.
+          if (!window.confirm(
+            `Delete ALL ${count} session(s)?\n\n` +
+            "Every shot, saved snapshot image and session name will be removed.\n" +
+            "This cannot be undone."
+          )) return;
+          if (!window.confirm("Last chance -- permanently delete the entire session history?")) return;
+          deleteAllBtn.disabled = true;
+          statusEl.textContent = "Deleting...";
+          try {
+            await post("/api/sessions/delete_all");
+            window.location.reload();
+          } catch (err) {
+            deleteAllBtn.disabled = false;
+            statusEl.textContent = "Delete all failed: " + err.message;
+          }
+        });
+      }
+
+      if (!tbody) return;
 
       // Delegated so it keeps working regardless of how many rows there are.
       tbody.addEventListener("click", async (ev) => {

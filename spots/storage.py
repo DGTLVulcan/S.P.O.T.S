@@ -118,6 +118,20 @@ class Storage:
             self._conn.commit()
         return [r[0] for r in rows]
 
+    def delete_all_sessions(self) -> list[str]:
+        """Clears the entire history in one transaction, returning every
+        snapshot path so the caller can remove the image files too. Session
+        numbering restarts at 1 afterwards (see _next_free_session_id_locked).
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT snapshot_path FROM shots WHERE snapshot_path IS NOT NULL"
+            ).fetchall()
+            self._conn.execute("DELETE FROM shots")
+            self._conn.execute("DELETE FROM sessions")
+            self._conn.commit()
+        return [r[0] for r in rows]
+
     def save_calibration(
         self,
         session_id: int,
