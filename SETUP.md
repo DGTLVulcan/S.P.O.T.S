@@ -96,11 +96,31 @@ spots -update
 ```
 
 This pulls the latest commit (`git pull --ff-only`), reinstalls Python
-dependencies in case `requirements.txt` changed, and restarts the systemd
-service (prompting for your sudo password) so the update takes effect
-immediately. Plain `spots` (no flag) just reports that the service is
-already running -- since it now starts automatically on boot, you shouldn't
-normally need to start it by hand. `journalctl -u spots -f` tails its logs.
+dependencies in case `requirements.txt` changed, refreshes the installed
+`spots` command itself (so new flags/fixes to it take effect immediately),
+and restarts the systemd service (prompting for your sudo password) so the
+update takes effect immediately. Plain `spots` (no flag) just reports that
+the service is already running -- since it now starts automatically on
+boot, you shouldn't normally need to start it by hand. `journalctl -u spots
+-f` tails its logs.
+
+### If the WiFi network or autostart didn't come up
+
+If the installer's network/service steps failed partway (or you skipped
+them with `SPOTS_SKIP_NETWORK`/`SPOTS_SKIP_SERVICE`), force them
+individually without re-running the whole installer:
+
+```bash
+spots -initnetwork   # force (re)configure the WiFi AP + camera DHCP
+spots -initservice    # force (re)install + enable + start the systemd service
+```
+
+Both are safe to re-run any time. If you're not sure what went wrong, the
+simplest fix is usually to just re-run the installer itself (`curl -fsSL
+.../install.sh | bash` or `./scripts/install.sh` from the clone) -- it's
+idempotent and picks up wherever a previous run left off, including if it
+aborted partway through (e.g. an apt package error before reaching the
+network/service steps).
 
 ## At the range
 

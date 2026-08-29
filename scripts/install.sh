@@ -92,8 +92,8 @@ fi
 echo "==> Installing the 'spots' command"
 mkdir -p "$HOME/.local/bin"
 sed \
-  -e "s|__INSTALL_DIR__|$INSTALL_DIR|" \
-  -e "s|__REPO_URL__|$REPO_URL|" \
+  -e "s|^INSTALL_DIR=.*|INSTALL_DIR=\"$INSTALL_DIR\"|" \
+  -e "s|^REPO_URL=.*|REPO_URL=\"$REPO_URL\"|" \
   "$INSTALL_DIR/scripts/spots.sh" > "$HOME/.local/bin/spots"
 chmod +x "$HOME/.local/bin/spots"
 
@@ -111,8 +111,8 @@ if [ "${SPOTS_SKIP_SERVICE:-0}" != "1" ] && command -v systemctl >/dev/null 2>&1
     SUDO="sudo"
   fi
   sed \
-    -e "s|__INSTALL_DIR__|$INSTALL_DIR|" \
-    -e "s|__USER__|$(id -un)|" \
+    -e "s|__INSTALL_DIR__|$INSTALL_DIR|g" \
+    -e "s|__USER__|$(id -un)|g" \
     "$INSTALL_DIR/scripts/spots.service" | $SUDO tee /etc/systemd/system/spots.service >/dev/null
   $SUDO systemctl daemon-reload
   $SUDO systemctl enable spots.service
