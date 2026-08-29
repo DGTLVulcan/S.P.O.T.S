@@ -75,6 +75,16 @@ if command -v raspi-config >/dev/null 2>&1; then
 fi
 $SUDO rfkill unblock wifi 2>/dev/null || true
 
+# rfkill only clears the KERNEL block. NetworkManager keeps a separate
+# WirelessEnabled flag of its own, persisted in
+# /var/lib/NetworkManager/NetworkManager.state -- when that is false it
+# logs "Wi-Fi disabled by radio killswitch; disabled by state file", holds
+# wlan0 in "unavailable", and does so again after every reboot no matter
+# how many times rfkill is cleared. Turning the radio on through nmcli is
+# what actually rewrites that state file, so the AP survives a reboot.
+echo "==> Enabling NetworkManager's WiFi radio (persists across reboots)"
+$SUDO nmcli radio wifi on || true
+
 # A fresh Pi ships with WiFi soft-blocked at the kernel level until a
 # regulatory country is set -- the two lines above are meant to clear that,
 # but either can fail silently (wrong country code, rfkill quirks) and
@@ -93,50 +103,103 @@ if command -v rfkill >/dev/null 2>&1 && rfkill list wifi 2>/dev/null | grep -qi 
   exit 1
 fi
 
-# Make sure no other autoconnecting profile on these devices fights with
-# ours for control of the interface (e.g. the default "Wired connection 1"
-# NetworkManager creates automatically on first boot).
-disable_other_profiles() {
-  local device="$1" keep="$2"
-  while IFS=: read -r name dev; do
-    [ "$dev" = "$device" ] || continue
+# Make sure no other autoconnecting profile can grab these interfaces out
+# from under ours -- the default "Wired connection 1" NetworkManager creates
+# on first boot, or any saved home-WiFi profile.
+#
+# This deliberately does NOT filter on the DEVICE column: nmcli only fills
+# that in for connections that are active *right now*, so the previous
+# version silently skipped every inactive profile -- exactly the ones that
+# come back and compete for the interface on the next boot. Match on the
+# profile's configured interface-name and type instead, which are set
+# whether or not it happens to be up.
+disable_competing_profiles() {
+  local keep="$1" want_type="$2" want_iface="$3"
+  local name type iface
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
     [ "$name" = "$keep" ] && continue
-    echo "==> Disabling autoconnect on existing profile '$name' (was bound to $device)"
-    $SUDO nmcli connection modify "$name" autoconnect no || true
-  done < <(nmcli -t -f NAME,DEVICE connection show)
+    type="$(nmcli -g connection.type connection show "$name" 2>/dev/null || true)"
+    iface="$(nmcli -g connection.interface-name connection show "$name" 2>/dev/null || true)"
+    # Either it is pinned to our interface, or it is an unpinned profile of
+    # the same type, which NetworkManager is free to bring up on it.
+    if [ "$iface" = "$want_iface" ] || { [ -z "$iface" ] && [ "$type" = "$want_type" ]; }; then
+      echo "==> Disabling autoconnect on competing profile '$name'"
+      $SUDO nmcli connection modify "$name" autoconnect no || true
+    fi
+  done < <(nmcli -g NAME connection show)
 }
 
 echo "==> Configuring wlan0 as a WiFi access point (SSID: $AP_SSID)"
-disable_other_profiles wlan0 spots-ap
-if ! nmcli -t -f NAME connection show | grep -qx spots-ap; then
+disable_competing_profiles spots-ap 802-11-wireless wlan0
+if ! nmcli -g NAME connection show | grep -qx spots-ap; then
   $SUDO nmcli connection add type wifi ifname wlan0 con-name spots-ap autoconnect yes ssid "$AP_SSID"
 fi
 $SUDO nmcli connection modify spots-ap \
   802-11-wireless.mode ap \
   802-11-wireless.band bg \
+  802-11-wireless.powersave 2 \
   ipv4.method shared \
   ipv4.addresses "${AP_IP}/24" \
   wifi-sec.key-mgmt wpa-psk \
   wifi-sec.psk "$AP_PASSWORD" \
-  connection.autoconnect-priority 100
-$SUDO nmcli connection up spots-ap
+  connection.autoconnect yes \
+  connection.autoconnect-priority 100 \
+  connection.autoconnect-retries 0
+$SUDO nmcli connection up spots-ap || true
 
 echo "==> Configuring eth0 as a static-IP DHCP server for the camera"
-disable_other_profiles eth0 spots-eth
-if ! nmcli -t -f NAME connection show | grep -qx spots-eth; then
+disable_competing_profiles spots-eth 802-3-ethernet eth0
+if ! nmcli -g NAME connection show | grep -qx spots-eth; then
   $SUDO nmcli connection add type ethernet ifname eth0 con-name spots-eth autoconnect yes
 fi
 $SUDO nmcli connection modify spots-eth \
   ipv4.method shared \
   ipv4.addresses "${ETH_IP}/24" \
-  connection.autoconnect-priority 100
-$SUDO nmcli connection up spots-eth
+  connection.autoconnect yes \
+  connection.autoconnect-priority 100 \
+  connection.autoconnect-retries 0
+$SUDO nmcli connection up spots-eth || true
+
+# Confirm both profiles will actually come back on their own. autoconnect
+# has to be "yes" on disk (not just active right now) or a reboot silently
+# drops back to whatever NetworkManager picks by default -- which is the
+# failure this whole section exists to prevent, so surface it loudly rather
+# than reporting success and letting it be discovered at the range.
+setup_ok=1
+for profile in spots-ap spots-eth; do
+  autoconnect="$(nmcli -g connection.autoconnect connection show "$profile" 2>/dev/null || true)"
+  active="$(nmcli -g GENERAL.STATE connection show "$profile" 2>/dev/null || true)"
+  echo "==> $profile: autoconnect=${autoconnect:-unknown} state=${active:-inactive}"
+  if [ "$autoconnect" != "yes" ]; then
+    echo "warning: $profile is not set to autoconnect -- it will NOT survive a reboot." >&2
+    setup_ok=0
+  fi
+  if [ "$active" != "activated" ]; then
+    echo "warning: $profile did not activate now (it is still set to come up on boot)." >&2
+    if [ "$profile" = "spots-ap" ]; then
+      echo "         Check: nmcli device status; journalctl -u NetworkManager -b | tail -40" >&2
+      echo "         NetworkManager needs dnsmasq-base installed for 'shared' DHCP to work." >&2
+    fi
+    setup_ok=0
+  fi
+done
 
 echo
-echo "==> Network setup complete (repeating the credentials from above)."
+if [ "$setup_ok" -eq 1 ]; then
+  echo "==> Network setup complete (repeating the credentials from above)."
+else
+  echo "==> Network setup finished WITH WARNINGS -- see above." >&2
+fi
 echo "    WiFi:        SSID '$AP_SSID', password '$AP_PASSWORD'"
 echo "    Dashboard:   http://${AP_IP}:8080/ (or http://$(hostname).local:8080/)"
 echo "    Camera link: eth0 static IP $ETH_IP, DHCP serves the Z CAM automatically"
 echo
+echo "    Both profiles are saved in NetworkManager with autoconnect on, so"
+echo "    they come back by themselves on every boot. They stay that way"
+echo "    until you run 'spots -stopnetwork'."
+echo
 echo "    Forgot the password later? Retrieve it with:"
 echo "    sudo nmcli -s -g 802-11-wireless-security.psk connection show spots-ap"
+
+[ "$setup_ok" -eq 1 ] || exit 1

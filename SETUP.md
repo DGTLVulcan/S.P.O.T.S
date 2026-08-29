@@ -33,8 +33,15 @@ The Pi hands the camera its IP address via DHCP on Ethernet and the
 dashboard auto-discovers it on every connect (see `spots/camera/discovery.py`)
 -- you never need to look up or type in the camera's IP. See
 `scripts/setup-network.sh` for exactly what it configures (WiFi AP SSID/
-password, the Pi's IP on each interface); it prints the SSID and password to
-join at the end.
+password, the Pi's IP on each interface); it prints the SSID and password
+*before* making any network change, since bringing the access point up
+disconnects an SSH session running over WiFi.
+
+Both profiles (`spots-ap`, `spots-eth`) are saved in NetworkManager with
+autoconnect enabled, so the Pi comes back up as its own network on **every
+boot** with nothing to re-run -- it stays that way until you run
+`spots -stopnetwork`. The setup script verifies this before reporting
+success and fails loudly if either profile wouldn't survive a reboot.
 
 ## Raspberry Pi install
 

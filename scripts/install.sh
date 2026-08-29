@@ -55,8 +55,11 @@ if command -v apt-get >/dev/null 2>&1; then
   $SUDO apt-get update
   # libatlas-base-dev was ATLAS's Debian package -- ATLAS was dropped from
   # the archive in Bookworm, so numpy/OpenCV now want OpenBLAS instead.
+  # dnsmasq-base is what NetworkManager shells out to for the DHCP server
+  # behind ipv4.method=shared; without it the WiFi AP comes up but hands out
+  # no addresses, so clients associate and then fail to get on the network.
   $SUDO apt-get install -y --no-install-recommends \
-    git python3-venv python3-pip libopenblas-dev libopenjp2-7 libtiff6
+    git python3-venv python3-pip libopenblas-dev libopenjp2-7 libtiff6 dnsmasq-base
 else
   echo "==> apt-get not found, skipping OS package install (assuming they're already present)"
 fi
