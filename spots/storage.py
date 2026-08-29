@@ -6,8 +6,12 @@ import threading
 import time
 
 _SCHEMA = """
+-- No AUTOINCREMENT on sessions: that keyword exists precisely to stop
+-- SQLite ever reusing a rowid, so deleted session numbers would be burned
+-- forever and the ids would climb even after clearing the whole history.
+-- new_session() picks the id itself (see _next_free_session_id_locked).
 CREATE TABLE IF NOT EXISTS sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY,
     created_at REAL NOT NULL,
     unit_name TEXT NOT NULL
 );
@@ -54,14 +58,37 @@ class Storage:
             if column not in session_columns:
                 self._conn.execute(f"ALTER TABLE sessions ADD COLUMN {column} REAL")
 
+    def _next_free_session_id_locked(self) -> int:
+        """Smallest positive integer not currently used by a session.
+
+        Deleting sessions frees their numbers for reuse, so the ids track how
+        many sessions you actually have rather than how many you have ever
+        created -- clear the history and the next session is #1 again. The
+        candidate set is every existing id + 1 plus 1 itself, which always
+        contains the answer: either a gap left by a deletion, or one past
+        the highest in use.
+        """
+        row = self._conn.execute(
+            """SELECT MIN(candidate) FROM (
+                   SELECT 1 AS candidate
+                   UNION ALL
+                   SELECT id + 1 FROM sessions
+               )
+               WHERE candidate NOT IN (SELECT id FROM sessions)"""
+        ).fetchone()
+        return row[0] if row and row[0] is not None else 1
+
     def new_session(self, unit_name: str, distance_m: float | None = None) -> int:
         with self._lock:
-            cur = self._conn.execute(
-                "INSERT INTO sessions (created_at, unit_name, distance_m) VALUES (?, ?, ?)",
-                (time.time(), unit_name, distance_m),
+            # Chosen and inserted under the same lock, so two sessions can
+            # never race onto the same reused id.
+            session_id = self._next_free_session_id_locked()
+            self._conn.execute(
+                "INSERT INTO sessions (id, created_at, unit_name, distance_m) VALUES (?, ?, ?, ?)",
+                (session_id, time.time(), unit_name, distance_m),
             )
             self._conn.commit()
-            return cur.lastrowid
+            return session_id
 
     def rename_session(self, session_id: int, name: str | None) -> bool:
         """Sets a session's display name. Pass None (or blank) to clear it and
@@ -205,7 +232,7 @@ class Storage:
             cur = self._conn.execute(
                 """SELECT s.id, s.created_at, s.unit_name, s.distance_m, COUNT(sh.id), s.name
                    FROM sessions s LEFT JOIN shots sh ON sh.session_id = s.id
-                   GROUP BY s.id ORDER BY s.id DESC"""
+                   GROUP BY s.id ORDER BY s.created_at DESC, s.id DESC"""
             )
             rows = cur.fetchall()
         return [
@@ -242,9 +269,18 @@ class Storage:
         }
 
     def latest_session_id(self) -> int | None:
+        """Most recently CREATED session, by timestamp rather than by id.
+
+        Ids get reused once a session is deleted, so the highest id is no
+        longer necessarily the newest session -- a reused low number can be
+        the freshest one. Startup resume depends on this, and picking by
+        MAX(id) would restore an older session instead.
+        """
         with self._lock:
-            row = self._conn.execute("SELECT MAX(id) FROM sessions").fetchone()
-        return row[0] if row and row[0] is not None else None
+            row = self._conn.execute(
+                "SELECT id FROM sessions ORDER BY created_at DESC, id DESC LIMIT 1"
+            ).fetchone()
+        return row[0] if row else None
 
     def close(self) -> None:
         with self._lock:
