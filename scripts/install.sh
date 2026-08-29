@@ -53,8 +53,10 @@ if command -v apt-get >/dev/null 2>&1; then
   fi
   echo "==> Installing OS packages (git, Python venv, OpenCV runtime libs)"
   $SUDO apt-get update
+  # libatlas-base-dev was ATLAS's Debian package -- ATLAS was dropped from
+  # the archive in Bookworm, so numpy/OpenCV now want OpenBLAS instead.
   $SUDO apt-get install -y --no-install-recommends \
-    git python3-venv python3-pip libatlas-base-dev libopenjp2-7 libtiff6
+    git python3-venv python3-pip libopenblas-dev libopenjp2-7 libtiff6
 else
   echo "==> apt-get not found, skipping OS package install (assuming they're already present)"
 fi
