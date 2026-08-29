@@ -124,13 +124,19 @@ class Storage:
     def list_sessions(self) -> list[dict]:
         with self._lock:
             cur = self._conn.execute(
-                """SELECT s.id, s.created_at, s.unit_name, COUNT(sh.id)
+                """SELECT s.id, s.created_at, s.unit_name, s.distance_m, COUNT(sh.id)
                    FROM sessions s LEFT JOIN shots sh ON sh.session_id = s.id
                    GROUP BY s.id ORDER BY s.id DESC"""
             )
             rows = cur.fetchall()
         return [
-            {"id": r[0], "created_at": r[1], "unit_name": r[2], "shot_count": r[3]}
+            {
+                "id": r[0],
+                "created_at": r[1],
+                "unit_name": r[2],
+                "distance_m": r[3],
+                "shot_count": r[4],
+            }
             for r in rows
         ]
 

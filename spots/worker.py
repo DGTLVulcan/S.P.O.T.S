@@ -20,6 +20,11 @@ from spots.vision.groups import GroupStats, compute_group_stats
 
 logger = logging.getLogger(__name__)
 
+# New Target refuses to start a session until the distance is set above
+# this -- catches an unset/forgotten distance before shots get recorded
+# against it, rather than silently defaulting to "no MOA."
+_MIN_DISTANCE_M = 10.0
+
 
 @dataclass
 class ShotRecord:
@@ -240,6 +245,11 @@ class DetectionWorker:
         return True
 
     def new_target(self, calibration: Calibration | None = None) -> None:
+        if self._target_config.distance_m <= _MIN_DISTANCE_M:
+            raise ValueError(
+                f"Distance to target must be greater than {_MIN_DISTANCE_M} m before "
+                "starting a new target"
+            )
         # Dev/test-only hook: SyntheticFrameSource clears its fabricated holes
         # here, before the reference frame is captured, so the reference is
         # truly clean -- mirroring a real target being physically replaced

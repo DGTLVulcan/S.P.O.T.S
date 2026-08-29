@@ -24,7 +24,7 @@
       {% if sessions %}
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Session</th><th>Started</th><th>Shots</th><th>Unit</th><th></th></tr></thead>
+          <thead><tr><th>Session</th><th>Started</th><th>Shots</th><th>Unit</th><th>Distance</th><th></th></tr></thead>
           <tbody>
             {% for s in sessions %}
             <tr>
@@ -32,6 +32,7 @@
               <td>{{ s.created_at_str }}</td>
               <td>{{ s.shot_count }}</td>
               <td>{{ s.unit_name }}</td>
+              <td>{{ "%.1f"|format(s.distance_m) + " m" if s.distance_m else "-" }}</td>
               <td><a href="{{ url_for('spots.session_detail', session_id=s.id) }}">View</a></td>
             </tr>
             {% endfor %}

@@ -116,6 +116,17 @@
     }
   }
 
+  const MIN_DISTANCE_M = 10;
+
+  function updateNewTargetGate() {
+    const distance_m = parseFloat(distanceInput.value);
+    const ok = !isNaN(distance_m) && distance_m > MIN_DISTANCE_M;
+    newTargetBtn.disabled = !ok;
+    newTargetBtn.title = ok ? "" : `Set distance to target above ${MIN_DISTANCE_M} m first`;
+  }
+
+  distanceInput.addEventListener("input", updateNewTargetGate);
+
   distanceInput.addEventListener("change", async () => {
     const distance_m = parseFloat(distanceInput.value);
     if (isNaN(distance_m) || distance_m < 0) {
@@ -138,6 +149,8 @@
       distanceInput.value = data.distance_m || "";
     } catch (err) {
       /* distance endpoint unreachable -- leave the field blank, non-fatal */
+    } finally {
+      updateNewTargetGate();
     }
   }
 

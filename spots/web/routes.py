@@ -250,6 +250,8 @@ def api_simulate_hole():
 def api_new_session():
     try:
         _worker().new_target()
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 503
     return jsonify({"ok": True})
