@@ -48,6 +48,27 @@ if [ "$(id -u)" -ne 0 ]; then
   SUDO="sudo"
 fi
 
+# Print the credentials BEFORE touching the network at all. Everything below
+# this point can drop the connection you're running over (putting wlan0 into
+# AP mode kills an SSH session on WiFi), and a randomly generated password
+# would otherwise be lost with it. Printed here it has already reached your
+# terminal by the time anything can disconnect.
+echo
+echo "==================================================================="
+echo "  WiFi access point credentials -- WRITE THESE DOWN NOW"
+echo "==================================================================="
+echo "    Network (SSID):  $AP_SSID"
+echo "    Password:        $AP_PASSWORD"
+echo "    Dashboard:       http://${AP_IP}:8080/"
+echo "==================================================================="
+echo "  Shown before any network change is made, because the steps below"
+echo "  will disconnect an SSH session running over WiFi."
+echo
+echo "  To retrieve the password later:"
+echo "    sudo nmcli -s -g 802-11-wireless-security.psk connection show spots-ap"
+echo "==================================================================="
+echo
+
 if command -v raspi-config >/dev/null 2>&1; then
   echo "==> Setting WiFi country to $WIFI_COUNTRY (required for AP mode to broadcast)"
   $SUDO raspi-config nonint do_wifi_country "$WIFI_COUNTRY" || true
@@ -112,9 +133,9 @@ $SUDO nmcli connection modify spots-eth \
 $SUDO nmcli connection up spots-eth
 
 echo
-echo "==> Network setup complete."
-echo "    WiFi:     SSID '$AP_SSID', password '$AP_PASSWORD'"
-echo "    Dashboard: http://${AP_IP}:8080/ (or http://$(hostname).local:8080/)"
+echo "==> Network setup complete (repeating the credentials from above)."
+echo "    WiFi:        SSID '$AP_SSID', password '$AP_PASSWORD'"
+echo "    Dashboard:   http://${AP_IP}:8080/ (or http://$(hostname).local:8080/)"
 echo "    Camera link: eth0 static IP $ETH_IP, DHCP serves the Z CAM automatically"
 echo
 echo "    Forgot the password later? Retrieve it with:"
