@@ -13,7 +13,9 @@
 #
 # Env vars:
 #   SPOTS_AP_SSID       WiFi network name (default: SPOTS)
-#   SPOTS_AP_PASSWORD   WiFi password, 8-63 chars (default: randomly generated)
+#   SPOTS_AP_PASSWORD   WiFi password, 8-63 chars (default: randomly generated
+#                       8-digit PIN -- WPA2-PSK's 8-char minimum rules out
+#                       anything shorter, numeric or not)
 #   SPOTS_AP_IP         Pi's IP on the WiFi network (default: 192.168.4.1)
 #   SPOTS_ETH_IP        Pi's IP on the Ethernet link to the camera (default: 192.168.10.1)
 #   SPOTS_WIFI_COUNTRY  2-letter WiFi regulatory country code (default: US)
@@ -28,10 +30,10 @@ fi
 AP_SSID="${SPOTS_AP_SSID:-SPOTS}"
 # head -c reads a bounded chunk from urandom *first*, then tr filters it --
 # piping urandom (an infinite source) directly into tr | head the other way
-# round means head closes the pipe after 12 bytes while tr is still trying
+# round means head closes the pipe after N bytes while tr is still trying
 # to write more, killing tr with SIGPIPE; under `set -o pipefail` that
 # aborts the whole script (exit 141) before it prints anything.
-AP_PASSWORD="${SPOTS_AP_PASSWORD:-$(head -c 512 /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 12)}"
+AP_PASSWORD="${SPOTS_AP_PASSWORD:-$(head -c 2048 /dev/urandom | tr -dc '0-9' | head -c 8)}"
 AP_IP="${SPOTS_AP_IP:-192.168.4.1}"
 ETH_IP="${SPOTS_ETH_IP:-192.168.10.1}"
 WIFI_COUNTRY="${SPOTS_WIFI_COUNTRY:-US}"
