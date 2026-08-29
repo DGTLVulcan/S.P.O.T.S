@@ -47,6 +47,24 @@ if command -v raspi-config >/dev/null 2>&1; then
 fi
 $SUDO rfkill unblock wifi 2>/dev/null || true
 
+# A fresh Pi ships with WiFi soft-blocked at the kernel level until a
+# regulatory country is set -- the two lines above are meant to clear that,
+# but either can fail silently (wrong country code, rfkill quirks) and
+# nmcli's errors from there are much more confusing than the real cause. so
+# check explicitly and stop here with an actionable message instead of
+# pressing on into a guaranteed-to-fail AP setup.
+if command -v rfkill >/dev/null 2>&1 && rfkill list wifi 2>/dev/null | grep -qi "blocked: yes"; then
+  echo "error: WiFi is still rfkill-blocked after attempting to unblock it." >&2
+  rfkill list wifi >&2
+  echo >&2
+  echo "If 'Hard blocked' is yes: check for a physical WiFi/airplane-mode switch." >&2
+  echo "If 'Soft blocked' is yes: the regulatory country probably isn't set. Try:" >&2
+  echo "  sudo raspi-config  ->  5 Localisation Options -> L4 WLAN Country" >&2
+  echo "then re-run this script (or set SPOTS_WIFI_COUNTRY=<your 2-letter code> and re-run)." >&2
+  echo "Or unblock directly: sudo rfkill unblock wifi" >&2
+  exit 1
+fi
+
 # Make sure no other autoconnecting profile on these devices fights with
 # ours for control of the interface (e.g. the default "Wired connection 1"
 # NetworkManager creates automatically on first boot).
