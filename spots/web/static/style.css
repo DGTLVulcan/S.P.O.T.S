@@ -541,9 +541,14 @@ tbody tr:hover { background: var(--page); }
   align-items: center;
   white-space: nowrap;
 }
-.row-actions button {
+/* Covers the .btn anchor ("View") as well as the <button>s, or it keeps the
+   full-size base padding and makes the row taller than its neighbours. */
+.row-actions button,
+.row-actions .btn {
   font-size: 0.8rem;
   padding: 0.3rem 0.6rem;
+  font-weight: 500;
+  line-height: 1.2;
 }
 .session-delete-btn:hover { border-color: var(--critical); color: var(--critical); }
 .session-name { font-weight: 600; }
