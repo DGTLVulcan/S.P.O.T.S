@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S.P.O.T.S</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>S.P.O.T.S</h1>
+    <span class="subtitle">Shot Positioning and Optical Tracking System</span>
+    <nav><a href="{{ url_for('spots.sessions_list') }}">Session History</a></nav>
+  </header>
+
+  <main>
+    <section class="video-panel">
+      <img id="feed" src="{{ url_for('spots.video_feed') }}" alt="live target feed">
+      <div class="controls">
+        <button id="new-target">New Target</button>
+        <button id="calibrate">Calibrate</button>
+        <button id="undo">Undo Last Shot</button>
+        <a id="export-csv" class="button-link disabled">Export CSV</a>
+      </div>
+      <p id="status" class="status"></p>
+    </section>
+
+    <section class="stats-panel">
+      <h2>Group Stats</h2>
+      <dl id="stats">
+        <dt>Shots</dt><dd id="stat-count">0</dd>
+        <dt>Extreme spread</dt><dd id="stat-spread">-</dd>
+        <dt>Mean radius</dt><dd id="stat-radius">-</dd>
+        <dt>Std dev</dt><dd id="stat-std">-</dd>
+      </dl>
+
+      <h2>Best Subgroups</h2>
+      <dl id="best-subgroups"><dt>-</dt><dd>-</dd></dl>
+
+      <h2>Shots</h2>
+      <table id="shot-table">
+        <thead><tr><th>#</th><th>X</th><th>Y</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    window.SPOTS_UNIT_NAME = {{ target.unit_name | tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

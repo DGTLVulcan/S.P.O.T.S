@@ -1,0 +1,53 @@
+# Copy this file to config.yaml and edit for your setup.
+# config.yaml is gitignored so your camera IP / local paths don't get committed.
+
+camera:
+  # "zcam" for a real Z CAM E2-series camera over the network, "synthetic" for
+  # local development/testing without any hardware attached.
+  source: synthetic
+  ip: 192.168.1.188
+  stream_width: 1920
+  stream_height: 1080
+  stream_bitrate: 8000000
+
+target:
+  # Real-world width of the paper target, used for pixel <-> real-world
+  # calibration. Units are whatever you want shot groups reported in
+  # (cm, mm, ...) - just be consistent.
+  width_units: 59.0
+  unit_name: cm
+  # "Best N-shot subgroup" sizes to report once that many shots exist.
+  best_subgroup_sizes: [3, 5]
+  # Above this many shots in a session, the subgroup search is skipped
+  # (it's combinatorial: n-choose-k) rather than eating Pi CPU every poll.
+  best_subgroup_max_shots: 30
+
+detection:
+  sample_fps: 3
+  diff_threshold: 35
+  # Bullet hole size range in pixels-squared, before calibration scaling.
+  # Tune these after seeing real footage; defaults assume a medium pistol
+  # caliber hole at a typical pistol-bay target distance/zoom.
+  min_hole_area_px: 20
+  max_hole_area_px: 400
+  min_circularity: 0.5
+  # Max pixel drift allowed when matching a candidate hole to the same one
+  # seen on the previous sampled frame, for debounce persistence checking.
+  # Not a "shots must be this far apart" filter -- tight/overlapping groups
+  # are expected and handled via reference burn-in (see vision/detection.py).
+  min_shot_spacing_px: 12
+  debounce_frames: 2
+  # Re-align each frame onto the reference via ORB feature matching +
+  # homography before diffing, so a target swaying in wind or from a nearby
+  # impact's shockwave doesn't produce false shots or blur real ones.
+  realignment_enabled: true
+  realignment_method: orb  # "orb" or "sift"
+  realignment_min_matches: 15
+
+storage:
+  db_path: spots.db
+  snapshot_dir: snapshots
+
+web:
+  host: 0.0.0.0
+  port: 8080

@@ -22,6 +22,38 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="S.P.O.T.S.py" />
+    <Compile Include="spots\__init__.py" />
+    <Compile Include="spots\config.py" />
+    <Compile Include="spots\storage.py" />
+    <Compile Include="spots\worker.py" />
+    <Compile Include="spots\camera\__init__.py" />
+    <Compile Include="spots\camera\client.py" />
+    <Compile Include="spots\camera\source.py" />
+    <Compile Include="spots\vision\__init__.py" />
+    <Compile Include="spots\vision\calibration.py" />
+    <Compile Include="spots\vision\detection.py" />
+    <Compile Include="spots\vision\groups.py" />
+    <Compile Include="spots\web\__init__.py" />
+    <Compile Include="spots\web\app.py" />
+    <Compile Include="spots\web\routes.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="config.example.yaml" />
+    <Content Include="requirements.txt" />
+    <Content Include="SETUP.md" />
+    <Content Include="spots\web\templates\index.html" />
+    <Content Include="spots\web\templates\sessions_list.html" />
+    <Content Include="spots\web\templates\session_detail.html" />
+    <Content Include="spots\web\static\style.css" />
+    <Content Include="spots\web\static\app.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="spots\" />
+    <Folder Include="spots\camera\" />
+    <Folder Include="spots\vision\" />
+    <Folder Include="spots\web\" />
+    <Folder Include="spots\web\templates\" />
+    <Folder Include="spots\web\static\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

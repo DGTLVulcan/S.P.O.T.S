@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S.P.O.T.S - Session History</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>S.P.O.T.S</h1>
+    <span class="subtitle">Session History</span>
+    <nav><a href="{{ url_for('spots.index') }}">Back to Live</a></nav>
+  </header>
+
+  <main>
+    <section class="stats-panel" style="flex-basis: 100%;">
+      {% if sessions %}
+      <table>
+        <thead><tr><th>Session</th><th>Started</th><th>Shots</th><th>Unit</th><th></th></tr></thead>
+        <tbody>
+          {% for s in sessions %}
+          <tr>
+            <td>{{ s.id }}</td>
+            <td>{{ s.created_at_str }}</td>
+            <td>{{ s.shot_count }}</td>
+            <td>{{ s.unit_name }}</td>
+            <td><a href="{{ url_for('spots.session_detail', session_id=s.id) }}">View</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p>No sessions recorded yet.</p>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

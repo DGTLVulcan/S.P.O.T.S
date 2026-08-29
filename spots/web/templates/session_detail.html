@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S.P.O.T.S - Session {{ session.id }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>S.P.O.T.S</h1>
+    <span class="subtitle">Session {{ session.id }} &middot; {{ session.created_at_str }}</span>
+    <nav>
+      <a href="{{ url_for('spots.sessions_list') }}">Session History</a>
+      &middot;
+      <a href="{{ url_for('spots.export_csv', session_id=session.id) }}">Export CSV</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="stats-panel">
+      <h2>Group Stats</h2>
+      {% if stats %}
+      <dl>
+        <dt>Shots</dt><dd>{{ stats.shot_count }}</dd>
+        <dt>Extreme spread</dt><dd>{{ "%.2f"|format(stats.extreme_spread) }} {{ unit_name }}</dd>
+        <dt>Mean radius</dt><dd>{{ "%.2f"|format(stats.mean_radius) }} {{ unit_name }}</dd>
+        <dt>Std dev</dt><dd>{{ "%.2f"|format(stats.std_dev) }} {{ unit_name }}</dd>
+      </dl>
+      {% else %}
+      <p>No calibrated shots in this session.</p>
+      {% endif %}
+
+      {% if best_subgroups %}
+      <h2>Best Subgroups</h2>
+      <dl>
+        {% for n, bs in best_subgroups.items() %}
+        <dt>Best {{ n }}-shot</dt><dd>{{ "%.2f"|format(bs.extreme_spread) }} {{ unit_name }}</dd>
+        {% endfor %}
+      </dl>
+      {% endif %}
+    </section>
+
+    <section class="stats-panel" style="flex-basis: 100%;">
+      <h2>Shots</h2>
+      <table>
+        <thead><tr><th>#</th><th>X ({{ unit_name }})</th><th>Y ({{ unit_name }})</th><th>Time</th><th>Snapshot</th></tr></thead>
+        <tbody>
+          {% for s in shots %}
+          <tr>
+            <td>{{ s.seq }}</td>
+            <td>{{ "%.2f"|format(s.x_units) if s.x_units is not none else "-" }}</td>
+            <td>{{ "%.2f"|format(s.y_units) if s.y_units is not none else "-" }}</td>
+            <td>{{ s.created_at_str }}</td>
+            <td>
+              {% if s.snapshot_path %}
+              <a href="{{ url_for('spots.snapshot_file', relpath=s.snapshot_path) }}" target="_blank">view</a>
+              {% else %}
+              -
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>
