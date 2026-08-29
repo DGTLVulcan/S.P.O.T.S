@@ -424,6 +424,50 @@ def api_calibration_center():
     return jsonify({"ok": True})
 
 
+@bp.route("/api/session/<int:session_id>/rename", methods=["POST"])
+def api_rename_session(session_id):
+    data = request.get_json(force=True)
+    name = data.get("name")
+    if name is not None and not isinstance(name, str):
+        return jsonify({"error": "name must be a string (or null to clear it)"}), 400
+    if not _storage().rename_session(session_id, name):
+        return jsonify({"error": f"No session #{session_id}"}), 404
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/session/<int:session_id>/delete", methods=["POST"])
+def api_delete_session(session_id):
+    if _storage().get_session(session_id) is None:
+        return jsonify({"error": f"No session #{session_id}"}), 404
+
+    snapshot_paths = _storage().delete_session(session_id)
+
+    # Drop the snapshot images too, or they accumulate on the SD card with
+    # no session left pointing at them.
+    snapshot_dir = os.path.abspath(_settings().storage.snapshot_dir)
+    for relpath in snapshot_paths:
+        candidate = os.path.abspath(os.path.join(snapshot_dir, relpath))
+        # Never follow a stored path outside the snapshot directory.
+        if os.path.commonpath([snapshot_dir, candidate]) != snapshot_dir:
+            continue
+        try:
+            os.remove(candidate)
+        except OSError:
+            logger.warning("Could not remove snapshot %s", candidate)
+    session_dir = os.path.join(snapshot_dir, str(session_id))
+    try:
+        os.rmdir(session_dir)
+    except OSError:
+        pass  # not empty or not there -- harmless either way
+
+    # If the session being deleted is the one on screen, clear it rather
+    # than leaving the dashboard showing shots that no longer exist.
+    if _worker().state.snapshot().session_id == session_id:
+        _worker().clear_session()
+
+    return jsonify({"ok": True})
+
+
 @bp.route("/api/calibration/reset", methods=["POST"])
 def api_calibration_reset():
     _worker().set_calibration(None)
@@ -479,6 +523,13 @@ def session_detail(session_id):
             n: to_moa(bs.extreme_spread, unit_name, distance_m) for n, bs in best_subgroups.items()
         },
         unit_name=unit_name,
+        # Same shape renderTargetDiagram() consumes on the live dashboard.
+        diagram_shots=[
+            {"x_units": s["x_units"], "y_units": s["y_units"], "is_test": s["is_test"]}
+            for s in shots
+            if s["x_units"] is not None
+        ],
+        diagram_center=list(stats.center) if stats else None,
     )
 
 

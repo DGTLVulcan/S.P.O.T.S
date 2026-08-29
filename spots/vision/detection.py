@@ -151,12 +151,19 @@ class ShotDetector:
         """
         return self._last_homography
 
-    def reset(self, frame_bgr: np.ndarray) -> None:
+    def reset(self, frame_bgr: np.ndarray, next_seq: int = 1) -> None:
+        """Arms detection against `frame_bgr` as the new clean reference.
+
+        `next_seq` continues an existing session's numbering instead of
+        restarting at 1 -- used when resuming a session after a restart,
+        where the target (holes and all) is re-baselined but the shots
+        already recorded must keep their sequence numbers.
+        """
         self._reference = _preprocess(frame_bgr)
         self._anchor = self._reference.copy()
         self._committed.clear()
         self._pending.clear()
-        self._next_seq = 1
+        self._next_seq = max(1, next_seq)
         self._last_homography = None
         if self._feature_detector is not None:
             self._anchor_kp, self._anchor_desc = self._feature_detector.detectAndCompute(

@@ -11,7 +11,7 @@
     <div class="brand">
       <h1>S.P.O.T.S</h1>
       <span class="subtitle">
-        Session {{ session.id }} &middot; {{ session.created_at_str }}
+        {{ session.name or "Session %d"|format(session.id) }} &middot; {{ session.created_at_str }}
         {% if session.distance_m %}&middot; {{ "%.1f"|format(session.distance_m) }} m{% endif %}
       </span>
     </div>
@@ -41,6 +41,13 @@
         {% else %}
         <p class="empty-state">No calibrated shots in this session.</p>
         {% endif %}
+
+        <svg id="target-diagram" class="target-diagram" viewBox="0 0 200 200" role="img"
+             aria-label="Shot group diagram"></svg>
+        <div class="legend-row">
+          <span><span class="swatch" style="background: var(--shot-marker);"></span>Shot</span>
+          <span><span class="swatch" style="background: var(--center-marker); border-radius: 2px;"></span>Group center</span>
+        </div>
       </div>
 
       {% if best_subgroups %}
@@ -90,5 +97,15 @@
   </main>
 
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='diagram.js') }}"></script>
+  <script>
+    // Same diagram as the live dashboard, drawn from this session's stored
+    // shots rather than the in-progress one.
+    renderTargetDiagram(
+      "target-diagram",
+      {{ diagram_shots | tojson }},
+      {{ diagram_center | tojson }}
+    );
+  </script>
 </body>
 </html>

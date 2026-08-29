@@ -153,6 +153,11 @@ class DetectionWorker:
         self.state = SessionState()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        # Set by resume_last_session() when a restored session still needs a
+        # reference frame; the worker loop arms the detector as soon as one
+        # is available, since at startup the camera may not have produced a
+        # frame yet.
+        self._pending_rearm_seq: int | None = None
 
     def start(self) -> None:
         self._frame_source.start()
@@ -164,6 +169,18 @@ class DetectionWorker:
         while not self._stop.wait(self._sample_interval_s):
             frame = self._frame_source.get_latest_frame()
             if frame is None:
+                continue
+            if self._pending_rearm_seq is not None:
+                # Re-baseline a resumed session against the target as it
+                # looks now. Existing holes become part of the reference, so
+                # only genuinely new impacts register from here -- the same
+                # trick burn-in uses for tight groups.
+                self._detector.reset(frame, next_seq=self._pending_rearm_seq)
+                logger.info(
+                    "Resumed session armed; detection continues from shot #%d",
+                    self._pending_rearm_seq,
+                )
+                self._pending_rearm_seq = None
                 continue
             zoom_level, _, _ = self.get_zoom()
             for shot in self._detector.process_frame(frame, zoom_level=zoom_level):
@@ -274,10 +291,77 @@ class DetectionWorker:
         if frame is None:
             raise RuntimeError("No frame available yet to set as reference")
         self._detector.reset(frame)
+        # Drop any resume that hadn't been armed yet, or it would re-baseline
+        # the detector over this fresh reference on the next loop.
+        self._pending_rearm_seq = None
         session_id = self._storage.new_session(
             self._target_config.unit_name, self._target_config.distance_m
         )
         self.state.reset(session_id, calibration, self._target_config.distance_m)
+        self._persist_calibration()
+
+    def clear_session(self) -> None:
+        """Detaches the dashboard from its current session without touching
+        storage -- used when the session on screen has just been deleted.
+        """
+        self._pending_rearm_seq = None
+        self.state.reset(None, None, self._target_config.distance_m)
+
+    def resume_last_session(self) -> bool:
+        """Restores the most recent session after a restart or Pi reboot.
+
+        Shots, calibration and distance all live in SQLite already, but the
+        in-memory state started empty on every launch, so a power blip
+        mid-string left the dashboard blank and the calibration gone even
+        though the data was on disk. Detection resumes into the *same*
+        session (see _pending_rearm_seq) rather than forcing a New Target,
+        which would have started a new one and split the string in two.
+        """
+        session_id = self._storage.latest_session_id()
+        if session_id is None:
+            return False
+        session = self._storage.get_session(session_id)
+        if session is None:
+            return False
+
+        calibration = None
+        if session["calib_units_per_px"] is not None:
+            calibration = Calibration(
+                units_per_px=session["calib_units_per_px"],
+                unit_name=session["unit_name"],
+                origin_px=(session["calib_origin_x"], session["calib_origin_y"]),
+            )
+
+        distance_m = session["distance_m"] or 0.0
+        self.state.reset(session_id, calibration, distance_m)
+        # Keep the live config in step with the session being resumed, so
+        # MOA and the New Target gate reflect what's actually loaded.
+        self._target_config.distance_m = distance_m
+
+        rows = self._storage.get_shots(session_id)
+        for row in rows:
+            self.state.add_shot(
+                ShotRecord(
+                    row["seq"],
+                    row["x_px"],
+                    row["y_px"],
+                    row["x_units"],
+                    row["y_units"],
+                    row["snapshot_path"],
+                    row["is_test"],
+                ),
+                self._target_config.unit_name,
+            )
+
+        next_seq = max((row["seq"] for row in rows), default=0) + 1
+        self._pending_rearm_seq = next_seq
+        logger.info(
+            "Resumed session #%d with %d shot(s); detection will continue from #%d",
+            session_id,
+            len(rows),
+            next_seq,
+        )
+        return True
 
     def set_calibration(self, calibration: Calibration | None) -> None:
         """Pass None to clear calibration entirely (scale + target-center
@@ -287,6 +371,7 @@ class DetectionWorker:
         """
         self.state.set_calibration(calibration, self._target_config.unit_name)
         self._persist_shot_units()
+        self._persist_calibration()
 
     def set_distance(self, distance_m: float) -> None:
         """Updates the CURRENT session's distance (not just the config
@@ -310,6 +395,7 @@ class DetectionWorker:
         ok = self.state.set_origin((x_px, y_px), self._target_config.unit_name)
         if ok:
             self._persist_shot_units()
+            self._persist_calibration()
         return ok
 
     def add_test_shot(self, x_px: float, y_px: float) -> bool:
@@ -346,6 +432,17 @@ class DetectionWorker:
         )
         logger.info("Test shot #%d placed at px (%.1f, %.1f)", seq, x_px, y_px)
         return True
+
+    def _persist_calibration(self) -> None:
+        snapshot = self.state.snapshot()
+        if snapshot.session_id is None:
+            return
+        cal = snapshot.calibration
+        self._storage.save_calibration(
+            snapshot.session_id,
+            cal.units_per_px if cal else None,
+            cal.origin_px if cal else None,
+        )
 
     def _persist_shot_units(self) -> None:
         snapshot = self.state.snapshot()

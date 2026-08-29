@@ -44,6 +44,15 @@ class Storage:
         session_columns = {row[1] for row in self._conn.execute("PRAGMA table_info(sessions)")}
         if "distance_m" not in session_columns:
             self._conn.execute("ALTER TABLE sessions ADD COLUMN distance_m REAL")
+        if "name" not in session_columns:
+            self._conn.execute("ALTER TABLE sessions ADD COLUMN name TEXT")
+        # Calibration is stored per session so a restart (or a Pi reboot
+        # mid-string) can restore the scale and target-centre origin rather
+        # than making the user re-calibrate and orphaning the shots already
+        # recorded against it.
+        for column in ("calib_units_per_px", "calib_origin_x", "calib_origin_y"):
+            if column not in session_columns:
+                self._conn.execute(f"ALTER TABLE sessions ADD COLUMN {column} REAL")
 
     def new_session(self, unit_name: str, distance_m: float | None = None) -> int:
         with self._lock:
@@ -53,6 +62,50 @@ class Storage:
             )
             self._conn.commit()
             return cur.lastrowid
+
+    def rename_session(self, session_id: int, name: str | None) -> bool:
+        """Sets a session's display name. Pass None (or blank) to clear it and
+        fall back to the default "Session N" label. Returns False if no such
+        session exists.
+        """
+        cleaned = (name or "").strip() or None
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE sessions SET name = ? WHERE id = ?", (cleaned, session_id)
+            )
+            self._conn.commit()
+            return cur.rowcount > 0
+
+    def delete_session(self, session_id: int) -> list[str]:
+        """Removes a session and its shots, returning the snapshot paths that
+        belonged to it so the caller can delete the image files too (this
+        layer deliberately doesn't touch the filesystem).
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT snapshot_path FROM shots WHERE session_id = ? AND snapshot_path IS NOT NULL",
+                (session_id,),
+            ).fetchall()
+            self._conn.execute("DELETE FROM shots WHERE session_id = ?", (session_id,))
+            self._conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+            self._conn.commit()
+        return [r[0] for r in rows]
+
+    def save_calibration(
+        self,
+        session_id: int,
+        units_per_px: float | None,
+        origin_px: tuple[float, float] | None,
+    ) -> None:
+        origin_x, origin_y = origin_px if origin_px is not None else (None, None)
+        with self._lock:
+            self._conn.execute(
+                """UPDATE sessions
+                   SET calib_units_per_px = ?, calib_origin_x = ?, calib_origin_y = ?
+                   WHERE id = ?""",
+                (units_per_px, origin_x, origin_y, session_id),
+            )
+            self._conn.commit()
 
     def update_session_distance(self, session_id: int, distance_m: float | None) -> None:
         with self._lock:
@@ -150,7 +203,7 @@ class Storage:
     def list_sessions(self) -> list[dict]:
         with self._lock:
             cur = self._conn.execute(
-                """SELECT s.id, s.created_at, s.unit_name, s.distance_m, COUNT(sh.id)
+                """SELECT s.id, s.created_at, s.unit_name, s.distance_m, COUNT(sh.id), s.name
                    FROM sessions s LEFT JOIN shots sh ON sh.session_id = s.id
                    GROUP BY s.id ORDER BY s.id DESC"""
             )
@@ -162,6 +215,7 @@ class Storage:
                 "unit_name": r[2],
                 "distance_m": r[3],
                 "shot_count": r[4],
+                "name": r[5],
             }
             for r in rows
         ]
@@ -169,12 +223,28 @@ class Storage:
     def get_session(self, session_id: int) -> dict | None:
         with self._lock:
             row = self._conn.execute(
-                "SELECT id, created_at, unit_name, distance_m FROM sessions WHERE id = ?",
+                """SELECT id, created_at, unit_name, distance_m, name,
+                          calib_units_per_px, calib_origin_x, calib_origin_y
+                   FROM sessions WHERE id = ?""",
                 (session_id,),
             ).fetchone()
         if row is None:
             return None
-        return {"id": row[0], "created_at": row[1], "unit_name": row[2], "distance_m": row[3]}
+        return {
+            "id": row[0],
+            "created_at": row[1],
+            "unit_name": row[2],
+            "distance_m": row[3],
+            "name": row[4],
+            "calib_units_per_px": row[5],
+            "calib_origin_x": row[6],
+            "calib_origin_y": row[7],
+        }
+
+    def latest_session_id(self) -> int | None:
+        with self._lock:
+            row = self._conn.execute("SELECT MAX(id) FROM sessions").fetchone()
+        return row[0] if row and row[0] is not None else None
 
     def close(self) -> None:
         with self._lock:

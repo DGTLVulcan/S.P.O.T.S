@@ -71,6 +71,10 @@ def create_app(settings: Settings) -> Flask:
         frame_source, storage, settings.target, settings.detection, settings.storage.snapshot_dir
     )
     worker.start()
+    # Pick up where the last run left off, so a restart or a Pi reboot
+    # mid-string doesn't lose the shots and calibration already recorded.
+    if worker.resume_last_session():
+        logger.info("Resumed the most recent session from storage")
 
     def _shutdown():
         worker.stop()

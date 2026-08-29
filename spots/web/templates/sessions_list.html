@@ -27,13 +27,23 @@
           <thead><tr><th>Session</th><th>Started</th><th>Shots</th><th>Unit</th><th>Distance</th><th></th></tr></thead>
           <tbody>
             {% for s in sessions %}
-            <tr>
-              <td>{{ s.id }}</td>
+            <tr data-session-id="{{ s.id }}">
+              <td>
+                <a href="{{ url_for('spots.session_detail', session_id=s.id) }}"
+                   class="session-name">{{ s.name or "Session %d"|format(s.id) }}</a>
+                {% if s.name %}<div class="hint">Session {{ s.id }}</div>{% endif %}
+              </td>
               <td>{{ s.created_at_str }}</td>
               <td>{{ s.shot_count }}</td>
               <td>{{ s.unit_name }}</td>
               <td>{{ "%.1f"|format(s.distance_m) + " m" if s.distance_m else "-" }}</td>
-              <td><a href="{{ url_for('spots.session_detail', session_id=s.id) }}">View</a></td>
+              <td class="row-actions">
+                <a class="btn" href="{{ url_for('spots.session_detail', session_id=s.id) }}">View</a>
+                <button class="session-rename-btn" data-current="{{ s.name or '' }}">Rename</button>
+                <button class="session-delete-btn"
+                        data-label="{{ s.name or 'Session %d'|format(s.id) }}"
+                        data-shots="{{ s.shot_count }}">Delete</button>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -42,9 +52,66 @@
       {% else %}
       <p class="empty-state">No sessions recorded yet.</p>
       {% endif %}
+      <p id="session-status" class="status"></p>
     </div>
   </main>
 
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script>
+    (function () {
+      const statusEl = document.getElementById("session-status");
+      const tbody = document.querySelector("tbody");
+      if (!tbody) return;
+
+      async function post(url, body) {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body || {}),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || resp.statusText);
+        return data;
+      }
+
+      // Delegated so it keeps working regardless of how many rows there are.
+      tbody.addEventListener("click", async (ev) => {
+        const row = ev.target.closest("tr[data-session-id]");
+        if (!row) return;
+        const id = row.dataset.sessionId;
+
+        const renameBtn = ev.target.closest(".session-rename-btn");
+        if (renameBtn) {
+          const next = window.prompt(
+            "Name for this session (leave blank to clear):",
+            renameBtn.dataset.current || ""
+          );
+          if (next === null) return;
+          try {
+            await post(`/api/session/${id}/rename`, { name: next });
+            window.location.reload();
+          } catch (err) {
+            statusEl.textContent = "Rename failed: " + err.message;
+          }
+          return;
+        }
+
+        const deleteBtn = ev.target.closest(".session-delete-btn");
+        if (deleteBtn) {
+          const shots = deleteBtn.dataset.shots;
+          if (!window.confirm(
+            `Delete "${deleteBtn.dataset.label}" and its ${shots} shot(s)?\n\n` +
+            "This also removes the saved snapshot images and cannot be undone."
+          )) return;
+          try {
+            await post(`/api/session/${id}/delete`);
+            window.location.reload();
+          } catch (err) {
+            statusEl.textContent = "Delete failed: " + err.message;
+          }
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
