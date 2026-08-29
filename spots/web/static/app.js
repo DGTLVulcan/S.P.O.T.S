@@ -15,6 +15,9 @@
   const feedHint = document.getElementById("feed-hint");
   const markCenterBtn = document.getElementById("mark-center");
   const distanceInput = document.getElementById("distance-input");
+  const videoFrame = document.getElementById("video-frame");
+  const fullscreenBtn = document.getElementById("fullscreen-btn");
+  const resetSetupBtn = document.getElementById("reset-setup");
 
   // Exactly one of these at a time; the feed click handler branches on it.
   let mode = "none"; // "none" | "calibrate" | "zoom-center" | "mark-center"
@@ -60,6 +63,38 @@
     refreshShots();
   });
 
+  // Delegated once on the table body rather than per-row, since rows are
+  // fully rebuilt (innerHTML = "") every refreshShots() poll.
+  document.querySelector("#shot-table tbody").addEventListener("click", async (ev) => {
+    const btn = ev.target.closest(".row-delete-btn");
+    if (!btn) return;
+    const seq = btn.dataset.seq;
+    try {
+      await postJson(`/api/shots/${seq}/delete`);
+      setStatus(`Removed shot #${seq}.`);
+      refreshShots();
+    } catch (err) {
+      setStatus("Error removing shot: " + err.message);
+    }
+  });
+
+  resetSetupBtn.addEventListener("click", async () => {
+    // Not delegating to applyZoom() here: it swallows its own errors and
+    // sets its own status message, which would either mask a failure here
+    // or get overwritten by our own success message regardless of outcome.
+    try {
+      await postJson("/api/calibration/reset");
+      const data = await postJson("/api/zoom", { level: 1.0, center_x: 0.5, center_y: 0.5 });
+      zoomState = { level: data.level, center_x: data.center_x, center_y: data.center_y };
+      zoomSlider.value = zoomState.level;
+      zoomValue.textContent = zoomState.level.toFixed(1) + "x";
+      setStatus("Calibration, target center, and zoom reset.");
+      refreshShots();
+    } catch (err) {
+      setStatus("Reset error: " + err.message);
+    }
+  });
+
   calibrateBtn.addEventListener("click", () => {
     const next = mode === "calibrate" ? "none" : "calibrate";
     setMode(next);
@@ -84,6 +119,22 @@
         ? "Click the target's true center on the feed."
         : "Center marking cancelled."
     );
+  });
+
+  fullscreenBtn.addEventListener("click", () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      videoFrame.requestFullscreen().catch((err) => {
+        setStatus("Fullscreen error: " + err.message);
+      });
+    }
+  });
+
+  document.addEventListener("fullscreenchange", () => {
+    const isFull = document.fullscreenElement === videoFrame;
+    fullscreenBtn.classList.toggle("active", isFull);
+    fullscreenBtn.title = isFull ? "Exit fullscreen" : "Fullscreen";
   });
 
   async function applyZoom(level, centerX, centerY) {
@@ -161,7 +212,9 @@
     feedZcamBtn.classList.toggle("primary", !isSynthetic);
     badgeFeed.className = "badge " + (isSynthetic ? "good" : "");
     badgeFeed.innerHTML = `<span class="dot"></span>${isSynthetic ? "Simulated" : "Live"}`;
-    feedHint.style.display = isSynthetic ? "" : "none";
+    feedHint.textContent = isSynthetic
+      ? "Simulated target active — click the feed to place a virtual bullet hole."
+      : "Live feed active — click the feed to place a test shot.";
   }
 
   async function switchFeed(target) {
@@ -251,7 +304,10 @@
       return;
     }
 
-    // Default action on the simulated feed: place a virtual bullet hole.
+    // Default action: place a shot. On the simulated feed this draws a
+    // real hole for the detector to find on its own next cycle; on the
+    // live feed there's no fake canvas to draw on, so it's recorded
+    // directly as a tagged test shot (see /api/test_shot).
     if (currentFeed === "synthetic") {
       const fx = (ev.clientX - rect.left) / rect.width;
       const fy = (ev.clientY - rect.top) / rect.height;
@@ -265,6 +321,14 @@
       } catch (err) {
         setStatus("Error placing hole: " + err.message);
       }
+    } else {
+      try {
+        await postJson("/api/test_shot", { x: viewX, y: viewY });
+        setStatus("Test shot placed.");
+        refreshShots();
+      } catch (err) {
+        setStatus("Error placing test shot: " + err.message);
+      }
     }
   });
 
@@ -272,8 +336,8 @@
     return typeof n === "number" ? n.toFixed(2) : "-";
   }
 
-  function renderTargetDiagram(shots, center) {
-    const svg = document.getElementById("target-diagram");
+  function renderTargetDiagram(svgId, shots, center) {
+    const svg = document.getElementById(svgId);
     const ns = "http://www.w3.org/2000/svg";
     svg.innerHTML = "";
     const size = 200,
@@ -328,7 +392,7 @@
       dot.setAttribute("cx", x);
       dot.setAttribute("cy", y);
       dot.setAttribute("r", 5);
-      dot.setAttribute("class", "shot");
+      dot.setAttribute("class", s.is_test ? "shot shot-test" : "shot");
       svg.appendChild(dot);
     }
 
@@ -375,6 +439,21 @@
       ? `${fmt(stats.std_dev)}<span class="unit"> ${data.unit_name}</span>`
       : "-";
 
+    // Fullscreen HUD mirrors the same figures -- only visible via CSS
+    // (.video-frame:fullscreen .hud) but kept in sync unconditionally so
+    // there's nothing to wire up on entering/exiting fullscreen.
+    document.getElementById("hud-stat-count").textContent = stats ? stats.shot_count : 0;
+    document.getElementById("hud-stat-spread").textContent = stats
+      ? `${fmt(stats.extreme_spread)} ${data.unit_name}` +
+        (stats.extreme_spread_moa !== null ? ` (${fmt(stats.extreme_spread_moa)} MOA)` : "")
+      : "-";
+    document.getElementById("hud-stat-radius").textContent = stats
+      ? `${fmt(stats.mean_radius)} ${data.unit_name}`
+      : "-";
+    document.getElementById("hud-stat-std").textContent = stats
+      ? `${fmt(stats.std_dev)} ${data.unit_name}`
+      : "-";
+
     const subgroupsGrid = document.getElementById("best-subgroups");
     const sizes = Object.keys(data.best_subgroups || {}).sort((a, b) => a - b);
     subgroupsGrid.innerHTML = sizes.length
@@ -392,6 +471,28 @@
           .join("")
       : '<p class="empty-state">Not enough shots yet.</p>';
 
+    const hudSubgroupsList = document.getElementById("hud-subgroups-list");
+    hudSubgroupsList.innerHTML = sizes.length
+      ? sizes
+          .map((n) => {
+            const bs = data.best_subgroups[n];
+            return `<div><span class="hud-label">Best ${n}</span>${fmt(bs.extreme_spread)} ${data.unit_name}</div>`;
+          })
+          .join("")
+      : '<div class="hud-empty">Not enough shots yet.</div>';
+
+    const hudShotsRow = document.getElementById("hud-shots-row");
+    const lastShots = data.shots.slice(-5);
+    hudShotsRow.innerHTML = lastShots.length
+      ? lastShots
+          .map((shot) => {
+            const x = fmt(shot.x_units);
+            const y = fmt(shot.y_units);
+            return `<span class="hud-shot-chip${shot.is_test ? " is-test" : ""}"><span class="hud-shot-seq">#${shot.seq}</span>${x}, ${y}</span>`;
+          })
+          .join("")
+      : '<span class="hud-empty">No shots yet.</span>';
+
     const exportLink = document.getElementById("export-csv");
     if (data.session_id) {
       exportLink.href = `/api/session/${data.session_id}/export.csv`;
@@ -405,15 +506,22 @@
     tbody.innerHTML = "";
     for (const shot of data.shots) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${shot.seq}</td><td>${fmt(shot.x_units)}</td><td>${fmt(shot.y_units)}</td>`;
+      if (shot.is_test) tr.className = "shot-row-test";
+      const testBadge = shot.is_test ? ' <span class="badge warn" style="position:static;">Test</span>' : "";
+      tr.innerHTML = `<td>${shot.seq}${testBadge}</td><td>${fmt(shot.x_units)}</td><td>${fmt(shot.y_units)}</td>` +
+        `<td><button class="row-delete-btn" data-seq="${shot.seq}" title="Delete this shot">&times;</button></td>`;
       tbody.appendChild(tr);
     }
 
     const calibratedShots = data.shots.filter((s) => s.x_units !== null && s.x_units !== undefined);
-    renderTargetDiagram(
-      calibratedShots.map((s) => ({ x_units: s.x_units, y_units: s.y_units })),
-      stats ? stats.center : null
-    );
+    const diagramShots = calibratedShots.map((s) => ({
+      x_units: s.x_units,
+      y_units: s.y_units,
+      is_test: s.is_test,
+    }));
+    const diagramCenter = stats ? stats.center : null;
+    renderTargetDiagram("target-diagram", diagramShots, diagramCenter);
+    renderTargetDiagram("hud-target-diagram", diagramShots, diagramCenter);
   }
 
   setInterval(refreshShots, 1000);

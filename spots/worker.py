@@ -34,6 +34,7 @@ class ShotRecord:
     x_units: float | None
     y_units: float | None
     snapshot_path: str | None = None
+    is_test: bool = False
 
 
 @dataclass
@@ -120,6 +121,18 @@ class SessionState:
                 (s.x_units, s.y_units) for s in self._state.shots if s.x_units is not None
             ]
             self._state.stats = compute_group_stats(points, unit_name) if points else None
+
+    def delete_shot(self, seq: int, unit_name: str) -> bool:
+        with self._lock:
+            before = len(self._state.shots)
+            self._state.shots = [s for s in self._state.shots if s.seq != seq]
+            if len(self._state.shots) == before:
+                return False
+            points = [
+                (s.x_units, s.y_units) for s in self._state.shots if s.x_units is not None
+            ]
+            self._state.stats = compute_group_stats(points, unit_name) if points else None
+            return True
 
 
 class DetectionWorker:
@@ -266,7 +279,12 @@ class DetectionWorker:
         )
         self.state.reset(session_id, calibration, self._target_config.distance_m)
 
-    def set_calibration(self, calibration: Calibration) -> None:
+    def set_calibration(self, calibration: Calibration | None) -> None:
+        """Pass None to clear calibration entirely (scale + target-center
+        origin) -- e.g. a "reset setup" action. Already-recorded shots keep
+        their pixel positions but lose their real-world units until
+        recalibrated, same as any other calibration change.
+        """
         self.state.set_calibration(calibration, self._target_config.unit_name)
         self._persist_shot_units()
 
@@ -294,6 +312,41 @@ class DetectionWorker:
             self._persist_shot_units()
         return ok
 
+    def add_test_shot(self, x_px: float, y_px: float) -> bool:
+        """Manually records a shot at a clicked point on the live feed, for
+        exercising calibration/stats/MOA without needing a real impact.
+        Bypasses the detector entirely (there's nothing to diff against on
+        real footage the way a synthetic hole can be drawn in) -- x_px/y_px
+        are taken directly in the frame's own coordinate space, the same
+        convention as a Calibrate or Mark Center click, not the detector's
+        internal anchor space. Tagged is_test so it's never mistaken for a
+        genuine detected impact when reviewing a session later.
+        Returns False if there's no active session to record it against.
+        """
+        state = self.state.snapshot()
+        if state.session_id is None:
+            return False
+
+        seq = self._detector.reserve_seq()
+        x_units = y_units = None
+        if state.calibration is not None:
+            x_units, y_units = state.calibration.to_units((x_px, y_px))
+
+        frame = self._frame_source.get_latest_frame()
+        snapshot_path = None
+        if frame is not None:
+            snapshot_path = self._save_snapshot(state.session_id, seq, x_px, y_px, frame)
+
+        self._storage.add_shot(
+            state.session_id, seq, x_px, y_px, x_units, y_units, snapshot_path, is_test=True
+        )
+        self.state.add_shot(
+            ShotRecord(seq, x_px, y_px, x_units, y_units, snapshot_path, is_test=True),
+            self._target_config.unit_name,
+        )
+        logger.info("Test shot #%d placed at px (%.1f, %.1f)", seq, x_px, y_px)
+        return True
+
     def _persist_shot_units(self) -> None:
         snapshot = self.state.snapshot()
         if snapshot.session_id is None:
@@ -304,11 +357,39 @@ class DetectionWorker:
             )
 
     def undo_last(self) -> None:
-        self._detector.undo_last()
         state = self.state.snapshot()
+        if not state.shots:
+            return
+        # Only pop the detector's own committed-shot bookkeeping when the
+        # last shot actually came from it -- a test shot never touched that
+        # state (it borrows a seq number but bypasses detection entirely),
+        # so popping it here would incorrectly discard the last REAL
+        # detection instead of the test shot actually being undone.
+        if not state.shots[-1].is_test:
+            self._detector.undo_last()
         if state.session_id is not None:
             self._storage.delete_last_shot(state.session_id)
         self.state.undo_last(self._target_config.unit_name)
+
+    def delete_shot(self, seq: int) -> bool:
+        """Removes an arbitrary shot by sequence number, not just the last
+        one. Deleting the last shot delegates to undo_last() so the
+        detector's own bookkeeping (used for the *next* undo's chronological
+        assumption) stays correct; removing an earlier shot doesn't need to
+        touch it -- that bookkeeping never mattered for anything except "was
+        the most recent commit a real one," which a mid-list removal doesn't
+        change. Returns False if no shot with that seq exists.
+        """
+        state = self.state.snapshot()
+        if not state.shots:
+            return False
+        if state.shots[-1].seq == seq:
+            self.undo_last()
+            return True
+        removed = self.state.delete_shot(seq, self._target_config.unit_name)
+        if removed and state.session_id is not None:
+            self._storage.delete_shot(state.session_id, seq)
+        return removed
 
     def get_latest_frame(self) -> np.ndarray | None:
         return self._frame_source.get_latest_frame()

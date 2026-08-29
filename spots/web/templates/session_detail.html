@@ -64,13 +64,14 @@
         <h2>Shots</h2>
         <div class="table-scroll">
           <table>
-            <thead><tr><th>#</th><th>X ({{ unit_name }})</th><th>Y ({{ unit_name }})</th><th>Time</th><th>Snapshot</th></tr></thead>
+            <thead><tr><th>#</th><th>X ({{ unit_name }})</th><th>Y ({{ unit_name }})</th><th></th><th>Time</th><th>Snapshot</th></tr></thead>
             <tbody>
               {% for s in shots %}
               <tr>
                 <td>{{ s.seq }}</td>
                 <td>{{ "%.2f"|format(s.x_units) if s.x_units is not none else "-" }}</td>
                 <td>{{ "%.2f"|format(s.y_units) if s.y_units is not none else "-" }}</td>
+                <td>{% if s.is_test %}<span class="badge warn" style="position:static;">Test</span>{% endif %}</td>
                 <td>{{ s.created_at_str }}</td>
                 <td>
                   {% if s.snapshot_path %}

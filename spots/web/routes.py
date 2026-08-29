@@ -71,15 +71,23 @@ def _draw_overlay(frame, snapshot, homography):
     # Shots/stats are computed in the detector's anchor coordinate space.
     # The live feed shows the raw, unwarped camera frame, so anchor-space
     # points need the inverse homography applied to land in the right place.
+    # Test shots are the exception: they're recorded directly in the raw
+    # frame's own coordinate space (same convention as a Calibrate click),
+    # since there's no detection event to have put them in anchor space to
+    # begin with -- warping them here would misplace them.
     homography_inv = invert_homography(homography)
 
     for shot in snapshot.shots:
-        center = warp_point((shot.x_px, shot.y_px), homography_inv)
+        center = (
+            (shot.x_px, shot.y_px)
+            if shot.is_test
+            else warp_point((shot.x_px, shot.y_px), homography_inv)
+        )
         cv2.drawMarker(
             frame,
             (int(center[0]), int(center[1])),
             _SHOT_MARKER_BGR,
-            cv2.MARKER_TILTED_CROSS,
+            cv2.MARKER_SQUARE if shot.is_test else cv2.MARKER_TILTED_CROSS,
             24,
             2,
         )
@@ -152,6 +160,7 @@ def api_shots():
                     "seq": s.seq,
                     "x_units": s.x_units,
                     "y_units": s.y_units,
+                    "is_test": s.is_test,
                 }
                 for s in snapshot.shots
             ],
@@ -246,6 +255,21 @@ def api_simulate_hole():
     return jsonify({"ok": True})
 
 
+@bp.route("/api/test_shot", methods=["POST"])
+def api_test_shot():
+    data = request.get_json(force=True)
+    try:
+        x = float(data["x"])
+        y = float(data["y"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "x, y must both be numbers"}), 400
+
+    if not _worker().add_test_shot(x, y):
+        return jsonify({"error": "No active session -- click New Target first"}), 409
+
+    return jsonify({"ok": True})
+
+
 @bp.route("/api/session/new", methods=["POST"])
 def api_new_session():
     try:
@@ -260,6 +284,13 @@ def api_new_session():
 @bp.route("/api/session/undo", methods=["POST"])
 def api_undo():
     _worker().undo_last()
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/shots/<int:seq>/delete", methods=["POST"])
+def api_delete_shot(seq):
+    if not _worker().delete_shot(seq):
+        return jsonify({"error": f"No shot #{seq} in the current session"}), 404
     return jsonify({"ok": True})
 
 
@@ -294,6 +325,12 @@ def api_calibration_center():
     if not _worker().mark_center(x, y):
         return jsonify({"error": "Calibrate scale first, then mark the target's center"}), 409
 
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/calibration/reset", methods=["POST"])
+def api_calibration_reset():
+    _worker().set_calibration(None)
     return jsonify({"ok": True})
 
 
@@ -368,10 +405,14 @@ def export_csv(session_id):
 
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["seq", f"x_{unit_name}", f"y_{unit_name}", "x_px", "y_px", "timestamp"])
+    writer.writerow(
+        ["seq", f"x_{unit_name}", f"y_{unit_name}", "x_px", "y_px", "is_test", "timestamp"]
+    )
     for s in shots:
         ts = datetime.fromtimestamp(s["created_at"]).isoformat(timespec="seconds")
-        writer.writerow([s["seq"], s["x_units"], s["y_units"], s["x_px"], s["y_px"], ts])
+        writer.writerow(
+            [s["seq"], s["x_units"], s["y_units"], s["x_px"], s["y_px"], s["is_test"], ts]
+        )
 
     resp = Response(buf.getvalue(), mimetype="text/csv")
     resp.headers["Content-Disposition"] = f"attachment; filename=spots_session_{session_id}.csv"

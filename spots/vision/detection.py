@@ -170,6 +170,16 @@ class ShotDetector:
             self._committed.pop()
             self._next_seq = max(1, self._next_seq - 1)
 
+    def reserve_seq(self) -> int:
+        """Reserves the next sequence number for a shot recorded outside the
+        normal detection pipeline (e.g. a manually placed test shot), so it
+        stays unique and ordered alongside real detections without this
+        detector ever knowing the test shot exists.
+        """
+        seq = self._next_seq
+        self._next_seq += 1
+        return seq
+
     def _align(self, gray: np.ndarray) -> np.ndarray | None:
         """Returns `gray` warped into anchor coordinates, or None if
         alignment couldn't be established this frame (caller should skip it).

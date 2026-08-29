@@ -38,6 +38,8 @@ class Storage:
         shot_columns = {row[1] for row in self._conn.execute("PRAGMA table_info(shots)")}
         if "snapshot_path" not in shot_columns:
             self._conn.execute("ALTER TABLE shots ADD COLUMN snapshot_path TEXT")
+        if "is_test" not in shot_columns:
+            self._conn.execute("ALTER TABLE shots ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0")
 
         session_columns = {row[1] for row in self._conn.execute("PRAGMA table_info(sessions)")}
         if "distance_m" not in session_columns:
@@ -68,13 +70,14 @@ class Storage:
         x_units: float | None,
         y_units: float | None,
         snapshot_path: str | None = None,
+        is_test: bool = False,
     ) -> int:
         with self._lock:
             cur = self._conn.execute(
                 """INSERT INTO shots
-                   (session_id, seq, x_px, y_px, x_units, y_units, snapshot_path, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (session_id, seq, x_px, y_px, x_units, y_units, snapshot_path, time.time()),
+                   (session_id, seq, x_px, y_px, x_units, y_units, snapshot_path, is_test, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (session_id, seq, x_px, y_px, x_units, y_units, snapshot_path, int(is_test), time.time()),
             )
             self._conn.commit()
             return cur.lastrowid
@@ -86,6 +89,13 @@ class Storage:
             self._conn.execute(
                 "UPDATE shots SET x_units = ?, y_units = ? WHERE session_id = ? AND seq = ?",
                 (x_units, y_units, session_id, seq),
+            )
+            self._conn.commit()
+
+    def delete_shot(self, session_id: int, seq: int) -> None:
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM shots WHERE session_id = ? AND seq = ?", (session_id, seq)
             )
             self._conn.commit()
 
@@ -103,8 +113,8 @@ class Storage:
     def get_shots(self, session_id: int) -> list[dict]:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT seq, x_px, y_px, x_units, y_units, snapshot_path, created_at FROM shots "
-                "WHERE session_id = ? ORDER BY seq ASC",
+                "SELECT seq, x_px, y_px, x_units, y_units, snapshot_path, is_test, created_at "
+                "FROM shots WHERE session_id = ? ORDER BY seq ASC",
                 (session_id,),
             )
             rows = cur.fetchall()
@@ -116,7 +126,8 @@ class Storage:
                 "x_units": r[3],
                 "y_units": r[4],
                 "snapshot_path": r[5],
-                "created_at": r[6],
+                "is_test": bool(r[6]),
+                "created_at": r[7],
             }
             for r in rows
         ]

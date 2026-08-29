@@ -205,6 +205,153 @@ main {
   cursor: crosshair;
 }
 
+/* In fullscreen the frame fills the viewport; letterbox the feed (preserve
+   aspect ratio, center it) rather than stretching or cropping it. */
+.video-frame:fullscreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+}
+.video-frame:fullscreen #feed {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.fullscreen-btn {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  backdrop-filter: blur(4px);
+}
+.fullscreen-btn:hover { background: rgba(0, 0, 0, 0.75); }
+.fullscreen-btn.active { background: rgba(57, 135, 229, 0.85); }
+
+/* ---------- Fullscreen HUD (Group Stats + target diagram) ----------
+   Always dark/semi-transparent regardless of the page's light/dark theme,
+   since it overlays arbitrary video content rather than the page surface --
+   shown only while the video frame is actually in fullscreen. */
+
+.hud {
+  display: none;
+  position: absolute;
+  background: rgba(10, 10, 10, 0.62);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  /* .video-frame sets line-height:0 (to remove the inline-image whitespace
+     gap below #feed) which would otherwise inherit in here and collapse
+     every text row on top of each other. */
+  line-height: 1.5;
+}
+.video-frame:fullscreen .hud {
+  display: block;
+}
+
+.hud-group-stats {
+  top: 50%;
+  right: 1.5rem;
+  transform: translateY(-50%);
+  min-width: 220px;
+}
+
+.hud-subgroups {
+  top: 50%;
+  left: 1.5rem;
+  transform: translateY(-50%);
+  min-width: 180px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.hud-shots {
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(90%, 560px);
+  padding: 0.6rem 0.9rem;
+}
+
+.hud-header {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.hud-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem 1.25rem;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.8rem;
+}
+.hud-label {
+  color: rgba(255, 255, 255, 0.6);
+  margin-right: 0.35rem;
+}
+
+.hud-diagram {
+  width: 150px;
+  height: 150px;
+  display: block;
+  margin: 0 auto;
+}
+.hud-diagram .ring, .hud-diagram .crosshair { stroke: rgba(255, 255, 255, 0.25); }
+.hud-diagram .shot { fill: #3987e5; stroke: rgba(0, 0, 0, 0.5); }
+.hud-diagram .center { stroke: #e66767; }
+.hud-diagram .empty-label { fill: rgba(255, 255, 255, 0.55); }
+
+.hud-shots-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+.hud-shot-chip {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  white-space: nowrap;
+}
+.hud-shot-chip.is-test {
+  border-style: dashed;
+  color: rgba(255, 255, 255, 0.75);
+}
+.hud-shot-chip .hud-shot-seq {
+  color: rgba(255, 255, 255, 0.55);
+  margin-right: 0.3rem;
+}
+.hud-empty {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.8rem;
+}
+
 .badge-row {
   position: absolute;
   top: 0.6rem;
@@ -233,6 +380,12 @@ main {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+/* Consistent gap between stacked control rows -- a class rule rather than
+   relying on each instance remembering an inline margin-top (which is how
+   this was drifting out of sync as rows got added over time). */
+.controls + .controls {
+  margin-top: 0.6rem;
 }
 
 button, .btn {
@@ -320,6 +473,12 @@ button:disabled, .btn.disabled {
   stroke: var(--surface);
   stroke-width: 2;
 }
+.target-diagram .shot-test {
+  fill: none;
+  stroke: var(--shot-marker);
+  stroke-width: 2;
+  stroke-dasharray: 2 2;
+}
 .target-diagram .center {
   fill: none;
   stroke: var(--center-marker);
@@ -355,6 +514,25 @@ th, td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var
 th { color: var(--ink-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
 td { font-variant-numeric: tabular-nums; }
 tbody tr:hover { background: var(--page); }
+.shot-row-test { background: color-mix(in srgb, var(--warning) 10%, transparent); }
+.shot-row-test:hover { background: color-mix(in srgb, var(--warning) 18%, transparent); }
+
+.row-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0;
+}
+.row-delete-btn:hover { border-color: var(--critical); color: var(--critical); }
 
 .table-scroll { overflow-x: auto; }
 
