@@ -7,6 +7,7 @@ import requests
 from flask import Flask
 
 from spots.camera.client import ZCamClient, ZCamError
+from spots.camera.discovery import discover_zcam_ip
 from spots.camera.source import RtspFrameSource, SwitchableFrameSource, SyntheticFrameSource, ZoomFrameSource
 from spots.config import Settings
 from spots.storage import Storage
@@ -18,8 +19,18 @@ logger = logging.getLogger(__name__)
 
 def _make_zcam_factory(settings: Settings):
     def factory():
+        # The camera always plugs into the Pi's Ethernet port and gets its
+        # address from the Pi's own DHCP server (scripts/setup-network.sh),
+        # so re-discover on every connect rather than trusting a stale IP.
+        ip = discover_zcam_ip(settings.camera.ip or None)
+        if ip is None:
+            raise ZCamError("Could not find a Z CAM on the Ethernet link")
+        if ip != settings.camera.ip:
+            settings.camera.ip = ip
+            settings.save()
+
         client = ZCamClient(
-            settings.camera.ip,
+            ip,
             settings.camera.stream_width,
             settings.camera.stream_height,
             settings.camera.stream_bitrate,

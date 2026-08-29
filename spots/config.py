@@ -17,7 +17,11 @@ _EXAMPLE_CONFIG_PATH = "config.example.yaml"
 @dataclass
 class CameraConfig:
     source: str = "synthetic"  # "zcam" or "synthetic"
-    ip: str = "192.168.1.188"
+    # Empty string = auto-discover on the Ethernet link (see
+    # spots/camera/discovery.py) -- the normal field setup, since the Pi
+    # hands the camera its DHCP lease and its address isn't fixed. Set this
+    # explicitly only if you want to skip discovery and pin a known IP.
+    ip: str = ""
     stream_width: int = 1920
     stream_height: int = 1080
     stream_bitrate: int = 8_000_000
