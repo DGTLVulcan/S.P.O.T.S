@@ -38,7 +38,8 @@ for arg in "$@"; do
       echo "  -update       pull latest changes and reinstall dependencies" >&2
       echo "  -initnetwork  force (re)run the WiFi AP / camera DHCP setup" >&2
       echo "  -initservice  force (re)install the systemd autostart service" >&2
-      echo "  -stopnetwork  take wlan0 out of AP mode to get normal WiFi/internet back" >&2
+      echo "  -stopnetwork  leave range mode: wlan0 back to a WiFi client, eth0 back" >&2
+      echo "                to a normal DHCP client (restores internet and LAN SSH)" >&2
       exit 1
       ;;
   esac

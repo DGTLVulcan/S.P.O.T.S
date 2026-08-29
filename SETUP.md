@@ -129,27 +129,36 @@ idempotent and picks up wherever a previous run left off, including if it
 aborted partway through (e.g. an apt package error before reaching the
 network/service steps).
 
-### Getting normal WiFi/internet back on the Pi
+### Getting normal WiFi/internet/LAN back on the Pi
 
-Once `setup-network.sh` has run, `wlan0` is a dedicated access point and
-won't join your home WiFi (or get internet) on its own. To leave range mode
-and reconnect it as a normal client:
+In range mode `wlan0` is a dedicated access point (so it won't join your
+home WiFi or get internet) and `eth0` serves its own DHCP on a fixed
+address (so plugging the Pi into a router never gets it a lease, and it
+never shows up on your LAN). Leaving range mode restores both:
 
 ```bash
+spots -stopnetwork
+
+# or, to also rejoin a named WiFi network in the same step:
 sudo SPOTS_WIFI_SSID="YourHomeNetwork" SPOTS_WIFI_PASSWORD="yourpassword" \
   bash ~/spots/scripts/stop-network.sh
-# or, once your installed `spots` command has this flag:
-spots -stopnetwork
 ```
 
-Omit the env vars to just take `wlan0` out of AP mode without reconnecting
-it anywhere (e.g. if you'll connect it manually or it already knows a
-network). `eth0`/`spots-eth` is left alone unless you set
-`SPOTS_RESET_ETH=1` -- if you're SSH'd into the Pi *through* eth0, your
-session's address almost certainly came from spots-eth's own DHCP server,
-so reverting it will likely drop that session; only do that from the
-console, or a connection you don't need to keep. Run `spots -initnetwork`
-(or `setup-network.sh`) again whenever you're ready to go back to range mode.
+Without `SPOTS_WIFI_SSID` it just takes `wlan0` out of AP mode and lets it
+reconnect to a network it already knows (or connect manually afterwards).
+
+`eth0` goes back to being a normal DHCP client, so you can plug the Pi into
+a router and SSH to it over Ethernet again. **If you are SSH'd in through
+eth0, that session will drop** -- its address came from the Pi's own DHCP
+server, which is exactly what's being turned off. Reconnect at whatever
+address your router assigns (check its client list, or try
+`ssh <user>@<hostname>.local`). The switch is handed to systemd so it
+completes even if your session dies mid-command, rather than stopping
+halfway and leaving eth0 with no usable profile. Pass `SPOTS_KEEP_ETH=1` to
+leave the camera's DHCP side untouched.
+
+Run `spots -initnetwork` (or `setup-network.sh`) again whenever you're ready
+to go back to range mode.
 
 ## At the range
 
