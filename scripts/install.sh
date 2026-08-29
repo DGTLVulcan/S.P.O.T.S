@@ -9,10 +9,23 @@
 # Usage (repo already cloned):
 #   ./scripts/install.sh
 #
+# Also sets the Pi up as its own network (WiFi access point for phones/
+# tablets + DHCP for the Z CAM on Ethernet, see scripts/setup-network.sh)
+# and installs a systemd service so S.P.O.T.S starts automatically on boot.
+#
+# WARNING: if you're running this over SSH via WiFi, the network setup step
+# puts wlan0 into access-point mode and will drop that connection. Run this
+# from the console, over Ethernet, or set SPOTS_SKIP_NETWORK=1 and run
+# scripts/setup-network.sh yourself later from the console.
+#
 # Env vars:
-#   SPOTS_DIR   Where to install (default: $HOME/spots). Ignored if this
-#               script is already running from inside a cloned repo.
-#   REPO_URL    Git remote to clone (default: the S.P.O.T.S GitHub repo).
+#   SPOTS_DIR            Where to install (default: $HOME/spots). Ignored if
+#                        this script is already running from inside a clone.
+#   REPO_URL             Git remote to clone (default: the S.P.O.T.S GitHub repo).
+#   SPOTS_SKIP_NETWORK   Set to 1 to skip the WiFi AP / Ethernet DHCP setup.
+#   SPOTS_SKIP_SERVICE   Set to 1 to skip installing the systemd autostart service.
+#   SPOTS_AP_SSID, SPOTS_AP_PASSWORD, SPOTS_AP_IP, SPOTS_ETH_IP,
+#   SPOTS_WIFI_COUNTRY   Passed through to scripts/setup-network.sh.
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/DGTLVulcan/S.P.O.T.S.git}"
@@ -69,7 +82,7 @@ if [ ! -f config.yaml ]; then
   echo "==> Creating config.yaml from config.example.yaml"
   cp config.example.yaml config.yaml
   echo "    Edit $INSTALL_DIR/config.yaml before your first run: set camera.source"
-  echo "    to \"zcam\" and camera.ip to your Z CAM's IP address."
+  echo "    to \"zcam\" (camera.ip can stay blank -- it's auto-discovered)."
 else
   echo "==> config.yaml already exists, leaving it as-is"
 fi
@@ -81,6 +94,30 @@ sed \
   -e "s|__REPO_URL__|$REPO_URL|" \
   "$INSTALL_DIR/scripts/spots.sh" > "$HOME/.local/bin/spots"
 chmod +x "$HOME/.local/bin/spots"
+
+if [ "${SPOTS_SKIP_NETWORK:-0}" != "1" ]; then
+  echo "==> Setting up the Pi's own network (WiFi AP + camera DHCP)"
+  bash "$INSTALL_DIR/scripts/setup-network.sh"
+else
+  echo "==> SPOTS_SKIP_NETWORK=1, skipping WiFi AP / Ethernet DHCP setup"
+fi
+
+if [ "${SPOTS_SKIP_SERVICE:-0}" != "1" ] && command -v systemctl >/dev/null 2>&1; then
+  echo "==> Installing systemd service so S.P.O.T.S starts on boot"
+  SUDO=""
+  if [ "$(id -u)" -ne 0 ]; then
+    SUDO="sudo"
+  fi
+  sed \
+    -e "s|__INSTALL_DIR__|$INSTALL_DIR|" \
+    -e "s|__USER__|$(id -un)|" \
+    "$INSTALL_DIR/scripts/spots.service" | $SUDO tee /etc/systemd/system/spots.service >/dev/null
+  $SUDO systemctl daemon-reload
+  $SUDO systemctl enable spots.service
+  $SUDO systemctl restart spots.service
+else
+  echo "==> Skipping systemd service install"
+fi
 
 echo
 echo "==> Done."
@@ -94,6 +131,8 @@ case ":$PATH:" in
 esac
 echo
 echo "Next steps:"
-echo "  1. Edit $INSTALL_DIR/config.yaml for your camera/target setup."
-echo "  2. Run 'spots' to start the dashboard."
+echo "  1. Edit $INSTALL_DIR/config.yaml if you need non-default camera/target settings."
+echo "  2. S.P.O.T.S is now running as a service and will start automatically on"
+echo "     every boot -- join the WiFi network printed above and browse to the"
+echo "     dashboard. Use 'journalctl -u spots -f' to view its logs."
 echo "  3. After pulling repo updates in the future, run 'spots -update'."

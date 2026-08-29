@@ -20,25 +20,27 @@ depending on how you have the camera's dual-stream config set.
 
 ## Field network topology
 
-The Pi needs to reach the camera over IP, and your phone/tablet needs to
-reach the Pi. The simplest reliable setup is a **portable travel router**
-(e.g. a cheap GL.iNet-style unit) that all three devices join:
+The Pi **is** the network -- no separate router needed. The installer
+configures the Pi as its own WiFi access point for your phone/tablet, and as
+a static-IP DHCP server on its Ethernet port for the Z CAM, which always
+plugs directly into the Pi:
 
 ```
-   Z CAM E2  ---Wi-Fi--->  [ travel router ]  <---Wi-Fi---  Phone/tablet
-                                   ^
-                                   | Wi-Fi or Ethernet
-                                   Raspberry Pi (runs S.P.O.T.S)
+   Z CAM E2  ---Ethernet--->  Raspberry Pi (WiFi AP + runs S.P.O.T.S)  <---WiFi---  Phone/tablet
 ```
 
-This avoids configuring the Pi as its own Wi-Fi access point (hostapd/dnsmasq),
-which is more fragile to debug in the field. Set `camera.ip` in `config.yaml`
-to whatever IP the router hands the Z CAM (check the router's client list, or
-hit `http://<candidate-ip>/info` from the Pi to confirm).
+The Pi hands the camera its IP address via DHCP on Ethernet and the
+dashboard auto-discovers it on every connect (see `spots/camera/discovery.py`)
+-- you never need to look up or type in the camera's IP. See
+`scripts/setup-network.sh` for exactly what it configures (WiFi AP SSID/
+password, the Pi's IP on each interface); it prints the SSID and password to
+join at the end.
 
 ## Raspberry Pi install
 
-On a fresh Raspberry Pi (Raspberry Pi OS or other Debian-based image), run:
+On a fresh Raspberry Pi (Raspberry Pi OS Bookworm or later -- the installer
+uses NetworkManager, which is the default network stack there), from the
+Pi's own console or a wired SSH session (see the warning below), run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/DGTLVulcan/S.P.O.T.S/main/scripts/install.sh | bash
@@ -47,9 +49,18 @@ curl -fsSL https://raw.githubusercontent.com/DGTLVulcan/S.P.O.T.S/main/scripts/i
 This installs the OS packages S.P.O.T.S needs (git, Python venv, OpenCV
 runtime libs), clones the repo to `~/spots`, creates a Python virtual
 environment there, installs the Python dependencies, copies
-`config.example.yaml` to `config.yaml` if it doesn't already exist, and
-installs a `spots` command to `~/.local/bin`. If `~/.local/bin` isn't already
-on your `PATH`, the installer tells you the one line to add to `~/.bashrc`.
+`config.example.yaml` to `config.yaml` if it doesn't already exist, installs
+a `spots` command to `~/.local/bin`, configures the Pi's own WiFi AP +
+camera DHCP (see Field network topology above), and installs a systemd
+service so **S.P.O.T.S starts automatically on every boot** -- there's
+nothing to manually run at the range.
+
+**Warning:** the network setup step puts the Pi's WiFi into access-point
+mode, which immediately drops any WiFi connection to the Pi (e.g. an SSH
+session over WiFi). Run the installer from the Pi's console, over a wired
+Ethernet SSH session, or set `SPOTS_SKIP_NETWORK=1` before running it to
+skip that step and run `scripts/setup-network.sh` yourself later from the
+console.
 
 If you'd rather clone the repo yourself first (e.g. to a non-default
 location), that works too -- run the same script from inside the clone and
@@ -60,14 +71,20 @@ git clone https://github.com/DGTLVulcan/S.P.O.T.S.git && cd S.P.O.T.S
 ./scripts/install.sh
 ```
 
-Edit `~/spots/config.yaml` (or `<your clone>/config.yaml`): set `camera.source`
-to `zcam` and `camera.ip` to your Z CAM's IP address. Then start it:
+To use the real camera instead of the default synthetic feed, edit
+`~/spots/config.yaml` (or `<your clone>/config.yaml`) and set `camera.source`
+to `zcam` (leave `camera.ip` blank -- it's auto-discovered), then either
+`sudo systemctl restart spots` or reboot for the change to take effect.
 
-```bash
-spots
-```
+Once installed, join the WiFi network the installer printed and browse to
+`http://<pi's AP IP>:8080/` (default `http://192.168.4.1:8080/`, or try
+`http://<hostname>.local:8080/`).
 
-Then from your phone, browse to `http://<pi-ip>:8080/`.
+Installer env var overrides (all optional): `SPOTS_DIR`, `REPO_URL`,
+`SPOTS_SKIP_NETWORK`, `SPOTS_SKIP_SERVICE`, `SPOTS_AP_SSID`,
+`SPOTS_AP_PASSWORD`, `SPOTS_AP_IP`, `SPOTS_ETH_IP`, `SPOTS_WIFI_COUNTRY` --
+see the comments at the top of `scripts/install.sh` and
+`scripts/setup-network.sh`.
 
 ### Updating
 
@@ -79,14 +96,21 @@ spots -update
 ```
 
 This pulls the latest commit (`git pull --ff-only`), reinstalls Python
-dependencies in case `requirements.txt` changed, then starts the app as
-usual. Plain `spots` (no flag) just starts it without touching git.
+dependencies in case `requirements.txt` changed, and restarts the systemd
+service (prompting for your sudo password) so the update takes effect
+immediately. Plain `spots` (no flag) just reports that the service is
+already running -- since it now starts automatically on boot, you shouldn't
+normally need to start it by hand. `journalctl -u spots -f` tails its logs.
 
 ## At the range
 
-1. Mount the camera on a tripod aimed at the target, connect power.
-2. Power on the Pi (a USB power bank works fine).
-3. Load the dashboard on your phone.
+1. Mount the camera on a tripod aimed at the target, connect it to the Pi's
+   Ethernet port, and power it on.
+2. Power on the Pi (a USB power bank works fine). S.P.O.T.S starts itself --
+   give it a minute to boot and connect to the camera.
+3. Join the Pi's WiFi network from your phone (SSID/password from the
+   installer output -- see Field network topology above) and load the
+   dashboard.
 4. If the lens can't get physically close enough to fill the frame with the
    target, use the **Zoom** slider (and **Center Zoom Here** to pan) on the
    live view first -- see Digital zoom below. Do this before calibrating,
