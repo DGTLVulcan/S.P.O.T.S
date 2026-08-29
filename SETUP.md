@@ -38,17 +38,49 @@ hit `http://<candidate-ip>/info` from the Pi to confirm).
 
 ## Raspberry Pi install
 
+On a fresh Raspberry Pi (Raspberry Pi OS or other Debian-based image), run:
+
 ```bash
-sudo apt update && sudo apt install -y python3-venv libatlas-base-dev
-git clone <this repo> spots && cd spots
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp config.example.yaml config.yaml
-# edit config.yaml: set camera.source to "zcam" and camera.ip to the camera's IP
-python S.P.O.T.S.py
+curl -fsSL https://raw.githubusercontent.com/DGTLVulcan/S.P.O.T.S/main/scripts/install.sh | bash
+```
+
+This installs the OS packages S.P.O.T.S needs (git, Python venv, OpenCV
+runtime libs), clones the repo to `~/spots`, creates a Python virtual
+environment there, installs the Python dependencies, copies
+`config.example.yaml` to `config.yaml` if it doesn't already exist, and
+installs a `spots` command to `~/.local/bin`. If `~/.local/bin` isn't already
+on your `PATH`, the installer tells you the one line to add to `~/.bashrc`.
+
+If you'd rather clone the repo yourself first (e.g. to a non-default
+location), that works too -- run the same script from inside the clone and
+it installs in place instead of cloning a second copy:
+
+```bash
+git clone https://github.com/DGTLVulcan/S.P.O.T.S.git && cd S.P.O.T.S
+./scripts/install.sh
+```
+
+Edit `~/spots/config.yaml` (or `<your clone>/config.yaml`): set `camera.source`
+to `zcam` and `camera.ip` to your Z CAM's IP address. Then start it:
+
+```bash
+spots
 ```
 
 Then from your phone, browse to `http://<pi-ip>:8080/`.
+
+### Updating
+
+When you've pushed changes to the git repo and want the Pi to pick them up,
+run:
+
+```bash
+spots -update
+```
+
+This pulls the latest commit (`git pull --ff-only`), reinstalls Python
+dependencies in case `requirements.txt` changed, then starts the app as
+usual. Plain `spots` (no flag) just starts it without touching git.
 
 ## At the range
 
