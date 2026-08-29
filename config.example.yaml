@@ -70,3 +70,11 @@ storage:
 web:
   host: 0.0.0.0
   port: 8080
+  # Dashboard video stream. Each streamed frame costs an overlay draw plus a
+  # full JPEG encode, for every viewer watching -- on a Pi that's the largest
+  # steady CPU cost. This is independent of detection: shots are still found
+  # at detection.sample_fps regardless of what the stream is doing. Raise
+  # stream_fps for a smoother picture if you have CPU headroom, lower it (or
+  # lower stream_quality) if the dashboard feels sluggish.
+  stream_fps: 10
+  stream_quality: 80

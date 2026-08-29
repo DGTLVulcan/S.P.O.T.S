@@ -351,10 +351,10 @@ class DetectionWorker:
         snapshot = self.state.snapshot()
         if snapshot.session_id is None:
             return
-        for shot in snapshot.shots:
-            self._storage.update_shot_units(
-                snapshot.session_id, shot.seq, shot.x_units, shot.y_units
-            )
+        self._storage.update_many_shot_units(
+            snapshot.session_id,
+            [(shot.seq, shot.x_units, shot.y_units) for shot in snapshot.shots],
+        )
 
     def undo_last(self) -> None:
         state = self.state.snapshot()

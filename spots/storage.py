@@ -85,10 +85,25 @@ class Storage:
     def update_shot_units(
         self, session_id: int, seq: int, x_units: float | None, y_units: float | None
     ) -> None:
+        self.update_many_shot_units(session_id, [(seq, x_units, y_units)])
+
+    def update_many_shot_units(
+        self, session_id: int, rows: list[tuple[int, float | None, float | None]]
+    ) -> None:
+        """Re-writes several shots' real-world units in ONE transaction.
+
+        Recalibrating or marking the target center re-derives units for every
+        shot in the session; doing that a row at a time meant a separate
+        commit (and so a separate fsync) per shot, which on a Pi's SD card
+        turned a 30-shot session into a visibly slow "Mark Center". One
+        commit for the batch keeps it instant.
+        """
+        if not rows:
+            return
         with self._lock:
-            self._conn.execute(
+            self._conn.executemany(
                 "UPDATE shots SET x_units = ?, y_units = ? WHERE session_id = ? AND seq = ?",
-                (x_units, y_units, session_id, seq),
+                [(x_units, y_units, session_id, seq) for seq, x_units, y_units in rows],
             )
             self._conn.commit()
 

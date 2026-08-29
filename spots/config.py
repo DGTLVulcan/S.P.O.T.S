@@ -85,6 +85,14 @@ class StorageConfig:
 class WebConfig:
     host: str = "0.0.0.0"
     port: int = 8080
+    # MJPEG dashboard stream. Every streamed frame costs an overlay draw plus
+    # a full JPEG encode, per connected viewer -- on a Pi that's the single
+    # biggest steady CPU cost, and it's independent of the detection sample
+    # rate (shots are still detected at detection.sample_fps no matter what
+    # this is set to). 10 fps still looks live on a phone; raise it for a
+    # smoother picture if you have CPU headroom.
+    stream_fps: float = 10.0
+    stream_quality: int = 80
 
 
 @dataclass

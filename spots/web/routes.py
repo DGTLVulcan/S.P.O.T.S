@@ -32,8 +32,9 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint("spots", __name__)
 
-_JPEG_QUALITY = 80
-_STREAM_INTERVAL_S = 1.0 / 15  # cap the MJPEG feed independent of detection sample rate
+# MJPEG frame rate and JPEG quality now come from WebConfig (see
+# config.example.yaml's web.stream_fps / web.stream_quality) so the biggest
+# steady CPU cost on a Pi is tunable without a code change.
 
 
 def _worker():
@@ -102,25 +103,34 @@ def _draw_overlay(frame, snapshot, homography):
     return frame
 
 
-def _mjpeg_generator(worker):
+def _mjpeg_generator(worker, interval_s, quality):
+    encode_params = [cv2.IMWRITE_JPEG_QUALITY, quality]
     while True:
         frame = worker.get_latest_frame()
         if frame is not None:
             snapshot = worker.state.snapshot()
             homography = worker.get_last_homography()
-            annotated = _draw_overlay(frame.copy(), snapshot, homography)
-            ok, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, _JPEG_QUALITY])
+            # No defensive copy: FrameSource.get_latest_frame() contracts to
+            # hand back an array we own, so the overlay can be drawn straight
+            # into it (a 1080p copy per streamed frame is not free on a Pi).
+            annotated = _draw_overlay(frame, snapshot, homography)
+            ok, buf = cv2.imencode(".jpg", annotated, encode_params)
             if ok:
                 yield (
                     b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
                 )
-        time.sleep(_STREAM_INTERVAL_S)
+        time.sleep(interval_s)
 
 
 @bp.route("/video_feed")
 def video_feed():
+    # Resolve everything needing app context up front: the generator is
+    # consumed by the WSGI server after this request's context is gone.
+    web = _settings().web
+    interval_s = 1.0 / max(web.stream_fps, 0.1)
     return Response(
-        _mjpeg_generator(_worker()), mimetype="multipart/x-mixed-replace; boundary=frame"
+        _mjpeg_generator(_worker(), interval_s, web.stream_quality),
+        mimetype="multipart/x-mixed-replace; boundary=frame",
     )
 
 

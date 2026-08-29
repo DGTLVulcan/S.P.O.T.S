@@ -28,7 +28,14 @@ class FrameSource(abc.ABC):
 
     @abc.abstractmethod
     def get_latest_frame(self) -> np.ndarray | None:
-        """Returns the most recent BGR frame, or None if none is available yet."""
+        """Returns the most recent BGR frame, or None if none is available yet.
+
+        Implementations MUST return an array the caller owns outright, never
+        a view of an internal buffer that a later frame will overwrite.
+        Callers rely on this to draw overlays in place without copying first
+        (see the MJPEG stream), so handing back shared memory would let one
+        consumer's annotations bleed into another's frame.
+        """
 
 
 class RtspFrameSource(FrameSource):
@@ -144,6 +151,11 @@ class SyntheticFrameSource(FrameSource):
     """
 
     _HOLE_RADIUS_PX = 8
+    # Number of distinct pre-generated dither patterns cycled through. They
+    # come from overlapping row-offset *views* of one oversized buffer, so
+    # this costs one frame of memory rather than _DITHER_FRAMES of it.
+    _DITHER_FRAMES = 8
+    _DITHER_AMPLITUDE = 3
 
     def __init__(self, width: int = 1920, height: int = 1080, seed: int = 42):
         self._width = width
@@ -158,6 +170,20 @@ class SyntheticFrameSource(FrameSource):
         # scene detail stays put; only a much smaller sensor-noise dither
         # actually varies frame to frame.
         self._base = self._build_base_frame(seed)
+        # Base with the current holes already drawn in, rebuilt only when the
+        # hole list changes rather than re-drawn every single frame.
+        self._composite = self._base
+        # Generating a fresh full-resolution gaussian per frame cost ~68 ms
+        # at 1080p -- with the MJPEG stream and the detector both pulling
+        # frames that alone was more than a Pi core. Pre-generate the noise
+        # once as int8 and cycle row-offset views of it instead (~2 ms).
+        self._dither = np.random.default_rng(seed).integers(
+            -self._DITHER_AMPLITUDE,
+            self._DITHER_AMPLITUDE + 1,
+            (height + self._DITHER_FRAMES, width, 3),
+            dtype=np.int8,
+        )
+        self._dither_index = 0
 
     def _build_base_frame(self, seed: int) -> np.ndarray:
         frame = np.full((self._height, self._width, 3), 235, dtype=np.uint8)
@@ -175,9 +201,16 @@ class SyntheticFrameSource(FrameSource):
     def start(self) -> None:
         pass
 
+    def _rebuild_composite_locked(self) -> None:
+        composite = self._base.copy()
+        for x, y in self._holes:
+            cv2.circle(composite, (x, y), self._HOLE_RADIUS_PX, (10, 10, 10), thickness=-1)
+        self._composite = composite
+
     def reset_target(self) -> None:
         with self._lock:
             self._holes.clear()
+            self._composite = self._base
 
     def add_hole(self, x: int, y: int) -> None:
         """Manually places a hole (e.g. from a dashboard click), so the
@@ -185,21 +218,23 @@ class SyntheticFrameSource(FrameSource):
         """
         with self._lock:
             self._holes.append((int(x), int(y)))
+            self._rebuild_composite_locked()
         logger.info("Synthetic source: hole placed at (%d, %d)", x, y)
 
     def get_latest_frame(self) -> np.ndarray | None:
-        frame = self._base.copy()
-
         with self._lock:
-            holes = list(self._holes)
-        for x, y in holes:
-            cv2.circle(frame, (x, y), self._HOLE_RADIUS_PX, (10, 10, 10), thickness=-1)
+            composite = self._composite
+            offset = self._dither_index
+            self._dither_index = (self._dither_index + 1) % self._DITHER_FRAMES
 
-        # Small fresh dither on top of the fixed base -- well below
-        # diff_threshold, so it doesn't trigger false contours, but enough
-        # to look like a live feed rather than a static image.
-        dither = np.random.default_rng().normal(0, 2, frame.shape).astype(np.int16)
-        return np.clip(frame.astype(np.int16) + dither, 0, 255).astype(np.uint8)
+        # Small dither over the fixed base -- well below diff_threshold, so
+        # it doesn't trigger false contours, but enough to look like a live
+        # feed rather than a static image. cv2.add saturates at 0/255 rather
+        # than wrapping, so no separate clip pass is needed, and it returns a
+        # new array so `composite` itself is never mutated.
+        return cv2.add(
+            composite, self._dither[offset : offset + self._height], dtype=cv2.CV_8U
+        )
 
     def stop(self) -> None:
         pass
