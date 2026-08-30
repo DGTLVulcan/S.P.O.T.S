@@ -12,3 +12,4 @@ config.yaml
 *.db
 /snapshots/
 
+/nul
