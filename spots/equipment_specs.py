@@ -101,7 +101,7 @@ EQUIPMENT_SPECS: dict[str, tuple[SpecField, ...]] = {
 # know the temperature, and a half-filled record is still worth more than
 # none when comparing two groups weeks apart.
 CONDITION_FIELDS: tuple[SpecField, ...] = (
-    SpecField("wind_speed", "Wind speed", "number", unit="mph", step="0.5", placeholder="8"),
+    SpecField("wind_speed", "Wind speed", "number", unit="kph", step="0.5", placeholder="12"),
     SpecField("wind_direction", "Wind direction", "select", options=(
         ("", "Unspecified"), ("head", "Headwind"), ("tail", "Tailwind"),
         ("left", "Full value, left"), ("right", "Full value, right"),
@@ -164,7 +164,7 @@ def clean_conditions(raw: dict) -> tuple[dict, list[str]]:
 
 
 def describe_conditions(conditions: dict | None) -> str:
-    """One line for lists and comparisons, e.g. "8 mph left, 18 C, overcast"."""
+    """One line for lists and comparisons, e.g. "12 kph left, 18 C, overcast"."""
     conditions = conditions or {}
     labels = {f.key: dict(f.options) for f in CONDITION_FIELDS if f.kind == "select"}
     parts: list[str] = []
@@ -172,7 +172,7 @@ def describe_conditions(conditions: dict | None) -> str:
     if wind not in (None, ""):
         chosen = conditions.get("wind_direction")
         direction = labels["wind_direction"].get(chosen, "") if chosen else ""
-        parts.append(f"{float(wind):g} mph{' ' + direction.lower() if direction else ''}")
+        parts.append(f"{float(wind):g} kph{' ' + direction.lower() if direction else ''}")
     if conditions.get("temperature_c") not in (None, ""):
         parts.append(f"{float(conditions['temperature_c']):g} C")
     for key in ("light", "position"):
