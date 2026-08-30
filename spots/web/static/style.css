@@ -122,7 +122,13 @@ a { color: var(--accent); }
   min-width: 0;
 }
 .equipment-select {
-  max-width: 12rem;
+  /* A fixed width rather than max-width: a select sizes to its widest
+     option, so a long scope name made that one dropdown wider than its
+     neighbours. Equal widths regardless of content; anything longer is
+     clipped by the browser, and the full text is still in the open list. */
+  width: 12rem;
+  flex: none;
+  text-overflow: ellipsis;
   font-size: 0.82rem;
   padding: 0.35rem 0.5rem;
   border-radius: 8px;
@@ -136,7 +142,8 @@ a { color: var(--accent); }
 @media (max-width: 900px) {
   .appbar { flex-wrap: wrap; }
   .equipment-bar { order: 3; width: 100%; margin: 0.5rem 0 0; }
-  .equipment-select { flex: 1 1 30%; max-width: none; }
+  /* Full width available on a phone, still equal thirds. */
+  .equipment-select { flex: 1 1 0; width: auto; min-width: 0; }
 }
 
 .icon-nav {
