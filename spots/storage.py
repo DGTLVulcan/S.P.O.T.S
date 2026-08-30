@@ -45,6 +45,16 @@ CREATE TABLE IF NOT EXISTS equipment (
     specs TEXT,
     created_at REAL NOT NULL
 );
+
+-- Small key/value store for app state that must outlive a restart but has
+-- no business in config.yaml -- currently which rifle/scope/ammo is
+-- selected. Keeping that next to the equipment it points at means the two
+-- can never disagree, and selecting something no longer depends on the
+-- config file being writable.
+CREATE TABLE IF NOT EXISTS app_state (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 
 EQUIPMENT_KINDS = ("rifle", "scope", "ammo")
@@ -140,6 +150,54 @@ class Storage:
                 for k, n, notes, cv, cu, specs in _DEFAULT_EQUIPMENT
             ],
         )
+
+    def get_state(self, key: str, default: str | None = None) -> str | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT value FROM app_state WHERE key = ?", (key,)
+            ).fetchone()
+        return row[0] if row else default
+
+    def set_state(self, key: str, value: str | None) -> None:
+        with self._lock:
+            if value is None:
+                self._conn.execute("DELETE FROM app_state WHERE key = ?", (key,))
+            else:
+                self._conn.execute(
+                    "INSERT INTO app_state (key, value) VALUES (?, ?)"
+                    " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (key, value),
+                )
+            self._conn.commit()
+
+    def _selection_key(self, kind: str) -> str:
+        return f"selected_{kind}"
+
+    def get_selected_equipment(self) -> dict[str, int | None]:
+        """Currently selected id per kind, self-healing: a selection whose
+        equipment has since been deleted (or was written for another kind)
+        is cleared rather than lingering as a dangling reference that shows
+        up as "none" forever.
+        """
+        selected: dict[str, int | None] = {}
+        for kind in EQUIPMENT_KINDS:
+            raw = self.get_state(self._selection_key(kind))
+            item_id = None
+            if raw is not None:
+                try:
+                    candidate = int(raw)
+                except (TypeError, ValueError):
+                    candidate = None
+                item = self.get_equipment(candidate) if candidate is not None else None
+                if item is not None and item["kind"] == kind:
+                    item_id = candidate
+                else:
+                    self.set_state(self._selection_key(kind), None)
+            selected[kind] = item_id
+        return selected
+
+    def set_selected_equipment(self, kind: str, equipment_id: int | None) -> None:
+        self.set_state(self._selection_key(kind), None if equipment_id is None else str(equipment_id))
 
     def list_equipment(self, kind: str | None = None) -> list[dict]:
         query = (

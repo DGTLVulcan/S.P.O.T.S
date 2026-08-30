@@ -300,23 +300,17 @@ def api_shots():
 def _selected_equipment():
     """The currently selected rifle/scope/ammo records, by kind.
 
-    A selection whose record has since been deleted reads as None rather
-    than erroring, so removing a rifle can't wedge the dashboard.
+    The selection lives in the database alongside the equipment itself, so
+    the two can't drift apart, and a record deleted since being selected
+    reads as None rather than wedging the dashboard.
     """
-    equipment = _settings().equipment
     storage = _storage()
-    chosen = {}
-    for kind, attr in (("rifle", "rifle_id"), ("scope", "scope_id"), ("ammo", "ammo_id")):
-        item_id = getattr(equipment, attr)
-        chosen[kind] = storage.get_equipment(item_id) if item_id else None
-        if chosen[kind] is not None and chosen[kind]["kind"] != kind:
-            chosen[kind] = None  # id points at a different kind; ignore it
-    return chosen
+    selected = storage.get_selected_equipment()
+    return {kind: (storage.get_equipment(i) if i else None) for kind, i in selected.items()}
 
 
 def _equipment_payload():
     storage = _storage()
-    equipment = _settings().equipment
 
     def decorate(item):
         # A one-line "what is this" for the header dropdowns, derived from
@@ -329,11 +323,7 @@ def _equipment_payload():
         "items": {
             kind: [decorate(i) for i in storage.list_equipment(kind)] for kind in EQUIPMENT_KINDS
         },
-        "selected": {
-            "rifle": equipment.rifle_id,
-            "scope": equipment.scope_id,
-            "ammo": equipment.ammo_id,
-        },
+        "selected": storage.get_selected_equipment(),
     }
 
 
@@ -415,13 +405,10 @@ def api_equipment_delete(equipment_id):
     if existing is None:
         return jsonify({"error": f"No equipment #{equipment_id}"}), 404
     _storage().delete_equipment(equipment_id)
-    # Clear the selection if it pointed at what was just removed, so the
-    # header doesn't keep showing a rifle that no longer exists.
-    settings = _settings()
-    attr = f"{existing['kind']}_id"
-    if getattr(settings.equipment, attr) == equipment_id:
-        setattr(settings.equipment, attr, None)
-        settings.save()
+    # get_selected_equipment() clears a dangling selection on read, so the
+    # header stops showing a rifle that no longer exists without needing a
+    # separate fix-up here.
+    _storage().get_selected_equipment()
     return jsonify({"ok": True})
 
 
@@ -441,9 +428,7 @@ def api_equipment_select():
         item = _storage().get_equipment(item_id)
         if item is None or item["kind"] != kind:
             return jsonify({"error": f"No {kind} #{item_id}"}), 404
-    settings = _settings()
-    setattr(settings.equipment, f"{kind}_id", item_id)
-    settings.save()
+    _storage().set_selected_equipment(kind, item_id)
     return jsonify({"ok": True, "selected": item_id})
 
 

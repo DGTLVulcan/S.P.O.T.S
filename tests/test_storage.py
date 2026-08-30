@@ -286,3 +286,60 @@ class EquipmentTests(StorageTestCase):
         session_id = self.storage.new_session("cm", 100.0, rifle="Sold Rifle")
         self.storage.delete_equipment(rifle_id)
         self.assertEqual(self.storage.get_session(session_id)["rifle"], "Sold Rifle")
+
+
+class EquipmentSelectionTests(StorageTestCase):
+    """The selection lives beside the equipment rather than in config.yaml,
+    so it survives the config being rewritten, replaced or unwritable."""
+
+    def test_selection_round_trips(self):
+        rifle = self.storage.list_equipment("rifle")[0]
+        self.storage.set_selected_equipment("rifle", rifle["id"])
+        self.assertEqual(self.storage.get_selected_equipment()["rifle"], rifle["id"])
+
+    def test_selection_survives_reopening_the_database(self):
+        scope = self.storage.list_equipment("scope")[0]
+        self.storage.set_selected_equipment("scope", scope["id"])
+        self.storage.close()
+        self.storage = Storage(self.path)
+        self.assertEqual(self.storage.get_selected_equipment()["scope"], scope["id"])
+
+    def test_nothing_selected_by_default(self):
+        self.assertEqual(
+            self.storage.get_selected_equipment(), {"rifle": None, "scope": None, "ammo": None}
+        )
+
+    def test_selection_can_be_cleared(self):
+        ammo = self.storage.list_equipment("ammo")[0]
+        self.storage.set_selected_equipment("ammo", ammo["id"])
+        self.storage.set_selected_equipment("ammo", None)
+        self.assertIsNone(self.storage.get_selected_equipment()["ammo"])
+
+    def test_deleted_equipment_clears_its_selection(self):
+        new_id = self.storage.add_equipment("rifle", "Temporary")
+        self.storage.set_selected_equipment("rifle", new_id)
+        self.storage.delete_equipment(new_id)
+        self.assertIsNone(self.storage.get_selected_equipment()["rifle"])
+        # ...and the dangling key is gone, not merely ignored on read.
+        self.assertIsNone(self.storage.get_state("selected_rifle"))
+
+    def test_selection_pointing_at_the_wrong_kind_is_ignored(self):
+        scope = self.storage.list_equipment("scope")[0]
+        self.storage.set_state("selected_rifle", str(scope["id"]))
+        self.assertIsNone(self.storage.get_selected_equipment()["rifle"])
+
+    def test_corrupt_selection_value_is_ignored(self):
+        self.storage.set_state("selected_ammo", "not-a-number")
+        self.assertIsNone(self.storage.get_selected_equipment()["ammo"])
+
+
+class AppStateTests(StorageTestCase):
+    def test_set_get_and_delete(self):
+        self.assertIsNone(self.storage.get_state("missing"))
+        self.assertEqual(self.storage.get_state("missing", "fallback"), "fallback")
+        self.storage.set_state("k", "v")
+        self.assertEqual(self.storage.get_state("k"), "v")
+        self.storage.set_state("k", "v2")
+        self.assertEqual(self.storage.get_state("k"), "v2")
+        self.storage.set_state("k", None)
+        self.assertIsNone(self.storage.get_state("k"))

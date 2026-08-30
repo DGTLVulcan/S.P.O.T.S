@@ -41,6 +41,44 @@ def _make_zcam_factory(settings: Settings):
     return factory
 
 
+def _migrate_equipment_selection(settings: Settings, storage: Storage) -> None:
+    """Moves a selection previously kept in config.yaml into the database.
+
+    The selection used to live in config.yaml while the equipment it refers
+    to lived in the database -- two files that had to agree, where a
+    regenerated or unwritable config silently lost the choice. It is now
+    stored beside the equipment; this carries an existing choice across
+    once, then clears it from the config so there's only one owner.
+    """
+    equipment = getattr(settings, "equipment", None)
+    if equipment is None:
+        return
+    legacy = {
+        "rifle": equipment.rifle_id,
+        "scope": equipment.scope_id,
+        "ammo": equipment.ammo_id,
+    }
+    if not any(legacy.values()):
+        return
+    already = storage.get_selected_equipment()
+    moved = False
+    for kind, item_id in legacy.items():
+        if item_id and not already.get(kind):
+            item = storage.get_equipment(item_id)
+            if item is not None and item["kind"] == kind:
+                storage.set_selected_equipment(kind, item_id)
+                moved = True
+        setattr(equipment, f"{kind}_id", None)
+    try:
+        settings.save()
+    except OSError as exc:
+        # Not fatal: the selection is already safe in the database, the
+        # stale config keys are simply ignored from here on.
+        logger.warning("Could not clear the old equipment selection from config: %s", exc)
+    if moved:
+        logger.info("Moved the equipment selection from config.yaml into the database")
+
+
 def create_app(settings: Settings) -> Flask:
     switchable = SwitchableFrameSource(SyntheticFrameSource(), _make_zcam_factory(settings))
     if settings.camera.source == "zcam":
@@ -67,6 +105,7 @@ def create_app(settings: Settings) -> Flask:
         settings.camera.zoom_center_y,
     )
     storage = Storage(settings.storage.db_path)
+    _migrate_equipment_selection(settings, storage)
     worker = DetectionWorker(
         frame_source, storage, settings.target, settings.detection, settings.storage.snapshot_dir
     )
