@@ -100,4 +100,43 @@
   load();
   // Diagnostics panel; refreshed on a slow timer since none of it moves fast.
   pollHealth("health-root", null, 5000);
+
+  // Panel switching, matching the equipment page: one section on screen at a
+  // time instead of every setting stacked into one long scroll.
+  const FORM_PANELS = ["target", "detection", "camera"];
+  const PANEL_KEY = "spots.settingsPanel";
+  const navButtons = Array.from(document.querySelectorAll(".settings-nav"));
+  const panels = Array.from(document.querySelectorAll(".settings-panel"));
+  const actions = document.getElementById("settings-actions");
+
+  function showPanel(name) {
+    const known = panels.some((p) => p.dataset.panel === name);
+    const active = known ? name : "target";
+    panels.forEach((p) => {
+      p.hidden = p.dataset.panel !== active;
+    });
+    navButtons.forEach((b) => b.classList.toggle("is-open", b.dataset.panel === active));
+    // Save belongs to the form sections only; the device panels act on their
+    // own and would make it look like they need saving too.
+    if (actions) actions.hidden = !FORM_PANELS.includes(active);
+    try {
+      localStorage.setItem(PANEL_KEY, active);
+    } catch (err) {
+      /* private browsing -- the panel just won't be remembered */
+    }
+  }
+
+  navButtons.forEach((button) => {
+    button.addEventListener("click", () => showPanel(button.dataset.panel));
+  });
+
+  // Saving POSTs and redirects, which loses any in-page state, so the panel
+  // you were on is remembered and restored rather than snapping back.
+  let initial = "target";
+  try {
+    initial = localStorage.getItem(PANEL_KEY) || "target";
+  } catch (err) {
+    /* ignore */
+  }
+  showPanel(initial);
 })();

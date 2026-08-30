@@ -1099,3 +1099,10 @@ input[type="range"] { accent-color: var(--accent); }
 }
 .more-body .controls + .controls { margin-top: 0.6rem; }
 .more-body .hint { display: block; margin-top: 0.6rem; }
+
+/* ---------- Settings panels ---------- */
+
+.settings-title { font-size: 1.15rem; font-weight: 600; }
+.settings-panel > .equip-detail-head { margin-bottom: 1.1rem; }
+.settings-panel .field { margin-bottom: 0.9rem; }
+.settings-nav { cursor: pointer; }
