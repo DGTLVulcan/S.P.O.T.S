@@ -128,10 +128,21 @@
             <div class="field">
               <label for="min_hole_area_px">Min hole area (px&sup2;)</label>
               <input type="number" id="min_hole_area_px" name="detection.min_hole_area_px" value="{{ settings.detection.min_hole_area_px }}" required>
+              <span class="hint">Below this a blob is treated as noise rather than a hole.</span>
             </div>
             <div class="field">
               <label for="max_hole_area_px">Max hole area (px&sup2;)</label>
               <input type="number" id="max_hole_area_px" name="detection.max_hole_area_px" value="{{ settings.detection.max_hole_area_px }}" required>
+              <span class="hint">
+                <strong>Depends on your framing</strong> &mdash; a hole's size in pixels
+                is set by how much of the frame the target fills, so the defaults will
+                not suit every setup. Work it out as:
+                <code>hole_px = bullet_mm / 10 &times; (frame_width_px / target_width_cm)</code>,
+                then area = &pi; &times; (hole_px / 2)&sup2;. Set the max to roughly twice
+                that and the min to about a fifth. A .308 (7.8&nbsp;mm) on a 60&nbsp;cm
+                target filling a 1920&nbsp;px frame is about 25&nbsp;px across
+                &mdash; ~490&nbsp;px&sup2;, which the default 400 would reject.
+              </span>
             </div>
             <div class="field">
               <label for="min_circularity">Min circularity</label>
