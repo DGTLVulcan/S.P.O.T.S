@@ -133,6 +133,15 @@ class Storage:
         for column in ("rifle", "scope", "ammo"):
             if column not in session_columns:
                 self._conn.execute(f"ALTER TABLE sessions ADD COLUMN {column} TEXT")
+        # The full spec set of the kit used, snapshotted at New Target, so a
+        # comparison can group by charge weight or bullet even after that
+        # ammo has been edited or deleted. Names alone weren't enough.
+        if "equipment_snapshot" not in session_columns:
+            self._conn.execute("ALTER TABLE sessions ADD COLUMN equipment_snapshot TEXT")
+        # Conditions the string was shot in -- all optional, since you often
+        # simply don't know them.
+        if "conditions" not in session_columns:
+            self._conn.execute("ALTER TABLE sessions ADD COLUMN conditions TEXT")
         if "calib_center_marked" not in session_columns:
             self._conn.execute(
                 "ALTER TABLE sessions ADD COLUMN calib_center_marked INTEGER NOT NULL DEFAULT 0"
@@ -308,15 +317,18 @@ class Storage:
         rifle: str | None = None,
         scope: str | None = None,
         ammo: str | None = None,
+        equipment_snapshot: dict | None = None,
     ) -> int:
         with self._lock:
             # Chosen and inserted under the same lock, so two sessions can
             # never race onto the same reused id.
             session_id = self._next_free_session_id_locked()
             self._conn.execute(
-                "INSERT INTO sessions (id, created_at, unit_name, distance_m, rifle, scope, ammo)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (session_id, time.time(), unit_name, distance_m, rifle, scope, ammo),
+                "INSERT INTO sessions (id, created_at, unit_name, distance_m, rifle, scope,"
+                " ammo, equipment_snapshot)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (session_id, time.time(), unit_name, distance_m, rifle, scope, ammo,
+                 json.dumps(equipment_snapshot or {})),
             )
             self._conn.commit()
             return session_id
@@ -362,6 +374,15 @@ class Storage:
             self._conn.execute("DELETE FROM sessions")
             self._conn.commit()
         return [r[0] for r in rows]
+
+    def set_conditions(self, session_id: int, conditions: dict) -> bool:
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE sessions SET conditions = ? WHERE id = ?",
+                (json.dumps(conditions or {}), session_id),
+            )
+            self._conn.commit()
+            return cur.rowcount > 0
 
     def save_calibration(
         self,
@@ -488,7 +509,7 @@ class Storage:
         with self._lock:
             cur = self._conn.execute(
                 """SELECT s.id, s.created_at, s.unit_name, s.distance_m, COUNT(sh.id), s.name,
-                          s.rifle, s.scope, s.ammo
+                          s.rifle, s.scope, s.ammo, s.equipment_snapshot, s.conditions
                    FROM sessions s LEFT JOIN shots sh ON sh.session_id = s.id
                    GROUP BY s.id ORDER BY s.created_at DESC, s.id DESC"""
             )
@@ -504,6 +525,8 @@ class Storage:
                 "rifle": r[6],
                 "scope": r[7],
                 "ammo": r[8],
+                "equipment_snapshot": _decode_specs(r[9]),
+                "conditions": _decode_specs(r[10]),
             }
             for r in rows
         ]
@@ -513,7 +536,8 @@ class Storage:
             row = self._conn.execute(
                 """SELECT id, created_at, unit_name, distance_m, name,
                           calib_units_per_px, calib_origin_x, calib_origin_y,
-                          calib_center_marked, rifle, scope, ammo
+                          calib_center_marked, rifle, scope, ammo,
+                          equipment_snapshot, conditions
                    FROM sessions WHERE id = ?""",
                 (session_id,),
             ).fetchone()
@@ -532,6 +556,8 @@ class Storage:
             "rifle": row[9],
             "scope": row[10],
             "ammo": row[11],
+            "equipment_snapshot": _decode_specs(row[12]),
+            "conditions": _decode_specs(row[13]),
         }
 
     def latest_session_id(self) -> int | None:

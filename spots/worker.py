@@ -316,9 +316,10 @@ class DetectionWorker:
         session_id = self._storage.new_session(
             self._target_config.unit_name,
             self._target_config.distance_m,
-            rifle=equipment.get("rifle"),
-            scope=equipment.get("scope"),
-            ammo=equipment.get("ammo"),
+            rifle=(equipment.get("rifle") or {}).get("name"),
+            scope=(equipment.get("scope") or {}).get("name"),
+            ammo=(equipment.get("ammo") or {}).get("name"),
+            equipment_snapshot=equipment,
         )
         self.state.reset(session_id, calibration, self._target_config.distance_m)
         self._persist_calibration()

@@ -91,6 +91,93 @@ EQUIPMENT_SPECS: dict[str, tuple[SpecField, ...]] = {
     ),
 }
 
+# Conditions a string was shot in. Every one is optional -- you often don't
+# know the temperature, and a half-filled record is still worth more than
+# none when comparing two groups weeks apart.
+CONDITION_FIELDS: tuple[SpecField, ...] = (
+    SpecField("wind_speed", "Wind speed", "number", unit="mph", step="0.5", placeholder="8"),
+    SpecField("wind_direction", "Wind direction", "select", options=(
+        ("", "Unspecified"), ("head", "Headwind"), ("tail", "Tailwind"),
+        ("left", "Full value, left"), ("right", "Full value, right"),
+        ("half_left", "Half value, left"), ("half_right", "Half value, right"),
+        ("switching", "Switching"),
+    )),
+    SpecField("temperature_c", "Temperature", "number", unit="C", step="0.5", placeholder="18"),
+    SpecField("humidity_pct", "Humidity", "number", unit="%", step="1", placeholder="60"),
+    SpecField("pressure_hpa", "Pressure", "number", unit="hPa", step="1", placeholder="1013"),
+    SpecField("light", "Light", "select", options=(
+        ("", "Unspecified"), ("bright", "Bright sun"), ("overcast", "Overcast"),
+        ("mixed", "Mixed"), ("low", "Low light"), ("mirage", "Heavy mirage"),
+    )),
+    SpecField("position", "Position", "select", options=(
+        ("", "Unspecified"), ("bench", "Bench"), ("bipod", "Prone, bipod"),
+        ("sling", "Prone, sling"), ("sitting", "Sitting"), ("standing", "Standing"),
+        ("field", "Field improvised"),
+    )),
+    SpecField("notes", "Notes", placeholder="anything else about the string"),
+)
+
+
+def condition_fields() -> tuple[SpecField, ...]:
+    return CONDITION_FIELDS
+
+
+def conditions_schema() -> list[dict]:
+    return [
+        {
+            "key": f.key, "label": f.label, "type": f.kind, "placeholder": f.placeholder,
+            "unit": f.unit, "step": f.step,
+            "options": [{"value": v, "label": l} for v, l in f.options],
+        }
+        for f in CONDITION_FIELDS
+    ]
+
+
+def clean_conditions(raw: dict) -> tuple[dict, list[str]]:
+    """Same validation as equipment specs, against the conditions schema."""
+    cleaned: dict = {}
+    errors: list[str] = []
+    if not isinstance(raw, dict):
+        return cleaned, ["Conditions must be an object"]
+    for spec in CONDITION_FIELDS:
+        value = raw.get(spec.key)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            continue
+        if spec.kind == "number":
+            try:
+                cleaned[spec.key] = float(value)
+            except (TypeError, ValueError):
+                errors.append(f"{spec.label} must be a number")
+            continue
+        text = str(value).strip()
+        if spec.kind == "select" and text not in {v for v, _ in spec.options}:
+            errors.append(f"{spec.label} is not one of the available options")
+            continue
+        cleaned[spec.key] = text
+    return cleaned, errors
+
+
+def describe_conditions(conditions: dict | None) -> str:
+    """One line for lists and comparisons, e.g. "8 mph left, 18 C, overcast"."""
+    conditions = conditions or {}
+    labels = {f.key: dict(f.options) for f in CONDITION_FIELDS if f.kind == "select"}
+    parts: list[str] = []
+    wind = conditions.get("wind_speed")
+    if wind not in (None, ""):
+        chosen = conditions.get("wind_direction")
+        direction = labels["wind_direction"].get(chosen, "") if chosen else ""
+        parts.append(f"{float(wind):g} mph{' ' + direction.lower() if direction else ''}")
+    if conditions.get("temperature_c") not in (None, ""):
+        parts.append(f"{float(conditions['temperature_c']):g} C")
+    for key in ("light", "position"):
+        # Skip blanks: the schema's empty option is labelled "Unspecified",
+        # which must not leak into the description as a value.
+        chosen = conditions.get(key)
+        if chosen:
+            parts.append(labels[key].get(chosen, chosen).lower())
+    return ", ".join(parts)
+
+
 EQUIPMENT_TITLES = {"rifle": "Rifles", "scope": "Scopes", "ammo": "Ammo"}
 EQUIPMENT_SINGULAR = {"rifle": "Rifle", "scope": "Scope", "ammo": "Ammo"}
 EQUIPMENT_NAME_PLACEHOLDER = {

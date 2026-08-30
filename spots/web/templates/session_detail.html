@@ -52,6 +52,57 @@
         </div>
       </div>
 
+      <div class="card">
+        <h2>Conditions</h2>
+        <p class="hint">What the string was shot in. Leave anything you don't know blank.</p>
+        <div class="equip-fields" id="conditions-fields">
+          {% for f in condition_schema %}
+          <label class="equip-field-block">
+            <span class="equip-field-label">{{ f.label }}{% if f.unit %} <span class="hint">({{ f.unit }})</span>{% endif %}</span>
+            {% if f.type == 'select' %}
+            <select class="condition-field" data-key="{{ f.key }}">
+              {% for o in f.options %}
+              <option value="{{ o.value }}" {% if session.conditions.get(f.key) == o.value %}selected{% endif %}>{{ o.label }}</option>
+              {% endfor %}
+            </select>
+            {% else %}
+            <input class="condition-field" data-key="{{ f.key }}"
+                   type="{{ 'number' if f.type == 'number' else 'text' }}"
+                   {% if f.type == 'number' %}step="{{ f.step }}"{% endif %}
+                   value="{{ session.conditions.get(f.key, '') }}"
+                   placeholder="{{ f.placeholder }}">
+            {% endif %}
+          </label>
+          {% endfor %}
+        </div>
+        <div class="equip-detail-foot">
+          <button type="button" id="save-conditions" class="primary">Save conditions</button>
+          <span id="conditions-toast" class="equip-toast"></span>
+        </div>
+      </div>
+
+      {% if session.equipment_snapshot %}
+      <div class="card">
+        <h2>Equipment Used</h2>
+        <div class="stat-grid">
+          {% for kind in ['rifle', 'scope', 'ammo'] %}
+          {% set kit = session.equipment_snapshot.get(kind) %}
+          {% if kit %}
+          <div class="stat-tile">
+            <div class="label">{{ kind|capitalize }}</div>
+            <div class="value" style="font-size:1rem;">{{ kit.name }}</div>
+            {% if kit.specs %}
+            <div class="hint">
+              {% for k, v in kit.specs.items() %}{{ v }}{% if not loop.last %} &middot; {% endif %}{% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
       {% if best_subgroups %}
       <div class="card">
         <h2>Best Subgroups</h2>
@@ -100,6 +151,34 @@
 
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
   <script src="{{ url_for('static', filename='diagram.js') }}"></script>
+  <script>
+    (function () {
+      const btn = document.getElementById("save-conditions");
+      const toast = document.getElementById("conditions-toast");
+      if (!btn) return;
+      btn.addEventListener("click", async () => {
+        const conditions = {};
+        document.querySelectorAll(".condition-field").forEach((el) => {
+          conditions[el.dataset.key] = el.value;
+        });
+        try {
+          const resp = await fetch(`/api/session/{{ session.id }}/conditions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ conditions }),
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) throw new Error(data.error || resp.statusText);
+          toast.textContent = "Saved";
+          toast.className = "equip-toast is-ok";
+          setTimeout(() => { toast.textContent = ""; }, 2500);
+        } catch (err) {
+          toast.textContent = err.message;
+          toast.className = "equip-toast is-error";
+        }
+      });
+    })();
+  </script>
   <script>
     // Same diagram as the live dashboard, drawn from this session's stored
     // shots rather than the in-progress one.

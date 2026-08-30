@@ -28,6 +28,9 @@ from spots.camera.client import ZCamError
 from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
 from spots.equipment_specs import (
     calibre_of,
+    clean_conditions,
+    conditions_schema,
+    describe_conditions,
     calibres_match,
     clean_specs,
     schema_payload,
@@ -616,11 +619,26 @@ def api_test_shot():
 def api_new_session():
     # Stamp the selected equipment onto the session by NAME, so history still
     # shows what a string was shot with even if that rifle is deleted later.
+    # Snapshot the whole spec set, not just the names: a comparison needs to
+    # group by charge weight or bullet, and the equipment may be edited or
+    # deleted long before you look back at the session.
     chosen = _selected_equipment()
-    try:
-        _worker().new_target(
-            equipment={kind: (item["name"] if item else None) for kind, item in chosen.items()}
+    snapshot = {
+        kind: (
+            {
+                "name": item["name"],
+                "specs": item.get("specs") or {},
+                "click_value": item.get("click_value"),
+                "click_unit": item.get("click_unit"),
+                "notes": item.get("notes"),
+            }
+            if item
+            else None
         )
+        for kind, item in chosen.items()
+    }
+    try:
+        _worker().new_target(equipment=snapshot)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except RuntimeError as exc:
@@ -715,6 +733,23 @@ def _purge_snapshots(snapshot_paths, session_ids):
             os.rmdir(os.path.join(snapshot_dir, str(session_id)))
         except OSError:
             pass  # not empty or not there -- harmless either way
+
+
+@bp.route("/api/session/<int:session_id>/conditions", methods=["POST"])
+def api_session_conditions(session_id):
+    if _storage().get_session(session_id) is None:
+        return jsonify({"error": f"No session #{session_id}"}), 404
+    data = request.get_json(force=True)
+    cleaned, errors = clean_conditions(data.get("conditions") or {})
+    if errors:
+        return jsonify({"error": "; ".join(errors)}), 400
+    _storage().set_conditions(session_id, cleaned)
+    return jsonify({"ok": True, "conditions": cleaned})
+
+
+@bp.route("/api/conditions/schema")
+def api_conditions_schema():
+    return jsonify({"fields": conditions_schema()})
 
 
 @bp.route("/api/session/<int:session_id>/rename", methods=["POST"])
@@ -814,6 +849,7 @@ def session_detail(session_id):
             if s["x_units"] is not None
         ],
         diagram_center=list(stats.center) if stats else None,
+        condition_schema=conditions_schema(),
     )
 
 
