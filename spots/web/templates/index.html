@@ -62,38 +62,68 @@
             <div class="hud-shots-row" id="hud-shots-row"></div>
           </div>
         </div>
-        <div class="controls" style="margin-top: 1rem;">
-          <button id="feed-synthetic" class="primary">Simulated</button>
-          <button id="feed-zcam">Live Feed</button>
+        <!-- Tier 1: what you touch while shooting. -->
+        <div class="action-bar">
+          <div class="segmented" role="group" aria-label="Feed source">
+            <button id="feed-synthetic" class="primary">Simulated</button>
+            <button id="feed-zcam">Live Feed</button>
+          </div>
+          <span class="action-spacer"></span>
+          <button id="undo">Undo Shot</button>
+          <button id="new-target" class="primary" disabled>New Target</button>
         </div>
         <p id="feed-hint" class="status">Simulated target active &mdash; click the feed to place a virtual bullet hole.</p>
-        <div class="controls">
-          <button id="new-target" class="primary" disabled>New Target</button>
-          <button id="calibrate">Calibrate</button>
-          <button id="mark-center">Mark Center</button>
-          <button id="undo">Undo Last Shot</button>
-          <a id="export-csv" class="btn disabled">Export CSV</a>
-          <a id="export-image" class="btn disabled">Save Group Image</a>
+
+        <!-- Tier 2: the setup that has to happen first, in order, with its
+             state visible instead of buried in a disabled button's tooltip. -->
+        <div class="setup-strip">
+          <div class="setup-step" id="step-distance">
+            <span class="setup-mark">1</span>
+            <div class="setup-body">
+              <span class="setup-label">Distance to target</span>
+              <div class="setup-control">
+                <input type="number" id="distance-input" min="0" step="0.5" placeholder="0">
+                <span class="setup-unit">m</span>
+              </div>
+            </div>
+          </div>
+          <div class="setup-step" id="step-calibrate">
+            <span class="setup-mark">2</span>
+            <div class="setup-body">
+              <span class="setup-label">Scale</span>
+              <button id="calibrate">Calibrate</button>
+            </div>
+          </div>
+          <div class="setup-step" id="step-center">
+            <span class="setup-mark">3</span>
+            <div class="setup-body">
+              <span class="setup-label">Point of aim</span>
+              <button id="mark-center">Mark Center</button>
+            </div>
+          </div>
         </div>
-        <div class="controls">
-          <button id="reset-setup">Reset Calibration &amp; Zoom</button>
-        </div>
-        <div class="controls" style="align-items: center;">
-          <label class="field-row" style="gap: 0.5rem;">
-            <span style="color: var(--ink-secondary); font-size: 0.85rem;">Zoom</span>
-            <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1">
-            <output id="zoom-value">1.0x</output>
-          </label>
-          <button id="zoom-center-btn">Center Zoom Here</button>
-        </div>
-        <div class="controls" style="align-items: center;">
-          <label class="field-row" style="gap: 0.5rem;">
-            <span style="color: var(--ink-secondary); font-size: 0.85rem;">Distance to target</span>
-            <input type="number" id="distance-input" min="0" step="0.5" style="width: 80px;" placeholder="0">
-            <span style="color: var(--ink-secondary); font-size: 0.85rem;">m</span>
-          </label>
-          <span class="hint">For MOA -- needs unit set to mm/cm/m/in/ft in Settings.</span>
-        </div>
+
+        <!-- Tier 3: adjustments and output, folded away by default. -->
+        <details class="more-panel">
+          <summary>Adjustments &amp; export</summary>
+          <div class="more-body">
+            <div class="controls" style="align-items: center;">
+              <label class="field-row" style="gap: 0.5rem;">
+                <span class="setup-label">Zoom</span>
+                <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1">
+                <output id="zoom-value">1.0x</output>
+              </label>
+              <button id="zoom-center-btn">Center Zoom Here</button>
+            </div>
+            <div class="controls">
+              <a id="export-csv" class="btn disabled">Export CSV</a>
+              <a id="export-image" class="btn disabled">Save Group Image</a>
+              <button id="reset-setup">Reset Calibration &amp; Zoom</button>
+            </div>
+            <p class="hint">MOA needs the unit set to mm/cm/m/in/ft in Settings.</p>
+          </div>
+        </details>
+
         <p id="status" class="status"></p>
       </div>
 

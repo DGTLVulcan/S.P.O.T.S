@@ -983,3 +983,111 @@ input[type="range"] { accent-color: var(--accent); }
   margin-bottom: 0.4rem;
 }
 .ring-row input { width: 100%; }
+
+/* ---------- Dashboard controls ----------
+   Three tiers, because the old flat list of ten buttons gave no clue which
+   ones you use every string and which you touch once a session:
+   1. action bar  -- feed switch, New Target, Undo
+   2. setup strip -- the ordered prerequisites, with their state visible
+   3. details     -- zoom, reset and exports, folded away */
+
+.action-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+.action-spacer { flex: 1 1 auto; }
+
+/* Feed source reads as one control with two states, not two buttons. */
+.segmented { display: inline-flex; }
+.segmented button {
+  border-radius: 0;
+  border-right-width: 0;
+}
+.segmented button:first-child { border-radius: 8px 0 0 8px; }
+.segmented button:last-child { border-radius: 0 8px 8px 0; border-right-width: 1px; }
+.segmented button:not(.primary) { background: var(--page); color: var(--ink-secondary); }
+.segmented button:not(.primary):hover { color: var(--ink); }
+
+.setup-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+.setup-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--page);
+}
+.setup-mark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+/* Done steps go quiet and tick, so what's left to do is what stands out. */
+.setup-step.is-done { border-color: color-mix(in srgb, var(--good) 40%, var(--border)); }
+.setup-step.is-done .setup-mark {
+  background: var(--good);
+  border-color: var(--good);
+  color: #fff;
+  font-size: 0.8rem;
+}
+.setup-body { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1 1 auto; }
+.setup-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+}
+.setup-control { display: flex; align-items: center; gap: 0.4rem; }
+.setup-control input { width: 5.5rem; }
+.setup-unit { color: var(--ink-secondary); font-size: 0.85rem; }
+.setup-step button { width: 100%; justify-content: center; }
+
+.more-panel {
+  margin-top: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--page);
+}
+.more-panel > summary {
+  cursor: pointer;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+  list-style: none;
+}
+.more-panel > summary::-webkit-details-marker { display: none; }
+.more-panel > summary::before {
+  content: "B8";
+  display: inline-block;
+  margin-right: 0.5rem;
+  transition: transform 0.12s ease;
+}
+.more-panel[open] > summary::before { transform: rotate(90deg); }
+.more-panel > summary:hover { color: var(--ink); }
+.more-body {
+  padding: 0.2rem 0.8rem 0.8rem;
+  border-top: 1px solid var(--border);
+}
+.more-body .controls + .controls { margin-top: 0.6rem; }
+.more-body .hint { display: block; margin-top: 0.6rem; }

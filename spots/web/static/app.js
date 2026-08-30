@@ -188,6 +188,24 @@
     const ok = !isNaN(distance_m) && distance_m > MIN_DISTANCE_M;
     newTargetBtn.disabled = !ok;
     newTargetBtn.title = ok ? "" : `Set distance to target above ${MIN_DISTANCE_M} m first`;
+    setStepDone("step-distance", ok);
+  }
+
+  // The setup strip ticks off each prerequisite as it's satisfied, so what
+  // still needs doing is visible rather than hidden behind a disabled
+  // button's tooltip.
+  function setStepDone(id, done) {
+    const step = document.getElementById(id);
+    if (!step) return;
+    step.classList.toggle("is-done", !!done);
+    const mark = step.querySelector(".setup-mark");
+    if (!mark) return;
+    if (done) {
+      mark.dataset.step = mark.dataset.step || mark.textContent;
+      mark.textContent = "✓";
+    } else if (mark.dataset.step) {
+      mark.textContent = mark.dataset.step;
+    }
   }
 
   distanceInput.addEventListener("input", updateNewTargetGate);
@@ -428,6 +446,18 @@
     const resp = await fetch("/api/shots");
     const data = await resp.json();
     const stats = data.stats;
+
+    setStepDone("step-calibrate", data.calibrated);
+    setStepDone("step-center", data.center_marked);
+    // Marking the centre needs a scale to attach to, so don't invite it yet.
+    markCenterBtn.disabled = !data.calibrated;
+    markCenterBtn.title = data.calibrated ? "" : "Calibrate the scale first";
+    if (!data.calibrated && mode === "mark-center") {
+      // Calibration was reset while waiting for the click; the mode has
+      // nothing left to attach an origin to.
+      setMode("none");
+      setStatus("Calibration was reset -- calibrate the scale again first.");
+    }
 
     if (data.calibrated) {
       badgeCalibration.className = "badge good";

@@ -315,6 +315,13 @@ def api_shots():
         {
             "session_id": snapshot.session_id,
             "calibrated": snapshot.calibration is not None,
+            # Distinct from "calibrated": two-point calibration sets the
+            # scale, marking the centre sets the point of aim. The setup
+            # checklist and scope correction both need to tell them apart.
+            "center_marked": bool(
+                snapshot.calibration is not None
+                and snapshot.calibration.origin_is_target_center
+            ),
             "unit_name": unit_name,
             "distance_m": snapshot.distance_m,
             "shots": [
