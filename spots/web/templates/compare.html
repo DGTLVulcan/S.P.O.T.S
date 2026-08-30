@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S.P.O.T.S - Compare Sessions</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="appbar">
+    <div class="brand">
+      <h1>S.P.O.T.S</h1>
+      <span class="subtitle">Compare Sessions</span>
+    </div>
+    <nav class="icon-nav">
+      <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
+      <a class="icon-btn" href="{{ url_for('spots.sessions_list') }}" title="Session history" aria-label="Session history">&#128337;</a>
+      <a class="icon-btn" href="{{ url_for('spots.equipment_page') }}" title="Equipment" aria-label="Equipment">&#128295;</a>
+      <a class="icon-btn" href="{{ url_for('spots.index') }}" title="Back to live view" aria-label="Back to live view">&#8962;</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="equip-layout full-width">
+      <aside class="equip-sidebar card">
+        <div class="equip-nav-head">
+          <span class="equip-nav-title">Sessions<span class="equip-nav-count">{{ sessions|length }}</span></span>
+        </div>
+        {% if sessions %}
+        {% for s in sessions %}
+        <label class="compare-pick">
+          <input type="checkbox" class="compare-check" value="{{ s.id }}">
+          <span class="equip-nav-text">
+            <span class="equip-nav-name">{{ s.name or "Session %d"|format(s.id) }}</span>
+            <span class="equip-nav-sub">
+              {{ s.shot_count }} shots &middot; {{ s.created_at_str }}
+              {% set setup = [s.rifle, s.ammo] | select | list %}
+              {% if setup %}<br>{{ setup | join(' · ') }}{% endif %}
+              {% if s.conditions_summary %}<br>{{ s.conditions_summary }}{% endif %}
+            </span>
+          </span>
+        </label>
+        {% endfor %}
+        {% else %}
+        <p class="equip-nav-empty">No sessions yet</p>
+        {% endif %}
+      </aside>
+
+      <section class="card">
+        <div id="compare-root">
+          <p class="empty-state">Tick two or more sessions on the left to compare them.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>window.SPOTS_PRESELECTED = {{ preselected | tojson }};</script>
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='diagram.js') }}"></script>
+  <script src="{{ url_for('static', filename='compare.js') }}"></script>
+</body>
+</html>

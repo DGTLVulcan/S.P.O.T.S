@@ -853,6 +853,80 @@ def session_detail(session_id):
     )
 
 
+def _session_summary(session):
+    """Everything the comparison view shows for one session: its stats, the
+    kit it was shot with and the conditions, all from what the session
+    itself recorded rather than the current equipment list.
+    """
+    shots = _storage().get_shots(session["id"])
+    unit_name = session["unit_name"]
+    distance_m = session["distance_m"]
+    points = [
+        (s["x_units"], s["y_units"])
+        for s in shots
+        if s["x_units"] is not None and not s["excluded"]
+    ]
+    stats = compute_group_stats(points, unit_name)
+    snapshot = session.get("equipment_snapshot") or {}
+    return {
+        "id": session["id"],
+        "name": session["name"] or f"Session {session['id']}",
+        "created_at_str": _fmt_ts(session["created_at"]),
+        "unit_name": unit_name,
+        "distance_m": distance_m,
+        "shot_count": len(points),
+        "extreme_spread": stats.extreme_spread if stats else None,
+        "extreme_spread_moa": to_moa(stats.extreme_spread, unit_name, distance_m) if stats else None,
+        "mean_radius": stats.mean_radius if stats else None,
+        "std_dev": stats.std_dev if stats else None,
+        "center": list(stats.center) if stats else None,
+        "rifle": session["rifle"],
+        "scope": session["scope"],
+        "ammo": session["ammo"],
+        "equipment": snapshot,
+        "conditions": session.get("conditions") or {},
+        "conditions_summary": describe_conditions(session.get("conditions")),
+        "shots": [
+            {"x_units": s["x_units"], "y_units": s["y_units"],
+             "is_test": s["is_test"], "excluded": s["excluded"]}
+            for s in shots
+            if s["x_units"] is not None
+        ],
+    }
+
+
+@bp.route("/api/compare")
+def api_compare():
+    """Stats for the requested sessions, e.g. /api/compare?ids=3,5,8."""
+    raw = request.args.get("ids", "")
+    ids = []
+    for chunk in raw.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        try:
+            ids.append(int(chunk))
+        except ValueError:
+            return jsonify({"error": f"'{chunk}' is not a session id"}), 400
+
+    summaries = []
+    for session_id in ids:
+        session = _storage().get_session(session_id)
+        if session is not None:
+            summaries.append(_session_summary(session))
+    return jsonify({"sessions": summaries})
+
+
+@bp.route("/compare")
+def compare_page():
+    sessions = _storage().list_sessions()
+    for entry in sessions:
+        entry["created_at_str"] = _fmt_ts(entry["created_at"])
+        entry["conditions_summary"] = describe_conditions(entry.get("conditions"))
+    preselected = request.args.get("ids", "")
+    return render_template("compare.html", sessions=sessions, preselected=preselected)
+
+
 @bp.route("/snapshots/<path:relpath>")
 def snapshot_file(relpath):
     # A relative snapshot_dir resolves against Flask's app root_path
