@@ -1078,9 +1078,17 @@ input[type="range"] { accent-color: var(--accent); }
 }
 .more-panel > summary::-webkit-details-marker { display: none; }
 .more-panel > summary::before {
-  content: "B8";
+  /* Drawn from borders rather than a glyph: no character escape that
+     can get mangled, and no dependency on the font having the arrow. */
+  content: "";
   display: inline-block;
-  margin-right: 0.5rem;
+  width: 0;
+  height: 0;
+  vertical-align: middle;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  margin-right: 0.55rem;
   transition: transform 0.12s ease;
 }
 .more-panel[open] > summary::before { transform: rotate(90deg); }
