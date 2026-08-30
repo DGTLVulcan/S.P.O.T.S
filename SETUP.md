@@ -160,6 +160,47 @@ leave the camera's DHCP side untouched.
 Run `spots -initnetwork` (or `setup-network.sh`) again whenever you're ready
 to go back to range mode.
 
+## Developing on a laptop (and running from Visual Studio)
+
+`config.yaml` is the *field* configuration -- it points at the real camera.
+Rather than editing it every time you want to work on a laptop (and risking
+committing a dev setting, or shipping one to the Pi), put local overrides in
+a `.env` file:
+
+```bash
+cp .env.example .env      # already set up to use the fabricated target
+```
+
+Anything not set there keeps whatever `config.yaml` says, and a variable
+already exported in your shell beats the file. The available keys are listed
+in `.env.example` -- camera source/IP, web host/port, database and snapshot
+paths, stream tuning, and `SPOTS_CONFIG` to load a different config file
+entirely. `.env` is gitignored.
+
+Values that came from `.env` are **not** written back when you save from the
+Settings page, so a laptop's synthetic-camera override can't quietly become
+the committed configuration.
+
+### Visual Studio
+
+Open `S.P.O.T.S.slnx`. The project is bound to the `.venv` in the project
+folder, so F5 runs the app with the right interpreter -- create it first if
+it isn't there:
+
+```
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+```
+
+Tests appear in **Test Explorer** (Test > Test Explorer, then Run All).
+They're plain `unittest`, discovered from `tests\test_*.py`, and need no
+hardware -- detection is exercised against the fabricated target. The same
+suite runs from a terminal:
+
+```bash
+python -m unittest discover -s tests
+```
+
 ## At the range
 
 1. Mount the camera on a tripod aimed at the target, connect it to the Pi's

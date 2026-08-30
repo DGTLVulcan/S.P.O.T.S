@@ -11,6 +11,11 @@
     <OutputPath>.</OutputPath>
     <Name>S.P.O.T.S</Name>
     <RootNamespace>S.P.O.T.S</RootNamespace>
+    <InterpreterId>MSBuild|env|$(MSBuildProjectFullPath)</InterpreterId>
+    <!-- Test Explorer: unittest, discovered from tests\test_*.py. -->
+    <TestFramework>unittest</TestFramework>
+    <UnitTestRootDirectory>tests</UnitTestRootDirectory>
+    <UnitTestPattern>test*.py</UnitTestPattern>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -24,10 +29,13 @@
     <Compile Include="S.P.O.T.S.py" />
     <Compile Include="spots\__init__.py" />
     <Compile Include="spots\config.py" />
+    <Compile Include="spots\health.py" />
     <Compile Include="spots\storage.py" />
     <Compile Include="spots\worker.py" />
     <Compile Include="spots\camera\__init__.py" />
     <Compile Include="spots\camera\client.py" />
+    <Compile Include="spots\camera\controls.py" />
+    <Compile Include="spots\camera\discovery.py" />
     <Compile Include="spots\camera\source.py" />
     <Compile Include="spots\vision\__init__.py" />
     <Compile Include="spots\vision\calibration.py" />
@@ -36,27 +44,57 @@
     <Compile Include="spots\web\__init__.py" />
     <Compile Include="spots\web\app.py" />
     <Compile Include="spots\web\routes.py" />
+    <Compile Include="tests\__init__.py" />
+    <Compile Include="tests\test_config.py" />
+    <Compile Include="tests\test_detection.py" />
+    <Compile Include="tests\test_groups.py" />
+    <Compile Include="tests\test_health.py" />
+    <Compile Include="tests\test_storage.py" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include=".env.example" />
     <Content Include="config.example.yaml" />
+    <Content Include="README.md" />
     <Content Include="requirements.txt" />
     <Content Include="SETUP.md" />
+    <Content Include="scripts\install.sh" />
+    <Content Include="scripts\setup-network.sh" />
+    <Content Include="scripts\stop-network.sh" />
+    <Content Include="scripts\spots.service" />
+    <Content Include="scripts\spots.sh" />
     <Content Include="spots\web\templates\index.html" />
     <Content Include="spots\web\templates\sessions_list.html" />
     <Content Include="spots\web\templates\session_detail.html" />
+    <Content Include="spots\web\templates\settings.html" />
     <Content Include="spots\web\static\style.css" />
     <Content Include="spots\web\static\app.js" />
+    <Content Include="spots\web\static\diagram.js" />
+    <Content Include="spots\web\static\health.js" />
     <Content Include="spots\web\static\theme.js" />
     <Content Include="spots\web\static\settings.js" />
-    <Content Include="spots\web\templates\settings.html" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="scripts\" />
     <Folder Include="spots\" />
     <Folder Include="spots\camera\" />
     <Folder Include="spots\vision\" />
     <Folder Include="spots\web\" />
     <Folder Include="spots\web\templates\" />
     <Folder Include="spots\web\static\" />
+    <Folder Include="tests\" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The .venv in the project folder, so F5 and Test Explorer both use the
+         same interpreter that has flask/opencv/numpy installed. -->
+    <Interpreter Include=".venv\">
+      <Id>env</Id>
+      <Version>3.14</Version>
+      <Description>.venv (Python 3.14)</Description>
+      <InterpreterPath>Scripts\python.exe</InterpreterPath>
+      <WindowsInterpreterPath>Scripts\pythonw.exe</WindowsInterpreterPath>
+      <PathEnvironmentVariable>PYTHONPATH</PathEnvironmentVariable>
+      <Architecture>X64</Architecture>
+    </Interpreter>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

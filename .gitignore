@@ -14,3 +14,4 @@ config.yaml
 
 /nul
 server.log
+.env

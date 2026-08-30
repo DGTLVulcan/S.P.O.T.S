@@ -12,6 +12,59 @@ import yaml
 
 _DEFAULT_CONFIG_PATH = "config.yaml"
 _EXAMPLE_CONFIG_PATH = "config.example.yaml"
+_DEFAULT_ENV_PATH = ".env"
+
+# Environment overrides, applied on top of the YAML. The point is local
+# development: run against the synthetic camera on a laptop without editing
+# (and accidentally committing, or shipping to the Pi) a config.yaml that
+# the field install needs pointed at the real camera.
+#   env var -> (section, field, parser)
+_ENV_OVERRIDES: dict[str, tuple[str, str, type]] = {
+    "SPOTS_CAMERA_SOURCE": ("camera", "source", str),
+    "SPOTS_CAMERA_IP": ("camera", "ip", str),
+    "SPOTS_WEB_HOST": ("web", "host", str),
+    "SPOTS_WEB_PORT": ("web", "port", int),
+    "SPOTS_WEB_STREAM_FPS": ("web", "stream_fps", float),
+    "SPOTS_WEB_STREAM_QUALITY": ("web", "stream_quality", int),
+    "SPOTS_WEB_STREAM_MAX_WIDTH": ("web", "stream_max_width", int),
+    "SPOTS_DB_PATH": ("storage", "db_path", str),
+    "SPOTS_SNAPSHOT_DIR": ("storage", "snapshot_dir", str),
+    "SPOTS_DETECTION_SAMPLE_FPS": ("detection", "sample_fps", float),
+}
+
+
+def load_dotenv(path: str = _DEFAULT_ENV_PATH) -> dict[str, str]:
+    """Reads KEY=VALUE lines from a .env file into os.environ.
+
+    Deliberately hand-rolled rather than pulling in python-dotenv: it is a
+    dozen lines, and the Pi install has one fewer package to fetch over a
+    field connection. A variable already set in the real environment always
+    wins, so `SPOTS_CAMERA_SOURCE=synthetic python S.P.O.T.S.py` beats the
+    file. Returns what it applied; missing file is not an error.
+    """
+    applied: dict[str, str] = {}
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            lines = handle.readlines()
+    except OSError:
+        return applied
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):].lstrip()
+        key, sep, value = line.partition("=")
+        if not sep:
+            continue
+        key = key.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        if key and key not in os.environ:
+            os.environ[key] = value
+            applied[key] = value
+    return applied
 
 
 @dataclass
@@ -120,24 +173,66 @@ class Settings:
     web: WebConfig = field(default_factory=WebConfig)
 
     @classmethod
-    def load(cls, path: str | None = None) -> "Settings":
-        chosen = path or (
+    def load(cls, path: str | None = None, env_path: str | None = _DEFAULT_ENV_PATH) -> "Settings":
+        """Loads config.yaml, then layers any SPOTS_* environment overrides
+        on top (see _ENV_OVERRIDES). Pass env_path=None to skip .env entirely.
+        SPOTS_CONFIG selects a different config file.
+        """
+        if env_path is not None:
+            load_dotenv(env_path)
+        chosen = path or os.environ.get("SPOTS_CONFIG") or (
             _DEFAULT_CONFIG_PATH if os.path.exists(_DEFAULT_CONFIG_PATH) else _EXAMPLE_CONFIG_PATH
         )
         with open(chosen, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f) or {}
-        return cls(
+        settings = cls(
             camera=CameraConfig(**raw.get("camera", {})),
             target=TargetConfig(**raw.get("target", {})),
             detection=DetectionConfig(**raw.get("detection", {})),
             storage=StorageConfig(**raw.get("storage", {})),
             web=WebConfig(**raw.get("web", {})),
         )
+        settings._apply_env_overrides()
+        return settings
+
+    def _apply_env_overrides(self) -> None:
+        # Remembers what the file said so save() can put it back -- otherwise
+        # a dev override would be written into config.yaml the first time
+        # anything is saved from the Settings page, quietly turning a local
+        # convenience into the committed configuration.
+        self._overridden_from_file = {}
+        for env_key, (section, field_name, parser) in _ENV_OVERRIDES.items():
+            raw_value = os.environ.get(env_key)
+            if raw_value is None:
+                continue
+            target = getattr(self, section)
+            try:
+                value = parser(raw_value)
+            except (TypeError, ValueError):
+                continue  # unparseable override is ignored, not fatal
+            self._overridden_from_file[(section, field_name)] = getattr(target, field_name)
+            setattr(target, field_name, value)
 
     def save(self, path: str | None = None) -> None:
         """Persists to config.yaml (never config.example.yaml, regardless of
         which file was loaded from) so settings changes survive a restart.
+
+        Values that came from the environment are written back as whatever
+        the file originally held, so running with a .env never rewrites the
+        config with development settings.
         """
         chosen = path or _DEFAULT_CONFIG_PATH
-        with open(chosen, "w", encoding="utf-8") as f:
-            yaml.safe_dump(asdict(self), f, sort_keys=False)
+        overridden = getattr(self, "_overridden_from_file", {})
+        for (section, field_name), original in overridden.items():
+            setattr(getattr(self, section), field_name, original)
+        try:
+            with open(chosen, "w", encoding="utf-8") as f:
+                yaml.safe_dump(asdict(self), f, sort_keys=False)
+        finally:
+            # Put the live overrides back so the running app keeps using them.
+            for (section, field_name), _ in overridden.items():
+                env_key = next(
+                    k for k, v in _ENV_OVERRIDES.items() if (v[0], v[1]) == (section, field_name)
+                )
+                parser = _ENV_OVERRIDES[env_key][2]
+                setattr(getattr(self, section), field_name, parser(os.environ[env_key]))
