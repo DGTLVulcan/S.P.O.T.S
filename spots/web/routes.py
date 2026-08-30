@@ -319,6 +319,10 @@ def _equipment_payload():
         return item
 
     return {
+        # Explicit order: Flask sorts JSON object keys, so the schema/items
+        # maps come back alphabetical (ammo, rifle, scope) and can't carry
+        # the running order on their own.
+        "order": list(EQUIPMENT_KINDS),
         "schema": schema_payload(),
         "items": {
             kind: [decorate(i) for i in storage.list_equipment(kind)] for kind in EQUIPMENT_KINDS

@@ -11,6 +11,7 @@
   const KIND_ICONS = { rifle: "&#127919;", scope: "&#128301;", ammo: "&#9679;" };
 
   let schema = {};
+  let order = [];        // kinds in display order, from the server
   let items = {};       // kind -> [item]
   let selectedIds = {}; // kind -> id currently chosen on the live view
   let current = null;   // {kind, id} being edited
@@ -68,7 +69,7 @@
   }
 
   function renderSidebar() {
-    sidebarEl.innerHTML = Object.keys(schema)
+    sidebarEl.innerHTML = order
       .map((kind) => {
         const list = items[kind] || [];
         return `
@@ -186,10 +187,11 @@
       return;
     }
     schema = data.schema;
+    order = data.order || Object.keys(data.schema);
     items = data.items;
     selectedIds = data.selected;
     if (!keepSelection || !findItem(current)) {
-      const firstKind = Object.keys(schema).find((k) => (items[k] || []).length);
+      const firstKind = order.find((k) => (items[k] || []).length);
       current = firstKind ? { kind: firstKind, id: items[firstKind][0].id } : null;
     }
     render();
