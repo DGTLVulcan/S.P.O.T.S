@@ -98,4 +98,6 @@
   }
 
   load();
+  // Diagnostics panel; refreshed on a slow timer since none of it moves fast.
+  pollHealth("health-root", null, 5000);
 })();

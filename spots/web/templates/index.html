@@ -28,6 +28,7 @@
             <span id="badge-feed" class="badge good"><span class="dot"></span>Simulated</span>
             <span id="badge-calibration" class="badge warn"><span class="dot"></span>Not calibrated</span>
             <span id="badge-session" class="badge" style="display:none;"></span>
+            <span id="badge-health" class="badge warn" style="display:none;"></span>
           </div>
           <button id="fullscreen-btn" class="fullscreen-btn" type="button" title="Fullscreen" aria-label="Fullscreen">&#9974;</button>
 
@@ -144,6 +145,7 @@
   </script>
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
   <script src="{{ url_for('static', filename='diagram.js') }}"></script>
+  <script src="{{ url_for('static', filename='health.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

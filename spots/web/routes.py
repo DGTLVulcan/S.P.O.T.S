@@ -22,6 +22,7 @@ from flask import (
     url_for,
 )
 
+from spots import health
 from spots.camera.client import ZCamError
 from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
 from spots.vision.calibration import Calibration
@@ -280,6 +281,18 @@ def api_shots():
             "best_subgroups": _best_subgroups_dict(points, unit_name, snapshot.distance_m),
             "scope_correction": _scope_correction_dict(snapshot, _settings().target),
         }
+    )
+
+
+@bp.route("/api/health")
+def api_health():
+    settings = _settings()
+    return jsonify(
+        health.collect(
+            settings.storage.snapshot_dir,
+            _worker().get_active_feed(),
+            _worker().get_zcam_client() is not None,
+        )
     )
 
 

@@ -375,6 +375,7 @@ main {
 .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .badge.good { color: #7be07b; }
 .badge.warn { color: #ffd166; }
+.badge.bad { color: #ff8a8a; }
 
 .controls {
   display: flex;
@@ -658,6 +659,7 @@ input[type="range"] { accent-color: var(--accent); }
   width: 100%;
 }
 .banner.success { background: color-mix(in srgb, var(--good) 14%, var(--surface)); color: var(--ink); }
+.banner.warn { background: color-mix(in srgb, var(--warning) 16%, var(--surface)); color: var(--ink); }
 .banner.error { background: color-mix(in srgb, var(--critical) 14%, var(--surface)); color: var(--ink); }
 
 .control-list { display: flex; flex-direction: column; gap: 0.9rem; }

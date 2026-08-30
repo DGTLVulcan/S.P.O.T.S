@@ -591,4 +591,6 @@
   loadFeed();
   loadDistance();
   pumpFrames();
+  // Badge only -- surfaces just when something needs attention.
+  pollHealth("health-root", "badge-health", 10000);
 })();

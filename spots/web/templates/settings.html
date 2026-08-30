@@ -153,9 +153,17 @@
         <p class="empty-state">Loading...</p>
       </div>
     </div>
+
+    <div class="card full-width">
+      <h2>System Health</h2>
+      <div id="health-root">
+        <p class="empty-state">Loading...</p>
+      </div>
+    </div>
   </main>
 
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='health.js') }}"></script>
   <script src="{{ url_for('static', filename='settings.js') }}"></script>
 </body>
 </html>
