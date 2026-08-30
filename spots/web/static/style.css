@@ -60,6 +60,12 @@
 
 * { box-sizing: border-box; }
 
+/* The hidden attribute must win over any display a class sets, or an
+   element told to hide stays on screen -- .equip-detail-foot sets
+   display:flex, which outranks the browser's own [hidden] rule and left
+   the Save button showing on panels that have nothing to save. */
+[hidden] { display: none !important; }
+
 html, body {
   height: 100%;
 }
