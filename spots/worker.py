@@ -292,7 +292,7 @@ class DetectionWorker:
         add_hole(x, y)
         return True
 
-    def new_target(self, calibration: Calibration | None = None) -> None:
+    def new_target(self, calibration: Calibration | None = None, equipment: dict | None = None) -> None:
         if self._target_config.distance_m <= _MIN_DISTANCE_M:
             raise ValueError(
                 f"Distance to target must be greater than {_MIN_DISTANCE_M} m before "
@@ -312,8 +312,13 @@ class DetectionWorker:
         # Drop any resume that hadn't been armed yet, or it would re-baseline
         # the detector over this fresh reference on the next loop.
         self._pending_rearm_seq = None
+        equipment = equipment or {}
         session_id = self._storage.new_session(
-            self._target_config.unit_name, self._target_config.distance_m
+            self._target_config.unit_name,
+            self._target_config.distance_m,
+            rifle=equipment.get("rifle"),
+            scope=equipment.get("scope"),
+            ammo=equipment.get("ammo"),
         )
         self.state.reset(session_id, calibration, self._target_config.distance_m)
         self._persist_calibration()

@@ -29,7 +29,7 @@
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Session</th><th>Started</th><th>Shots</th><th>Unit</th><th>Distance</th><th></th></tr></thead>
+          <thead><tr><th>Session</th><th>Started</th><th>Shots</th><th>Setup</th><th>Distance</th><th></th></tr></thead>
           <tbody>
             {% for s in sessions %}
             <tr data-session-id="{{ s.id }}">
@@ -40,7 +40,10 @@
               </td>
               <td>{{ s.created_at_str }}</td>
               <td>{{ s.shot_count }}</td>
-              <td>{{ s.unit_name }}</td>
+              <td>
+                {% set setup = [s.rifle, s.scope, s.ammo] | select | list %}
+                {{ setup | join(' · ') if setup else '-' }}
+              </td>
               <td>{{ "%.1f"|format(s.distance_m) + " m" if s.distance_m else "-" }}</td>
               <td class="row-actions">
                 <a class="btn" href="{{ url_for('spots.session_detail', session_id=s.id) }}">View</a>

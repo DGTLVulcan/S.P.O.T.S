@@ -112,6 +112,43 @@ a { color: var(--accent); }
   text-overflow: ellipsis;
 }
 
+/* Rifle / scope / ammo pickers in the app bar. */
+.equipment-bar {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-right: 0.75rem;
+  min-width: 0;
+}
+.equipment-select {
+  max-width: 12rem;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--page);
+  color: var(--ink);
+}
+.equipment-select:hover { border-color: var(--accent); }
+
+.equipment-section { margin-bottom: 1.5rem; }
+.equipment-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+.equipment-section input[type="text"] { width: 100%; min-width: 8rem; }
+.equipment-add { margin-top: 0.6rem; }
+
+/* The pickers would crowd the title on a phone; stack them under it. */
+@media (max-width: 900px) {
+  .appbar { flex-wrap: wrap; }
+  .equipment-bar { order: 3; width: 100%; margin: 0.5rem 0 0; }
+  .equipment-select { flex: 1 1 30%; max-width: none; }
+}
+
 .icon-nav {
   display: flex;
   align-items: center;

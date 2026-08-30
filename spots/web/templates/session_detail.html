@@ -13,6 +13,8 @@
       <span class="subtitle">
         {{ session.name or "Session %d"|format(session.id) }} &middot; {{ session.created_at_str }}
         {% if session.distance_m %}&middot; {{ "%.1f"|format(session.distance_m) }} m{% endif %}
+        {% set setup = [session.rifle, session.scope, session.ammo] | select | list %}
+        {% if setup %}&middot; {{ setup | join(' · ') }}{% endif %}
       </span>
     </div>
     <nav class="icon-nav">

@@ -132,3 +132,39 @@ class EnvOverrideTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RemovedSettingTests(unittest.TestCase):
+    """A config.yaml written by an older version still holds settings that
+    have since been removed; loading must ignore them rather than refusing
+    to start."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def test_unknown_keys_are_ignored(self):
+        path = os.path.join(self.dir, "old.yaml")
+        with open(path, "w", encoding="utf-8") as handle:
+            yaml.safe_dump(
+                {
+                    # click_value/click_unit moved onto individual scopes
+                    "target": {"unit_name": "cm", "click_value": 0.25, "click_unit": "moa"},
+                    "web": {"port": 8080, "some_future_key": 123},
+                },
+                handle,
+            )
+        settings = Settings.load(path, env_path=None)
+        self.assertEqual(settings.target.unit_name, "cm")
+        self.assertEqual(settings.web.port, 8080)
+        self.assertFalse(hasattr(settings.target, "click_value"))
+
+    def test_equipment_selection_round_trips(self):
+        path = os.path.join(self.dir, "cfg.yaml")
+        with open(path, "w", encoding="utf-8") as handle:
+            yaml.safe_dump({"equipment": {"rifle_id": 3, "scope_id": 7, "ammo_id": None}}, handle)
+        settings = Settings.load(path, env_path=None)
+        self.assertEqual((settings.equipment.rifle_id, settings.equipment.scope_id), (3, 7))
+        self.assertIsNone(settings.equipment.ammo_id)

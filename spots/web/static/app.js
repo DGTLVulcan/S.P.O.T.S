@@ -458,6 +458,8 @@
       if (!data.calibrated) why = "Calibrate the scale first.";
       else if (!data.stats) why = "Fire a group to get a correction.";
       else if (!data.distance_m) why = "Set the distance to target.";
+      else if (!data.equipment || !data.equipment.scope)
+        why = "Select a scope in the header (with a click value set in Settings).";
       else why = "Click Mark Center on the target's point of aim.";
       scopeEl.innerHTML = `<p class="empty-state">${why}</p>`;
     } else {
@@ -473,7 +475,7 @@
            ${tile(sc.vertical_dir, sc.vertical_clicks, sc.vertical_angle)}
            ${tile(sc.horizontal_dir, sc.horizontal_clicks, sc.horizontal_angle)}
          </div>
-         <p class="hint">Turret: ${sc.click_value} ${unit}/click &mdash; change in Settings.</p>`;
+         <p class="hint">${sc.scope_name || "Scope"}: ${sc.click_value} ${unit}/click &mdash; edit in Settings &rsaquo; Equipment.</p>`;
     }
 
     const exportLink = document.getElementById("export-csv");
@@ -585,11 +587,63 @@
     }
   }
 
+  // Rifle / scope / ammo pickers in the header. The selection lives in
+  // config.yaml so it survives a restart, and is stamped onto each session
+  // at New Target time; the chosen scope also supplies the turret click
+  // value that Scope Correction uses.
+  const EQUIPMENT_KINDS = ["rifle", "scope", "ammo"];
+  const EQUIPMENT_LABELS = { rifle: "Rifle", scope: "Scope", ammo: "Ammo" };
+
+  function equipmentSelect(kind) {
+    return document.getElementById("equip-" + kind);
+  }
+
+  async function loadEquipment() {
+    let data;
+    try {
+      data = await (await fetch("/api/equipment")).json();
+    } catch (err) {
+      return; // header pickers are non-critical; leave them empty
+    }
+    for (const kind of EQUIPMENT_KINDS) {
+      const select = equipmentSelect(kind);
+      if (!select) continue;
+      const items = data.items[kind] || [];
+      const selected = data.selected[kind];
+      select.innerHTML =
+        `<option value="">${EQUIPMENT_LABELS[kind]}: none</option>` +
+        items
+          .map((item) => {
+            const label = kind === "scope" && item.click_value
+              ? `${item.name} (${item.click_value} ${item.click_unit || "moa"})`
+              : item.name;
+            return `<option value="${item.id}"${item.id === selected ? " selected" : ""}>${label}</option>`;
+          })
+          .join("");
+    }
+  }
+
+  for (const kind of EQUIPMENT_KINDS) {
+    const select = equipmentSelect(kind);
+    if (!select) continue;
+    select.addEventListener("change", async () => {
+      try {
+        await postJson("/api/equipment/select", { kind, id: select.value || null });
+        setStatus(`${EQUIPMENT_LABELS[kind]} set to ${select.options[select.selectedIndex].text}.`);
+        refreshShots(); // scope choice changes the turret click value
+      } catch (err) {
+        setStatus(`Error selecting ${kind}: ` + err.message);
+        loadEquipment();
+      }
+    });
+  }
+
   setInterval(refreshShots, 1000);
   refreshShots();
   loadZoom();
   loadFeed();
   loadDistance();
+  loadEquipment();
   pumpFrames();
   // Badge only -- surfaces just when something needs attention.
   pollHealth("health-root", "badge-health", 10000);

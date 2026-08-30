@@ -26,7 +26,34 @@ CREATE TABLE IF NOT EXISTS shots (
     y_units REAL,
     created_at REAL NOT NULL
 );
+
+-- Rifles, scopes and ammo share one table with a `kind` discriminator:
+-- they need identical add/rename/delete handling, and only scopes use the
+-- click columns (turret value, which differs per scope).
+CREATE TABLE IF NOT EXISTS equipment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    name TEXT NOT NULL,
+    notes TEXT,
+    click_value REAL,
+    click_unit TEXT,
+    created_at REAL NOT NULL
+);
 """
+
+EQUIPMENT_KINDS = ("rifle", "scope", "ammo")
+
+# Seeded once, on a database that has never had equipment, purely so the
+# dropdowns aren't empty on first run. All of it is editable.
+_DEFAULT_EQUIPMENT = [
+    ("rifle", "Primary Rifle", None, None, None),
+    ("rifle", "Rimfire .22 LR", None, None, None),
+    ("scope", "1/4 MOA scope", None, 0.25, "moa"),
+    ("scope", "1/8 MOA scope", None, 0.125, "moa"),
+    ("scope", "0.1 mrad scope", None, 0.1, "mrad"),
+    ("ammo", "Factory load", None, None, None),
+    ("ammo", "Handload", None, None, None),
+]
 
 
 class Storage:
@@ -36,6 +63,7 @@ class Storage:
         with self._lock:
             self._conn.executescript(_SCHEMA)
             self._migrate_locked()
+            self._seed_equipment_locked()
             self._conn.commit()
 
     def _migrate_locked(self) -> None:
@@ -63,10 +91,100 @@ class Storage:
         for column in ("calib_units_per_px", "calib_origin_x", "calib_origin_y"):
             if column not in session_columns:
                 self._conn.execute(f"ALTER TABLE sessions ADD COLUMN {column} REAL")
+        for column in ("rifle", "scope", "ammo"):
+            if column not in session_columns:
+                self._conn.execute(f"ALTER TABLE sessions ADD COLUMN {column} TEXT")
         if "calib_center_marked" not in session_columns:
             self._conn.execute(
                 "ALTER TABLE sessions ADD COLUMN calib_center_marked INTEGER NOT NULL DEFAULT 0"
             )
+
+    def _seed_equipment_locked(self) -> None:
+        existing = self._conn.execute("SELECT COUNT(*) FROM equipment").fetchone()[0]
+        if existing:
+            return
+        self._conn.executemany(
+            "INSERT INTO equipment (kind, name, notes, click_value, click_unit, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            [(k, n, notes, cv, cu, time.time()) for k, n, notes, cv, cu in _DEFAULT_EQUIPMENT],
+        )
+
+    def list_equipment(self, kind: str | None = None) -> list[dict]:
+        query = (
+            "SELECT id, kind, name, notes, click_value, click_unit FROM equipment"
+            + (" WHERE kind = ?" if kind else "")
+            + " ORDER BY kind ASC, name ASC"
+        )
+        with self._lock:
+            rows = self._conn.execute(query, (kind,) if kind else ()).fetchall()
+        return [
+            {
+                "id": r[0],
+                "kind": r[1],
+                "name": r[2],
+                "notes": r[3],
+                "click_value": r[4],
+                "click_unit": r[5],
+            }
+            for r in rows
+        ]
+
+    def get_equipment(self, equipment_id: int) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id, kind, name, notes, click_value, click_unit FROM equipment WHERE id = ?",
+                (equipment_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": row[0],
+            "kind": row[1],
+            "name": row[2],
+            "notes": row[3],
+            "click_value": row[4],
+            "click_unit": row[5],
+        }
+
+    def add_equipment(
+        self,
+        kind: str,
+        name: str,
+        notes: str | None = None,
+        click_value: float | None = None,
+        click_unit: str | None = None,
+    ) -> int:
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO equipment (kind, name, notes, click_value, click_unit, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (kind, name, notes, click_value, click_unit, time.time()),
+            )
+            self._conn.commit()
+            return cur.lastrowid
+
+    def update_equipment(
+        self,
+        equipment_id: int,
+        name: str,
+        notes: str | None = None,
+        click_value: float | None = None,
+        click_unit: str | None = None,
+    ) -> bool:
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE equipment SET name = ?, notes = ?, click_value = ?, click_unit = ?"
+                " WHERE id = ?",
+                (name, notes, click_value, click_unit, equipment_id),
+            )
+            self._conn.commit()
+            return cur.rowcount > 0
+
+    def delete_equipment(self, equipment_id: int) -> bool:
+        with self._lock:
+            cur = self._conn.execute("DELETE FROM equipment WHERE id = ?", (equipment_id,))
+            self._conn.commit()
+            return cur.rowcount > 0
 
     def _next_free_session_id_locked(self) -> int:
         """Smallest positive integer not currently used by a session.
@@ -88,14 +206,22 @@ class Storage:
         ).fetchone()
         return row[0] if row and row[0] is not None else 1
 
-    def new_session(self, unit_name: str, distance_m: float | None = None) -> int:
+    def new_session(
+        self,
+        unit_name: str,
+        distance_m: float | None = None,
+        rifle: str | None = None,
+        scope: str | None = None,
+        ammo: str | None = None,
+    ) -> int:
         with self._lock:
             # Chosen and inserted under the same lock, so two sessions can
             # never race onto the same reused id.
             session_id = self._next_free_session_id_locked()
             self._conn.execute(
-                "INSERT INTO sessions (id, created_at, unit_name, distance_m) VALUES (?, ?, ?, ?)",
-                (session_id, time.time(), unit_name, distance_m),
+                "INSERT INTO sessions (id, created_at, unit_name, distance_m, rifle, scope, ammo)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (session_id, time.time(), unit_name, distance_m, rifle, scope, ammo),
             )
             self._conn.commit()
             return session_id
@@ -266,7 +392,8 @@ class Storage:
     def list_sessions(self) -> list[dict]:
         with self._lock:
             cur = self._conn.execute(
-                """SELECT s.id, s.created_at, s.unit_name, s.distance_m, COUNT(sh.id), s.name
+                """SELECT s.id, s.created_at, s.unit_name, s.distance_m, COUNT(sh.id), s.name,
+                          s.rifle, s.scope, s.ammo
                    FROM sessions s LEFT JOIN shots sh ON sh.session_id = s.id
                    GROUP BY s.id ORDER BY s.created_at DESC, s.id DESC"""
             )
@@ -279,6 +406,9 @@ class Storage:
                 "distance_m": r[3],
                 "shot_count": r[4],
                 "name": r[5],
+                "rifle": r[6],
+                "scope": r[7],
+                "ammo": r[8],
             }
             for r in rows
         ]
@@ -288,7 +418,7 @@ class Storage:
             row = self._conn.execute(
                 """SELECT id, created_at, unit_name, distance_m, name,
                           calib_units_per_px, calib_origin_x, calib_origin_y,
-                          calib_center_marked
+                          calib_center_marked, rifle, scope, ammo
                    FROM sessions WHERE id = ?""",
                 (session_id,),
             ).fetchone()
@@ -304,6 +434,9 @@ class Storage:
             "calib_origin_x": row[6],
             "calib_origin_y": row[7],
             "calib_center_marked": bool(row[8]),
+            "rifle": row[9],
+            "scope": row[10],
+            "ammo": row[11],
         }
 
     def latest_session_id(self) -> int | None:

@@ -6,7 +6,7 @@ made a local copy yet) into a tree of small dataclasses.
 from __future__ import annotations
 
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 
 import yaml
 
@@ -102,13 +102,6 @@ class TargetConfig:
     # Exhaustive subgroup search is combinatorial (n choose k); above this
     # many shots in the session it's skipped rather than eating Pi CPU.
     best_subgroup_max_shots: int = 30
-    # Scope turret: how much one click moves the point of impact, and in
-    # which angular unit. 0.25 MOA and 0.1 mrad are the common ones. Used to
-    # turn the group's offset from the marked target centre into "up 6, left
-    # 2" -- only shown once the centre has actually been marked, since
-    # before that the origin is just wherever calibration was clicked.
-    click_value: float = 0.25
-    click_unit: str = "moa"  # "moa" or "mrad"
 
 
 @dataclass
@@ -133,6 +126,20 @@ class DetectionConfig:
     realignment_enabled: bool = True
     realignment_method: str = "orb"  # "orb" or "sift"
     realignment_min_matches: int = 15
+
+
+@dataclass
+class EquipmentConfig:
+    """Which rifle/scope/ammo is currently selected in the dashboard header.
+
+    Only the ids live here; the equipment itself is in the database, where it
+    can be added to and edited. The selected scope supplies the turret click
+    value used for scope correction, so different scopes carry different
+    values instead of one global setting.
+    """
+    rifle_id: int | None = None
+    scope_id: int | None = None
+    ammo_id: int | None = None
 
 
 @dataclass
@@ -164,11 +171,27 @@ class WebConfig:
     stream_max_width: int = 960
 
 
+def _build(config_class, raw: dict):
+    """Builds a config dataclass from YAML, ignoring keys it doesn't declare.
+
+    Without this, removing a setting would break every existing install:
+    config.yaml still holds the old key, and the dataclass constructor would
+    raise TypeError on an unexpected keyword, so the app wouldn't start at
+    all after an update. Unknown keys are simply dropped -- they disappear
+    from the file the next time settings are saved.
+    """
+    if not isinstance(raw, dict):
+        return config_class()
+    known = {f.name for f in fields(config_class)}
+    return config_class(**{k: v for k, v in raw.items() if k in known})
+
+
 @dataclass
 class Settings:
     camera: CameraConfig = field(default_factory=CameraConfig)
     target: TargetConfig = field(default_factory=TargetConfig)
     detection: DetectionConfig = field(default_factory=DetectionConfig)
+    equipment: EquipmentConfig = field(default_factory=EquipmentConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)
     web: WebConfig = field(default_factory=WebConfig)
 
@@ -186,11 +209,12 @@ class Settings:
         with open(chosen, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f) or {}
         settings = cls(
-            camera=CameraConfig(**raw.get("camera", {})),
-            target=TargetConfig(**raw.get("target", {})),
-            detection=DetectionConfig(**raw.get("detection", {})),
-            storage=StorageConfig(**raw.get("storage", {})),
-            web=WebConfig(**raw.get("web", {})),
+            camera=_build(CameraConfig, raw.get("camera", {})),
+            target=_build(TargetConfig, raw.get("target", {})),
+            detection=_build(DetectionConfig, raw.get("detection", {})),
+            equipment=_build(EquipmentConfig, raw.get("equipment", {})),
+            storage=_build(StorageConfig, raw.get("storage", {})),
+            web=_build(WebConfig, raw.get("web", {})),
         )
         settings._apply_env_overrides()
         return settings

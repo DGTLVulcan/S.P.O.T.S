@@ -12,6 +12,11 @@
       <h1>S.P.O.T.S</h1>
       <span class="subtitle">Shot Placement and Optical Target Scoring</span>
     </div>
+    <div class="equipment-bar">
+      <select id="equip-rifle" class="equipment-select" aria-label="Rifle" title="Rifle"></select>
+      <select id="equip-scope" class="equipment-select" aria-label="Scope" title="Scope"></select>
+      <select id="equip-ammo" class="equipment-select" aria-label="Ammo" title="Ammo"></select>
+    </div>
     <nav class="icon-nav">
       <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
       <a class="icon-btn" href="{{ url_for('spots.sessions_list') }}" title="Session history" aria-label="Session history">&#128337;</a>

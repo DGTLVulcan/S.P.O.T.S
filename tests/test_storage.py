@@ -208,3 +208,65 @@ class LegacyMigrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EquipmentTests(StorageTestCase):
+    def test_defaults_are_seeded_for_each_kind(self):
+        for kind in ("rifle", "scope", "ammo"):
+            self.assertTrue(self.storage.list_equipment(kind), kind)
+
+    def test_seeded_scopes_carry_click_values(self):
+        for scope in self.storage.list_equipment("scope"):
+            self.assertIsNotNone(scope["click_value"])
+            self.assertIn(scope["click_unit"], ("moa", "mrad"))
+
+    def test_defaults_are_not_re_seeded_over_user_edits(self):
+        """Reopening the database must not resurrect deleted defaults."""
+        for item in self.storage.list_equipment("rifle"):
+            self.storage.delete_equipment(item["id"])
+        self.storage.add_equipment("rifle", "Only Mine")
+        self.storage.close()
+        reopened = Storage(self.path)
+        try:
+            self.assertEqual([r["name"] for r in reopened.list_equipment("rifle")], ["Only Mine"])
+        finally:
+            reopened.close()
+            self.storage = Storage(self.path)  # so tearDown can close something
+
+    def test_add_update_delete(self):
+        new_id = self.storage.add_equipment("scope", "Test", None, 0.5, "moa")
+        self.assertEqual(self.storage.get_equipment(new_id)["click_value"], 0.5)
+        self.assertTrue(self.storage.update_equipment(new_id, "Renamed", "note", 0.05, "mrad"))
+        item = self.storage.get_equipment(new_id)
+        self.assertEqual((item["name"], item["click_value"], item["click_unit"]),
+                         ("Renamed", 0.05, "mrad"))
+        self.assertTrue(self.storage.delete_equipment(new_id))
+        self.assertIsNone(self.storage.get_equipment(new_id))
+
+    def test_update_and_delete_report_missing(self):
+        self.assertFalse(self.storage.update_equipment(9999, "x"))
+        self.assertFalse(self.storage.delete_equipment(9999))
+
+    def test_listing_filters_by_kind(self):
+        for item in self.storage.list_equipment("scope"):
+            self.assertEqual(item["kind"], "scope")
+
+    def test_session_records_the_equipment_used(self):
+        session_id = self.storage.new_session(
+            "cm", 100.0, rifle="My Rifle", scope="My Scope", ammo="My Ammo"
+        )
+        session = self.storage.get_session(session_id)
+        self.assertEqual(
+            (session["rifle"], session["scope"], session["ammo"]),
+            ("My Rifle", "My Scope", "My Ammo"),
+        )
+        listed = self.storage.list_sessions()[0]
+        self.assertEqual(listed["rifle"], "My Rifle")
+
+    def test_session_equipment_survives_deleting_the_equipment(self):
+        """History records names, not ids, so retiring a rifle doesn't erase
+        what past sessions were shot with."""
+        rifle_id = self.storage.add_equipment("rifle", "Sold Rifle")
+        session_id = self.storage.new_session("cm", 100.0, rifle="Sold Rifle")
+        self.storage.delete_equipment(rifle_id)
+        self.assertEqual(self.storage.get_session(session_id)["rifle"], "Sold Rifle")

@@ -25,6 +25,7 @@ from flask import (
 from spots import health
 from spots.camera.client import ZCamError
 from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
+from spots.storage import EQUIPMENT_KINDS
 from spots.vision.calibration import Calibration
 from spots.vision.detection import invert_homography, warp_point
 from spots.vision.groups import best_subgroup, compute_group_stats, scope_correction, to_moa
@@ -231,21 +232,28 @@ def _stats_dict(stats, unit_name, distance_m):
 
 def _scope_correction_dict(snapshot, target):
     """Turret advice for the current group, or None when it wouldn't mean
-    anything: no group yet, no calibration, or a calibration whose origin is
-    still the first calibration click rather than the marked target centre.
+    anything: no group yet, no calibration, a calibration whose origin is
+    still the first calibration click rather than the marked target centre,
+    or no scope selected to take a click value from.
     """
     calibration = snapshot.calibration
     if snapshot.stats is None or calibration is None:
         return None
     if not calibration.origin_is_target_center:
         return None
-    return scope_correction(
+    scope = _selected_equipment()["scope"]
+    if scope is None or not scope["click_value"]:
+        return None
+    correction = scope_correction(
         snapshot.stats.center,
         target.unit_name,
         snapshot.distance_m,
-        target.click_value,
-        target.click_unit,
+        scope["click_value"],
+        scope["click_unit"] or "moa",
     )
+    if correction is not None:
+        correction["scope_name"] = scope["name"]
+    return correction
 
 
 def _best_subgroups_dict(points, unit_name, distance_m):
@@ -280,8 +288,144 @@ def api_shots():
             "stats": _stats_dict(snapshot.stats, unit_name, snapshot.distance_m),
             "best_subgroups": _best_subgroups_dict(points, unit_name, snapshot.distance_m),
             "scope_correction": _scope_correction_dict(snapshot, _settings().target),
+            "equipment": {
+                kind: (item["name"] if item else None)
+                for kind, item in _selected_equipment().items()
+            },
         }
     )
+
+
+def _selected_equipment():
+    """The currently selected rifle/scope/ammo records, by kind.
+
+    A selection whose record has since been deleted reads as None rather
+    than erroring, so removing a rifle can't wedge the dashboard.
+    """
+    equipment = _settings().equipment
+    storage = _storage()
+    chosen = {}
+    for kind, attr in (("rifle", "rifle_id"), ("scope", "scope_id"), ("ammo", "ammo_id")):
+        item_id = getattr(equipment, attr)
+        chosen[kind] = storage.get_equipment(item_id) if item_id else None
+        if chosen[kind] is not None and chosen[kind]["kind"] != kind:
+            chosen[kind] = None  # id points at a different kind; ignore it
+    return chosen
+
+
+def _equipment_payload():
+    storage = _storage()
+    equipment = _settings().equipment
+    return {
+        "items": {kind: storage.list_equipment(kind) for kind in EQUIPMENT_KINDS},
+        "selected": {
+            "rifle": equipment.rifle_id,
+            "scope": equipment.scope_id,
+            "ammo": equipment.ammo_id,
+        },
+    }
+
+
+@bp.route("/api/equipment")
+def api_equipment_list():
+    return jsonify(_equipment_payload())
+
+
+def _parse_click_fields(data, errors):
+    """Turret click value/unit, which only scopes carry. Blank means unset."""
+    raw_value = data.get("click_value")
+    click_value = None
+    if raw_value not in (None, ""):
+        try:
+            click_value = float(raw_value)
+        except (TypeError, ValueError):
+            errors.append("Click value must be a number")
+        else:
+            if click_value <= 0:
+                errors.append("Click value must be greater than zero")
+    click_unit = data.get("click_unit") or "moa"
+    if click_unit not in ("moa", "mrad"):
+        errors.append("Click unit must be 'moa' or 'mrad'")
+    return click_value, click_unit
+
+
+@bp.route("/api/equipment", methods=["POST"])
+def api_equipment_add():
+    data = request.get_json(force=True)
+    kind = data.get("kind")
+    if kind not in EQUIPMENT_KINDS:
+        return jsonify({"error": f"kind must be one of {', '.join(EQUIPMENT_KINDS)}"}), 400
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Name can't be empty"}), 400
+    errors = []
+    click_value, click_unit = _parse_click_fields(data, errors) if kind == "scope" else (None, None)
+    if errors:
+        return jsonify({"error": "; ".join(errors)}), 400
+    new_id = _storage().add_equipment(
+        kind, name, (data.get("notes") or "").strip() or None, click_value, click_unit
+    )
+    return jsonify({"ok": True, "id": new_id})
+
+
+@bp.route("/api/equipment/<int:equipment_id>", methods=["POST"])
+def api_equipment_update(equipment_id):
+    existing = _storage().get_equipment(equipment_id)
+    if existing is None:
+        return jsonify({"error": f"No equipment #{equipment_id}"}), 404
+    data = request.get_json(force=True)
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Name can't be empty"}), 400
+    errors = []
+    if existing["kind"] == "scope":
+        click_value, click_unit = _parse_click_fields(data, errors)
+    else:
+        click_value, click_unit = None, None
+    if errors:
+        return jsonify({"error": "; ".join(errors)}), 400
+    _storage().update_equipment(
+        equipment_id, name, (data.get("notes") or "").strip() or None, click_value, click_unit
+    )
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/equipment/<int:equipment_id>/delete", methods=["POST"])
+def api_equipment_delete(equipment_id):
+    existing = _storage().get_equipment(equipment_id)
+    if existing is None:
+        return jsonify({"error": f"No equipment #{equipment_id}"}), 404
+    _storage().delete_equipment(equipment_id)
+    # Clear the selection if it pointed at what was just removed, so the
+    # header doesn't keep showing a rifle that no longer exists.
+    settings = _settings()
+    attr = f"{existing['kind']}_id"
+    if getattr(settings.equipment, attr) == equipment_id:
+        setattr(settings.equipment, attr, None)
+        settings.save()
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/equipment/select", methods=["POST"])
+def api_equipment_select():
+    data = request.get_json(force=True)
+    kind = data.get("kind")
+    if kind not in EQUIPMENT_KINDS:
+        return jsonify({"error": f"kind must be one of {', '.join(EQUIPMENT_KINDS)}"}), 400
+    raw_id = data.get("id")
+    item_id = None
+    if raw_id not in (None, ""):
+        try:
+            item_id = int(raw_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "id must be a number, or null to clear"}), 400
+        item = _storage().get_equipment(item_id)
+        if item is None or item["kind"] != kind:
+            return jsonify({"error": f"No {kind} #{item_id}"}), 404
+    settings = _settings()
+    setattr(settings.equipment, f"{kind}_id", item_id)
+    settings.save()
+    return jsonify({"ok": True, "selected": item_id})
 
 
 @bp.route("/api/health")
@@ -400,8 +544,13 @@ def api_test_shot():
 
 @bp.route("/api/session/new", methods=["POST"])
 def api_new_session():
+    # Stamp the selected equipment onto the session by NAME, so history still
+    # shows what a string was shot with even if that rifle is deleted later.
+    chosen = _selected_equipment()
     try:
-        _worker().new_target()
+        _worker().new_target(
+            equipment={kind: (item["name"] if item else None) for kind, item in chosen.items()}
+        )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except RuntimeError as exc:
@@ -686,12 +835,6 @@ def _apply_settings_form(settings, form) -> list[str]:
     width_units = _parse_float(form, "target.width_units", errors)
     best_subgroup_sizes = _parse_subgroup_sizes(form, errors)
     best_subgroup_max_shots = _parse_int(form, "target.best_subgroup_max_shots", errors)
-    click_value = _parse_float(form, "target.click_value", errors)
-    if click_value is not None and click_value <= 0:
-        errors.append("Scope click value must be greater than zero")
-    click_unit = form.get("target.click_unit", "moa")
-    if click_unit not in ("moa", "mrad"):
-        errors.append("Scope click unit must be 'moa' or 'mrad'")
 
     diff_threshold = _parse_int(form, "detection.diff_threshold", errors)
     min_hole_area_px = _parse_int(form, "detection.min_hole_area_px", errors)
@@ -727,8 +870,6 @@ def _apply_settings_form(settings, form) -> list[str]:
     settings.target.width_units = width_units
     settings.target.best_subgroup_sizes = best_subgroup_sizes
     settings.target.best_subgroup_max_shots = best_subgroup_max_shots
-    settings.target.click_value = click_value
-    settings.target.click_unit = click_unit
 
     settings.detection.diff_threshold = diff_threshold
     settings.detection.min_hole_area_px = min_hole_area_px
