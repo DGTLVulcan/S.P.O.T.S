@@ -565,12 +565,21 @@
     }
 
     const exportLink = document.getElementById("export-csv");
+    const imageLink = document.getElementById("export-image");
     if (data.session_id) {
       exportLink.href = `/api/session/${data.session_id}/export.csv`;
       exportLink.classList.remove("disabled");
+      if (imageLink) {
+        imageLink.href = `/api/session/${data.session_id}/group.png`;
+        imageLink.classList.remove("disabled");
+      }
     } else {
       exportLink.removeAttribute("href");
       exportLink.classList.add("disabled");
+      if (imageLink) {
+        imageLink.removeAttribute("href");
+        imageLink.classList.add("disabled");
+      }
     }
 
     const tbody = document.querySelector("#shot-table tbody");

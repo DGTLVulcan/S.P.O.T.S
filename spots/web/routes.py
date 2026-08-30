@@ -41,6 +41,7 @@ from spots.equipment_specs import (
 from spots.storage import EQUIPMENT_KINDS
 from spots.vision.calibration import Calibration
 from spots.vision.detection import invert_homography, warp_point
+from spots.vision.groupcard import render_group_card
 from spots.vision.groups import best_subgroup, compute_group_stats, scope_correction, to_moa
 
 logger = logging.getLogger(__name__)
@@ -966,6 +967,53 @@ def compare_page():
         entry["conditions_summary"] = describe_conditions(entry.get("conditions"))
     preselected = request.args.get("ids", "")
     return render_template("compare.html", sessions=sessions, preselected=preselected)
+
+
+def _png_response(payload: bytes, filename: str):
+    response = Response(payload, mimetype="image/png")
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@bp.route("/api/session/<int:session_id>/group.png")
+def api_session_group_image(session_id):
+    session = _storage().get_session(session_id)
+    if session is None:
+        abort(404)
+    summary = _session_summary(session)
+    stats = {
+        "shot_count": summary["shot_count"],
+        "extreme_spread": summary["extreme_spread"],
+        "extreme_spread_moa": summary["extreme_spread_moa"],
+        "mean_radius": summary["mean_radius"],
+        "std_dev": summary["std_dev"],
+    } if summary["extreme_spread"] is not None else None
+    distance = f" - {summary['distance_m']:.0f} m" if summary["distance_m"] else ""
+    payload = render_group_card(
+        title=summary["name"],
+        subtitle=f"{summary['created_at_str']}{distance}",
+        stats=stats,
+        shots=summary["shots"],
+        center=summary["center"],
+        unit_name=summary["unit_name"],
+        rings=((summary["equipment"].get("target") or {}).get("rings")),
+        equipment=summary["equipment"],
+        conditions_summary=summary["conditions_summary"],
+        score=summary["score"],
+    )
+    return _png_response(payload, f"spots-session-{session_id}.png")
+
+
+@bp.route("/api/group.png")
+def api_live_group_image():
+    """The same card for the session currently on the dashboard."""
+    snapshot = _worker().state.snapshot()
+    if snapshot.session_id is None:
+        abort(404)
+    session = _storage().get_session(snapshot.session_id)
+    if session is None:
+        abort(404)
+    return api_session_group_image(snapshot.session_id)
 
 
 @bp.route("/snapshots/<path:relpath>")

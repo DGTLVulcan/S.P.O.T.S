@@ -41,6 +41,7 @@
     <Compile Include="spots\vision\__init__.py" />
     <Compile Include="spots\vision\calibration.py" />
     <Compile Include="spots\vision\detection.py" />
+    <Compile Include="spots\vision\groupcard.py" />
     <Compile Include="spots\vision\groups.py" />
     <Compile Include="spots\web\__init__.py" />
     <Compile Include="spots\web\app.py" />
@@ -71,6 +72,8 @@
     <Content Include="spots\web\templates\settings.html" />
     <Content Include="spots\web\static\style.css" />
     <Content Include="spots\web\static\app.js" />
+    <Content Include="spots\web\static\compare.js" />
+    <Content Include="spots\web\templates\compare.html" />
     <Content Include="spots\web\static\diagram.js" />
     <Content Include="spots\web\static\equipment.js" />
     <Content Include="spots\web\static\health.js" />
