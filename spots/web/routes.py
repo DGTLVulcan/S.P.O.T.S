@@ -25,6 +25,7 @@ from flask import (
 from spots import health
 from spots.camera.client import ZCamError
 from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
+from spots.equipment_specs import clean_specs, schema_payload, summarise
 from spots.storage import EQUIPMENT_KINDS
 from spots.vision.calibration import Calibration
 from spots.vision.detection import invert_homography, warp_point
@@ -316,8 +317,18 @@ def _selected_equipment():
 def _equipment_payload():
     storage = _storage()
     equipment = _settings().equipment
+
+    def decorate(item):
+        # A one-line "what is this" for the header dropdowns, derived from
+        # whichever specs are filled in.
+        item["summary"] = summarise(item["kind"], item.get("specs"))
+        return item
+
     return {
-        "items": {kind: storage.list_equipment(kind) for kind in EQUIPMENT_KINDS},
+        "schema": schema_payload(),
+        "items": {
+            kind: [decorate(i) for i in storage.list_equipment(kind)] for kind in EQUIPMENT_KINDS
+        },
         "selected": {
             "rifle": equipment.rifle_id,
             "scope": equipment.scope_id,
@@ -358,12 +369,17 @@ def api_equipment_add():
     name = (data.get("name") or "").strip()
     if not name:
         return jsonify({"error": "Name can't be empty"}), 400
-    errors = []
-    click_value, click_unit = _parse_click_fields(data, errors) if kind == "scope" else (None, None)
+    errors: list[str] = []
+    specs_in = data.get("specs") or {}
+    click_value, click_unit = (
+        _parse_click_fields(specs_in, errors) if kind == "scope" else (None, None)
+    )
+    specs, spec_errors = clean_specs(kind, specs_in)
+    errors.extend(spec_errors)
     if errors:
         return jsonify({"error": "; ".join(errors)}), 400
     new_id = _storage().add_equipment(
-        kind, name, (data.get("notes") or "").strip() or None, click_value, click_unit
+        kind, name, (data.get("notes") or "").strip() or None, click_value, click_unit, specs
     )
     return jsonify({"ok": True, "id": new_id})
 
@@ -377,15 +393,18 @@ def api_equipment_update(equipment_id):
     name = (data.get("name") or "").strip()
     if not name:
         return jsonify({"error": "Name can't be empty"}), 400
-    errors = []
-    if existing["kind"] == "scope":
-        click_value, click_unit = _parse_click_fields(data, errors)
-    else:
-        click_value, click_unit = None, None
+    errors: list[str] = []
+    specs_in = data.get("specs") or {}
+    click_value, click_unit = (
+        _parse_click_fields(specs_in, errors) if existing["kind"] == "scope" else (None, None)
+    )
+    specs, spec_errors = clean_specs(existing["kind"], specs_in)
+    errors.extend(spec_errors)
     if errors:
         return jsonify({"error": "; ".join(errors)}), 400
     _storage().update_equipment(
-        equipment_id, name, (data.get("notes") or "").strip() or None, click_value, click_unit
+        equipment_id, name, (data.get("notes") or "").strip() or None,
+        click_value, click_unit, specs,
     )
     return jsonify({"ok": True})
 
@@ -892,6 +911,11 @@ def _apply_settings_form(settings, form) -> list[str]:
 
     settings.save()
     return []
+
+
+@bp.route("/equipment")
+def equipment_page():
+    return render_template("equipment.html")
 
 
 @bp.route("/settings", methods=["GET", "POST"])

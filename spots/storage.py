@@ -1,6 +1,7 @@
 """SQLite persistence for sessions and shots (stdlib sqlite3, no extra deps)."""
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 import time
@@ -37,6 +38,11 @@ CREATE TABLE IF NOT EXISTS equipment (
     notes TEXT,
     click_value REAL,
     click_unit TEXT,
+    -- Kind-specific specs (calibre, barrel length, bullet weight, ...) as a
+    -- JSON object: the three kinds record genuinely different things, and a
+    -- column per field across all of them would be mostly NULL. See
+    -- spots/equipment_specs.py for the schema they're validated against.
+    specs TEXT,
     created_at REAL NOT NULL
 );
 """
@@ -46,14 +52,33 @@ EQUIPMENT_KINDS = ("rifle", "scope", "ammo")
 # Seeded once, on a database that has never had equipment, purely so the
 # dropdowns aren't empty on first run. All of it is editable.
 _DEFAULT_EQUIPMENT = [
-    ("rifle", "Primary Rifle", None, None, None),
-    ("rifle", "Rimfire .22 LR", None, None, None),
-    ("scope", "1/4 MOA scope", None, 0.25, "moa"),
-    ("scope", "1/8 MOA scope", None, 0.125, "moa"),
-    ("scope", "0.1 mrad scope", None, 0.1, "mrad"),
-    ("ammo", "Factory load", None, None, None),
-    ("ammo", "Handload", None, None, None),
+    ("rifle", "Primary Rifle", None, None, None,
+     {"calibre": ".308 Winchester", "barrel_length_in": 20.0, "twist_rate": "1:10",
+      "action": "bolt"}),
+    ("rifle", "Rimfire", None, None, None,
+     {"calibre": ".22 LR", "barrel_length_in": 18.0, "twist_rate": "1:16", "action": "bolt"}),
+    ("scope", "1/4 MOA scope", None, 0.25, "moa", {"focal_plane": "ffp", "zero_distance_m": 100.0}),
+    ("scope", "1/8 MOA scope", None, 0.125, "moa", {"focal_plane": "ffp"}),
+    ("scope", "0.1 mrad scope", None, 0.1, "mrad", {"focal_plane": "ffp", "zero_distance_m": 100.0}),
+    ("ammo", "Factory match", None, None, None,
+     {"calibre": ".308 Winchester", "bullet_grains": 168.0, "bullet": "HPBT",
+      "manufacturer": "Federal"}),
+    ("ammo", "Handload", None, None, None,
+     {"calibre": ".308 Winchester", "bullet_grains": 168.0, "powder": "Varget",
+      "charge_grains": 42.5}),
 ]
+
+
+def _decode_specs(raw: str | None) -> dict:
+    """Specs are stored as JSON; a row written before that column existed
+    (or somehow corrupted) reads as an empty dict rather than raising."""
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 class Storage:
@@ -78,6 +103,10 @@ class Storage:
         # the group size.
         if "excluded" not in shot_columns:
             self._conn.execute("ALTER TABLE shots ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0")
+
+        equipment_columns = {row[1] for row in self._conn.execute("PRAGMA table_info(equipment)")}
+        if equipment_columns and "specs" not in equipment_columns:
+            self._conn.execute("ALTER TABLE equipment ADD COLUMN specs TEXT")
 
         session_columns = {row[1] for row in self._conn.execute("PRAGMA table_info(sessions)")}
         if "distance_m" not in session_columns:
@@ -104,14 +133,17 @@ class Storage:
         if existing:
             return
         self._conn.executemany(
-            "INSERT INTO equipment (kind, name, notes, click_value, click_unit, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            [(k, n, notes, cv, cu, time.time()) for k, n, notes, cv, cu in _DEFAULT_EQUIPMENT],
+            "INSERT INTO equipment (kind, name, notes, click_value, click_unit, specs, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                (k, n, notes, cv, cu, json.dumps(specs), time.time())
+                for k, n, notes, cv, cu, specs in _DEFAULT_EQUIPMENT
+            ],
         )
 
     def list_equipment(self, kind: str | None = None) -> list[dict]:
         query = (
-            "SELECT id, kind, name, notes, click_value, click_unit FROM equipment"
+            "SELECT id, kind, name, notes, click_value, click_unit, specs FROM equipment"
             + (" WHERE kind = ?" if kind else "")
             + " ORDER BY kind ASC, name ASC"
         )
@@ -125,6 +157,7 @@ class Storage:
                 "notes": r[3],
                 "click_value": r[4],
                 "click_unit": r[5],
+                "specs": _decode_specs(r[6]),
             }
             for r in rows
         ]
@@ -132,7 +165,8 @@ class Storage:
     def get_equipment(self, equipment_id: int) -> dict | None:
         with self._lock:
             row = self._conn.execute(
-                "SELECT id, kind, name, notes, click_value, click_unit FROM equipment WHERE id = ?",
+                "SELECT id, kind, name, notes, click_value, click_unit, specs FROM equipment"
+                " WHERE id = ?",
                 (equipment_id,),
             ).fetchone()
         if row is None:
@@ -144,6 +178,7 @@ class Storage:
             "notes": row[3],
             "click_value": row[4],
             "click_unit": row[5],
+            "specs": _decode_specs(row[6]),
         }
 
     def add_equipment(
@@ -153,12 +188,13 @@ class Storage:
         notes: str | None = None,
         click_value: float | None = None,
         click_unit: str | None = None,
+        specs: dict | None = None,
     ) -> int:
         with self._lock:
             cur = self._conn.execute(
-                "INSERT INTO equipment (kind, name, notes, click_value, click_unit, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
-                (kind, name, notes, click_value, click_unit, time.time()),
+                "INSERT INTO equipment (kind, name, notes, click_value, click_unit, specs, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (kind, name, notes, click_value, click_unit, json.dumps(specs or {}), time.time()),
             )
             self._conn.commit()
             return cur.lastrowid
@@ -170,12 +206,13 @@ class Storage:
         notes: str | None = None,
         click_value: float | None = None,
         click_unit: str | None = None,
+        specs: dict | None = None,
     ) -> bool:
         with self._lock:
             cur = self._conn.execute(
-                "UPDATE equipment SET name = ?, notes = ?, click_value = ?, click_unit = ?"
-                " WHERE id = ?",
-                (name, notes, click_value, click_unit, equipment_id),
+                "UPDATE equipment SET name = ?, notes = ?, click_value = ?, click_unit = ?,"
+                " specs = ? WHERE id = ?",
+                (name, notes, click_value, click_unit, json.dumps(specs or {}), equipment_id),
             )
             self._conn.commit()
             return cur.rowcount > 0

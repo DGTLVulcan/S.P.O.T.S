@@ -614,9 +614,11 @@
         `<option value="">${EQUIPMENT_LABELS[kind]}: none</option>` +
         items
           .map((item) => {
-            const label = kind === "scope" && item.click_value
-              ? `${item.name} (${item.click_value} ${item.click_unit || "moa"})`
-              : item.name;
+            const detail = kind === "scope" && item.click_value
+              ? [item.summary, `${item.click_value} ${item.click_unit || "moa"}/click`]
+                  .filter(Boolean).join(", ")
+              : item.summary;
+            const label = detail ? `${item.name} (${detail})` : item.name;
             return `<option value="${item.id}"${item.id === selected ? " selected" : ""}>${label}</option>`;
           })
           .join("");

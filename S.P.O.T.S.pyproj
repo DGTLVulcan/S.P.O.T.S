@@ -29,6 +29,7 @@
     <Compile Include="S.P.O.T.S.py" />
     <Compile Include="spots\__init__.py" />
     <Compile Include="spots\config.py" />
+    <Compile Include="spots\equipment_specs.py" />
     <Compile Include="spots\health.py" />
     <Compile Include="spots\storage.py" />
     <Compile Include="spots\worker.py" />
@@ -47,6 +48,7 @@
     <Compile Include="tests\__init__.py" />
     <Compile Include="tests\test_config.py" />
     <Compile Include="tests\test_detection.py" />
+    <Compile Include="tests\test_equipment_specs.py" />
     <Compile Include="tests\test_groups.py" />
     <Compile Include="tests\test_health.py" />
     <Compile Include="tests\test_storage.py" />
@@ -62,6 +64,7 @@
     <Content Include="scripts\stop-network.sh" />
     <Content Include="scripts\spots.service" />
     <Content Include="scripts\spots.sh" />
+    <Content Include="spots\web\templates\equipment.html" />
     <Content Include="spots\web\templates\index.html" />
     <Content Include="spots\web\templates\sessions_list.html" />
     <Content Include="spots\web\templates\session_detail.html" />

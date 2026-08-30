@@ -132,15 +132,50 @@ a { color: var(--accent); }
 }
 .equipment-select:hover { border-color: var(--accent); }
 
-.equipment-section { margin-bottom: 1.5rem; }
-.equipment-section h3 {
-  margin: 0 0 0.5rem;
-  font-size: 0.85rem;
+/* Equipment page: one card per item, its fields driven by the schema. */
+.equip-section { margin-bottom: 2rem; }
+.equip-section > h2 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--ink-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-.equipment-section input[type="text"] { width: 100%; min-width: 8rem; }
-.equipment-add { margin-top: 0.6rem; }
+.equip-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--page);
+  padding: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+.equip-card-head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.equip-card-head .equip-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+}
+.equip-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.6rem 0.9rem;
+}
+.equip-field-block, .equip-notes-block { margin: 0; }
+.equip-notes-block { margin-top: 0.6rem; }
+.equip-field-label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--ink-secondary);
+  margin-bottom: 0.2rem;
+}
+.equip-card input, .equip-card select { width: 100%; }
+.equip-add-row { margin-top: 0.5rem; }
+.equip-add-row .equip-new-name { flex: 1 1 16rem; }
 
 /* The pickers would crowd the title on a phone; stack them under it. */
 @media (max-width: 900px) {

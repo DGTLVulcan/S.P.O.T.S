@@ -1,16 +1,13 @@
-// Equipment manager on the Settings page: add, edit and remove the rifles,
-// scopes and ammo offered by the header dropdowns. Scopes additionally carry
-// the turret click value that Scope Correction uses, so two scopes with
-// different turrets each give the right answer.
+// Equipment manager. The three kinds record genuinely different things --
+// a rifle's twist rate, a scope's turret click value, a bullet's weight --
+// so the forms are built from the schema the server sends rather than
+// hardcoded here, which keeps them in step with the validation.
 (function () {
   const root = document.getElementById("equipment-root");
   if (!root) return;
+  const errorEl = document.getElementById("equipment-error");
 
-  const KINDS = [
-    { kind: "rifle", title: "Rifles", placeholder: "e.g. Tikka T3x .308" },
-    { kind: "scope", title: "Scopes", placeholder: "e.g. Vortex Viper PST" },
-    { kind: "ammo", title: "Ammo", placeholder: "e.g. 168gr HPBT, 42.5gr Varget" },
-  ];
+  let schema = {};
 
   function escapeHtml(text) {
     return String(text === null || text === undefined ? "" : text).replace(
@@ -19,9 +16,9 @@
     );
   }
 
-  async function api(url, body, method) {
+  async function api(url, body) {
     const resp = await fetch(url, {
-      method: method || "POST",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -31,67 +28,88 @@
   }
 
   function setError(message) {
-    const el = document.getElementById("equipment-error");
-    if (el) el.textContent = message || "";
+    errorEl.textContent = message || "";
   }
 
-  function itemRow(item) {
-    const isScope = item.kind === "scope";
-    return `
-      <tr data-id="${item.id}" data-kind="${item.kind}">
-        <td><input class="equip-name" type="text" value="${escapeHtml(item.name)}"></td>
-        <td>${
-          isScope
-            ? `<input class="equip-click-value" type="number" step="0.001" min="0.001"
-                      style="width: 6rem;" value="${item.click_value === null ? "" : item.click_value}"
-                      placeholder="0.25">`
-            : '<span class="hint">&mdash;</span>'
-        }</td>
-        <td>${
-          isScope
-            ? `<select class="equip-click-unit">
-                 <option value="moa"${item.click_unit !== "mrad" ? " selected" : ""}>MOA</option>
-                 <option value="mrad"${item.click_unit === "mrad" ? " selected" : ""}>mrad</option>
-               </select>`
-            : '<span class="hint">&mdash;</span>'
-        }</td>
-        <td><input class="equip-notes" type="text" value="${escapeHtml(item.notes)}" placeholder="notes"></td>
-        <td class="row-actions">
-          <button type="button" class="equip-save">Save</button>
-          <button type="button" class="equip-delete session-delete-btn">Delete</button>
-        </td>
-      </tr>`;
+  function fieldInput(field, value) {
+    const val = value === null || value === undefined ? "" : value;
+    if (field.type === "select") {
+      const options = field.options
+        .map(
+          (o) =>
+            `<option value="${escapeHtml(o.value)}"${
+              String(o.value) === String(val) ? " selected" : ""
+            }>${escapeHtml(o.label)}</option>`
+        )
+        .join("");
+      return `<select class="equip-field" data-key="${field.key}">${options}</select>`;
+    }
+    const type = field.type === "number" ? "number" : "text";
+    const step = field.type === "number" ? ` step="${escapeHtml(field.step)}"` : "";
+    return (
+      `<input class="equip-field" data-key="${field.key}" type="${type}"${step}` +
+      ` value="${escapeHtml(val)}" placeholder="${escapeHtml(field.placeholder)}">`
+    );
   }
 
-  function section(group, items) {
+  function fieldBlock(field, value) {
     return `
-      <div class="equipment-section">
-        <h3>${group.title}</h3>
-        <div class="table-scroll">
-          <table>
-            <thead>
-              <tr><th>Name</th><th>Click value</th><th>Unit</th><th>Notes</th><th></th></tr>
-            </thead>
-            <tbody data-kind="${group.kind}">
-              ${items.length
-                ? items.map(itemRow).join("")
-                : `<tr><td colspan="5"><span class="empty-state">None yet.</span></td></tr>`}
-            </tbody>
-          </table>
+      <label class="field equip-field-block">
+        <span class="equip-field-label">${escapeHtml(field.label)}${
+          field.unit ? ` <span class="hint">(${escapeHtml(field.unit)})</span>` : ""
+        }</span>
+        ${fieldInput(field, value)}
+      </label>`;
+  }
+
+  function itemCard(kind, item) {
+    const specs = item.specs || {};
+    // click_value/click_unit are real columns rather than specs entries, but
+    // they belong in the same form, in schema order.
+    const valueFor = (field) => (field.column ? item[field.key] : specs[field.key]);
+    return `
+      <div class="equip-card" data-id="${item.id}" data-kind="${kind}">
+        <div class="equip-card-head">
+          <input class="equip-name" type="text" value="${escapeHtml(item.name)}"
+                 placeholder="Name" aria-label="Name">
+          <div class="row-actions">
+            <button type="button" class="equip-save">Save</button>
+            <button type="button" class="equip-delete session-delete-btn">Delete</button>
+          </div>
         </div>
-        <div class="controls equipment-add" data-kind="${group.kind}">
-          <input class="equip-new-name" type="text" placeholder="${group.placeholder}">
-          ${group.kind === "scope"
-            ? `<input class="equip-new-click-value" type="number" step="0.001" min="0.001"
-                      style="width: 7rem;" placeholder="click value">
-               <select class="equip-new-click-unit">
-                 <option value="moa">MOA</option>
-                 <option value="mrad">mrad</option>
-               </select>`
-            : ""}
-          <button type="button" class="equip-add primary">Add ${group.title.replace(/s$/, "")}</button>
+        <div class="equip-fields">
+          ${schema[kind].fields.map((f) => fieldBlock(f, valueFor(f))).join("")}
         </div>
+        <label class="field equip-notes-block">
+          <span class="equip-field-label">Notes</span>
+          <input class="equip-notes" type="text" value="${escapeHtml(item.notes)}"
+                 placeholder="anything else worth remembering">
+        </label>
       </div>`;
+  }
+
+  function section(kind, items) {
+    const meta = schema[kind];
+    return `
+      <section class="equip-section" data-kind="${kind}">
+        <h2>${escapeHtml(meta.title)}</h2>
+        ${items.length
+          ? items.map((i) => itemCard(kind, i)).join("")
+          : `<p class="empty-state">No ${escapeHtml(meta.title.toLowerCase())} yet.</p>`}
+        <div class="controls equip-add-row">
+          <input class="equip-new-name" type="text"
+                 placeholder="${escapeHtml(meta.name_placeholder)}">
+          <button type="button" class="equip-add primary">Add ${escapeHtml(meta.singular)}</button>
+        </div>
+      </section>`;
+  }
+
+  function collect(container) {
+    const specs = {};
+    container.querySelectorAll(".equip-field").forEach((el) => {
+      specs[el.dataset.key] = el.value;
+    });
+    return specs;
   }
 
   async function render() {
@@ -102,32 +120,30 @@
       root.innerHTML = `<p class="empty-state">Couldn't load equipment.</p>`;
       return;
     }
-    root.innerHTML =
-      `<p id="equipment-error" class="status"></p>` +
-      KINDS.map((group) => section(group, data.items[group.kind] || [])).join("");
+    schema = data.schema;
+    root.innerHTML = Object.keys(schema)
+      .map((kind) => section(kind, data.items[kind] || []))
+      .join("");
   }
 
-  // One delegated handler for the whole panel -- the rows are rebuilt on
-  // every change, so per-row listeners would go stale.
+  // Delegated: cards are rebuilt on every change, so per-card listeners
+  // would go stale immediately.
   root.addEventListener("click", async (ev) => {
     const addBtn = ev.target.closest(".equip-add");
     if (addBtn) {
-      const wrap = addBtn.closest(".equipment-add");
+      const wrap = addBtn.closest(".equip-section");
       const kind = wrap.dataset.kind;
-      const name = wrap.querySelector(".equip-new-name").value.trim();
+      const nameInput = wrap.querySelector(".equip-new-name");
+      const name = nameInput.value.trim();
       if (!name) {
         setError("Give it a name first.");
+        nameInput.focus();
         return;
       }
-      const clickValue = wrap.querySelector(".equip-new-click-value");
-      const clickUnit = wrap.querySelector(".equip-new-click-unit");
       try {
-        await api("/api/equipment", {
-          kind,
-          name,
-          click_value: clickValue ? clickValue.value : null,
-          click_unit: clickUnit ? clickUnit.value : null,
-        });
+        // Added with just a name; the specs are filled in on the card that
+        // appears, which avoids a second sprawling form up front.
+        await api("/api/equipment", { kind, name });
         setError("");
         await render();
       } catch (err) {
@@ -138,15 +154,12 @@
 
     const saveBtn = ev.target.closest(".equip-save");
     if (saveBtn) {
-      const row = saveBtn.closest("tr");
-      const clickValue = row.querySelector(".equip-click-value");
-      const clickUnit = row.querySelector(".equip-click-unit");
+      const card = saveBtn.closest(".equip-card");
       try {
-        await api(`/api/equipment/${row.dataset.id}`, {
-          name: row.querySelector(".equip-name").value.trim(),
-          notes: row.querySelector(".equip-notes").value.trim(),
-          click_value: clickValue ? clickValue.value : null,
-          click_unit: clickUnit ? clickUnit.value : null,
+        await api(`/api/equipment/${card.dataset.id}`, {
+          name: card.querySelector(".equip-name").value.trim(),
+          notes: card.querySelector(".equip-notes").value.trim(),
+          specs: collect(card),
         });
         setError("");
         saveBtn.textContent = "Saved";
@@ -159,16 +172,24 @@
 
     const deleteBtn = ev.target.closest(".equip-delete");
     if (deleteBtn) {
-      const row = deleteBtn.closest("tr");
-      const name = row.querySelector(".equip-name").value;
+      const card = deleteBtn.closest(".equip-card");
+      const name = card.querySelector(".equip-name").value;
       if (!window.confirm(`Delete "${name}"?`)) return;
       try {
-        await api(`/api/equipment/${row.dataset.id}/delete`);
+        await api(`/api/equipment/${card.dataset.id}/delete`);
         setError("");
         await render();
       } catch (err) {
         setError("Delete failed: " + err.message);
       }
+    }
+  });
+
+  // Enter in the "add" box adds, rather than doing nothing.
+  root.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && ev.target.classList.contains("equip-new-name")) {
+      ev.preventDefault();
+      ev.target.closest(".equip-add-row").querySelector(".equip-add").click();
     }
   });
 

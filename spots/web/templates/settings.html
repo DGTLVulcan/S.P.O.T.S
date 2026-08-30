@@ -136,12 +136,12 @@
     <div class="card full-width">
       <h2>Equipment</h2>
       <p class="hint">
-        Rifles, scopes and ammo offered in the header dropdowns. The selected
-        scope's click value is what Scope Correction converts the group offset
-        into, so each scope carries its own turret setting.
+        Rifles, scopes and ammo, with the specifications that matter for each
+        &mdash; calibre and barrel length, turret click value, bullet weight
+        and charge. Managed on their own page.
       </p>
-      <div id="equipment-root">
-        <p class="empty-state">Loading...</p>
+      <div class="controls">
+        <a class="btn primary" href="{{ url_for('spots.equipment_page') }}">Manage Equipment</a>
       </div>
     </div>
 
@@ -162,7 +162,6 @@
 
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
   <script src="{{ url_for('static', filename='health.js') }}"></script>
-  <script src="{{ url_for('static', filename='equipment.js') }}"></script>
   <script src="{{ url_for('static', filename='settings.js') }}"></script>
 </body>
 </html>

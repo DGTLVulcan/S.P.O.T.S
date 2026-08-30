@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S.P.O.T.S - Equipment</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="appbar">
+    <div class="brand">
+      <h1>S.P.O.T.S</h1>
+      <span class="subtitle">Equipment</span>
+    </div>
+    <nav class="icon-nav">
+      <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
+      <a class="icon-btn" href="{{ url_for('spots.settings_page') }}" title="Settings" aria-label="Settings">&#9881;</a>
+      <a class="icon-btn" href="{{ url_for('spots.index') }}" title="Back to live view" aria-label="Back to live view">&#8962;</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="card full-width">
+      <p class="hint" style="margin-top: 0;">
+        Rifles, scopes and ammo offered by the dropdowns at the top of the live
+        view. Whatever is selected there is recorded against each session, so
+        history shows what a string was actually shot with. The selected
+        scope's click value is what Scope Correction converts a group offset
+        into, so each scope carries its own turret setting.
+      </p>
+      <p id="equipment-error" class="status"></p>
+      <div id="equipment-root">
+        <p class="empty-state">Loading...</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='equipment.js') }}"></script>
+</body>
+</html>

@@ -251,6 +251,22 @@ class EquipmentTests(StorageTestCase):
         for item in self.storage.list_equipment("scope"):
             self.assertEqual(item["kind"], "scope")
 
+    def test_specs_round_trip(self):
+        new_id = self.storage.add_equipment(
+            "rifle", "Test", None, None, None, {"calibre": ".308", "barrel_length_in": 20.0}
+        )
+        item = self.storage.get_equipment(new_id)
+        self.assertEqual(item["specs"]["calibre"], ".308")
+        self.assertEqual(item["specs"]["barrel_length_in"], 20.0)
+
+    def test_specs_default_to_an_empty_dict(self):
+        new_id = self.storage.add_equipment("ammo", "Bare")
+        self.assertEqual(self.storage.get_equipment(new_id)["specs"], {})
+
+    def test_seeded_defaults_carry_specs(self):
+        rifle = self.storage.list_equipment("rifle")[0]
+        self.assertTrue(rifle["specs"], "seeded rifle should have example specs")
+
     def test_session_records_the_equipment_used(self):
         session_id = self.storage.new_session(
             "cm", 100.0, rifle="My Rifle", scope="My Scope", ammo="My Ammo"
