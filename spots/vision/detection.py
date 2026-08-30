@@ -220,7 +220,12 @@ class ShotDetector:
         height, width = self._anchor.shape
         return cv2.warpPerspective(gray, homography, (width, height))
 
-    def process_frame(self, frame_bgr: np.ndarray, zoom_level: float = 1.0) -> list[Shot]:
+    def process_frame(
+        self,
+        frame_bgr: np.ndarray,
+        zoom_level: float = 1.0,
+        area_range: tuple[float, float] | None = None,
+    ) -> list[Shot]:
         if self._reference is None:
             return []
 
@@ -236,12 +241,19 @@ class ShotDetector:
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, _MORPH_KERNEL)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # Digital zoom crops+upscales, so a hole's pixel footprint grows with
-        # the SQUARE of zoom level -- the area thresholds are configured for
-        # 1x and need the same scaling, or a zoomed-in hole reads as "too big".
-        area_scale = zoom_level**2
-        min_area = cfg.min_hole_area_px * area_scale
-        max_area = cfg.max_hole_area_px * area_scale
+        if area_range is not None:
+            # Worked out from the calibrated scale, which was measured in the
+            # current (already zoomed) view -- so it must NOT be scaled by
+            # zoom again here, or the zoom would be counted twice.
+            min_area, max_area = area_range
+        else:
+            # Digital zoom crops+upscales, so a hole's pixel footprint grows
+            # with the SQUARE of zoom level -- the configured thresholds are
+            # for 1x and need the same scaling, or a zoomed-in hole reads as
+            # "too big".
+            area_scale = zoom_level**2
+            min_area = cfg.min_hole_area_px * area_scale
+            max_area = cfg.max_hole_area_px * area_scale
 
         candidates: list[tuple[float, float, float]] = []
         for contour in contours:

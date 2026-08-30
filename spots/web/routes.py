@@ -318,6 +318,7 @@ def api_shots():
             # Distinct from "calibrated": two-point calibration sets the
             # scale, marking the centre sets the point of aim. The setup
             # checklist and scope correction both need to tell them apart.
+            "hole_area": _worker().hole_area_range(),
             "center_marked": bool(
                 snapshot.calibration is not None
                 and snapshot.calibration.origin_is_target_center
@@ -345,6 +346,14 @@ def api_shots():
             },
         }
     )
+
+
+def _sync_bullet_diameter():
+    """Keeps the worker's bullet diameter in step with the selected ammo, so
+    the derived hole size follows a change of load without a restart."""
+    ammo = _selected_equipment()["ammo"]
+    diameter = (ammo or {}).get("specs", {}).get("bullet_diameter_mm")
+    _worker().set_bullet_diameter_mm(diameter)
 
 
 def _selected_equipment():
@@ -464,6 +473,7 @@ def api_equipment_update(equipment_id):
         equipment_id, name, (data.get("notes") or "").strip() or None,
         click_value, click_unit, specs, rings,
     )
+    _sync_bullet_diameter()
     return jsonify({"ok": True})
 
 
@@ -518,6 +528,7 @@ def api_equipment_select():
             cleared = ammo["name"]
 
     _storage().set_selected_equipment(kind, item_id)
+    _sync_bullet_diameter()
     return jsonify({"ok": True, "selected": item_id, "cleared_ammo": cleared})
 
 
@@ -685,6 +696,7 @@ def api_new_session():
         )
         for kind, item in chosen.items()
     }
+    _sync_bullet_diameter()
     try:
         _worker().new_target(equipment=snapshot)
     except ValueError as exc:
@@ -1158,6 +1170,7 @@ def _apply_settings_form(settings, form) -> list[str]:
     # for next launch, even though the running worker won't pick them up.
     settings.detection.sample_fps = sample_fps
     settings.detection.realignment_enabled = "detection.realignment_enabled" in form
+    settings.detection.auto_hole_area = "detection.auto_hole_area" in form
     settings.detection.realignment_method = realignment_method
 
     settings.camera.source = camera_source

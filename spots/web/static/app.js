@@ -447,6 +447,20 @@
     const data = await resp.json();
     const stats = data.stats;
 
+    // Say which hole-size window is actually in force -- auto-sizing fails
+    // quietly (no calibration, no bullet diameter) and the fallback figures
+    // are exactly what miss real holes, so it must not be invisible.
+    const holeHint = document.getElementById("hole-size-hint");
+    if (holeHint) {
+      const h = data.hole_area;
+      holeHint.innerHTML = h
+        ? `Hole size: <strong>auto</strong> &mdash; expecting ~${h.diameter_px.toFixed(1)} px across` +
+          ` (${Math.round(h.area_px)} px&sup2;), accepting ${Math.round(h.min_area_px)}` +
+          `&ndash;${Math.round(h.max_area_px)} px&sup2;.`
+        : "Hole size: <strong>manual</strong> &mdash; using the fixed px&sup2; range from Settings." +
+          " For automatic sizing, calibrate and give the ammo a bullet diameter.";
+    }
+
     setStepDone("step-calibrate", data.calibrated);
     setStepDone("step-center", data.center_marked);
     // Marking the centre needs a scale to attach to, so don't invite it yet.

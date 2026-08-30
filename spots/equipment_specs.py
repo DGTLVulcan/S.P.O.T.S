@@ -85,6 +85,8 @@ EQUIPMENT_SPECS: dict[str, tuple[SpecField, ...]] = {
         SpecField("calibre", "Calibre", placeholder="e.g. .308 Winchester"),
         SpecField("bullet_grains", "Bullet weight", "number", unit="gr", step="0.1",
                   placeholder="168"),
+        SpecField("bullet_diameter_mm", "Bullet diameter", "number", unit="mm", step="0.01",
+                  placeholder="7.82"),
         SpecField("bullet", "Bullet", placeholder="e.g. Sierra MatchKing HPBT"),
         SpecField("manufacturer", "Manufacturer", placeholder="e.g. Federal"),
         SpecField("powder", "Powder", placeholder="e.g. Varget"),

@@ -114,6 +114,14 @@ def create_app(settings: Settings) -> Flask:
     # mid-string doesn't lose the shots and calibration already recorded.
     if worker.resume_last_session():
         logger.info("Resumed the most recent session from storage")
+    # Auto hole-sizing needs the selected ammo's bullet diameter; without
+    # this a resumed session would silently fall back to the fixed pixel
+    # figures until the ammo was re-selected.
+    selected_ammo = storage.get_selected_equipment().get("ammo")
+    if selected_ammo:
+        item = storage.get_equipment(selected_ammo)
+        if item:
+            worker.set_bullet_diameter_mm((item.get("specs") or {}).get("bullet_diameter_mm"))
 
     def _shutdown():
         worker.stop()

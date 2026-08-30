@@ -115,6 +115,11 @@ class DetectionConfig:
     # outdoor lighting flicker causes false positives; lower it if holes on
     # dark rings still aren't registering.
     diff_threshold: int = 20
+    # Size a hole from the bullet diameter and the calibrated scale rather
+    # than from these fixed pixel figures, which only ever suit one framing.
+    # Falls back to them whenever it can't be worked out -- before
+    # calibration, or with no bullet diameter recorded on the ammo.
+    auto_hole_area: bool = True
     min_hole_area_px: int = 20
     max_hole_area_px: int = 400
     min_circularity: float = 0.5

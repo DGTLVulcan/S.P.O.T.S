@@ -4,6 +4,7 @@ thread-safe SessionState the Flask routes read from.
 from __future__ import annotations
 
 import logging
+import math
 import os
 import threading
 import time
@@ -17,7 +18,7 @@ from spots.config import DetectionConfig, TargetConfig
 from spots.storage import Storage
 from spots.vision.calibration import Calibration
 from spots.vision.detection import ShotDetector, invert_homography, warp_point
-from spots.vision.groups import GroupStats, compute_group_stats
+from spots.vision.groups import _UNIT_TO_METERS, GroupStats, compute_group_stats
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,7 @@ class DetectionWorker:
         self._storage = storage
         self._target_config = target_config
         self._snapshot_dir = snapshot_dir
+        self._detection_config = detection_config
         self._sample_interval_s = 1.0 / max(detection_config.sample_fps, 0.1)
         self._detector = ShotDetector(detection_config)
         self.state = SessionState()
@@ -176,12 +178,53 @@ class DetectionWorker:
         # is available, since at startup the camera may not have produced a
         # frame yet.
         self._pending_rearm_seq: int | None = None
+        # Bullet diameter of the selected ammo, in mm. With this and the
+        # calibrated scale the expected hole size can be worked out, instead
+        # of relying on pixel figures that only suit one framing.
+        self._bullet_diameter_mm: float | None = None
 
     def start(self) -> None:
         self._frame_source.start()
         self._stop.clear()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
+
+    def set_bullet_diameter_mm(self, diameter_mm: float | None) -> None:
+        self._bullet_diameter_mm = diameter_mm if diameter_mm else None
+
+    def hole_area_range(self) -> dict | None:
+        """Expected hole size in the CURRENT view, from the bullet diameter
+        and the calibrated scale.
+
+        Returns None whenever it can't be worked out -- auto-sizing off, no
+        calibration yet, no diameter recorded, or a unit with no fixed
+        conversion to metres -- and the configured pixel figures are used
+        instead. The window is generous either side of the expected area:
+        holes tear larger than the bullet, and two touching holes merge into
+        one blob that must still pass.
+        """
+        if not self._detection_config.auto_hole_area or not self._bullet_diameter_mm:
+            return None
+        calibration = self.state.snapshot().calibration
+        if calibration is None or not calibration.units_per_px:
+            return None
+        metres_per_unit = _UNIT_TO_METERS.get(self._target_config.unit_name.strip().lower())
+        if metres_per_unit is None:
+            return None
+
+        diameter_units = (self._bullet_diameter_mm / 1000.0) / metres_per_unit
+        # units_per_px was measured in the current view, so this is already
+        # in the pixels the detector actually sees, zoom included.
+        diameter_px = diameter_units / calibration.units_per_px
+        if diameter_px <= 0:
+            return None
+        area_px = math.pi * (diameter_px / 2.0) ** 2
+        return {
+            "diameter_px": diameter_px,
+            "area_px": area_px,
+            "min_area_px": max(4.0, area_px * 0.25),
+            "max_area_px": area_px * 4.0,
+        }
 
     def _run(self) -> None:
         while not self._stop.wait(self._sample_interval_s):
@@ -201,7 +244,13 @@ class DetectionWorker:
                 self._pending_rearm_seq = None
                 continue
             zoom_level, _, _ = self.get_zoom()
-            for shot in self._detector.process_frame(frame, zoom_level=zoom_level):
+            derived = self.hole_area_range()
+            area_range = (
+                (derived["min_area_px"], derived["max_area_px"]) if derived else None
+            )
+            for shot in self._detector.process_frame(
+                frame, zoom_level=zoom_level, area_range=area_range
+            ):
                 self._commit_shot(shot.seq, shot.x_px, shot.y_px, frame)
 
     def _commit_shot(self, seq: int, x_px: float, y_px: float, frame_bgr: np.ndarray) -> None:

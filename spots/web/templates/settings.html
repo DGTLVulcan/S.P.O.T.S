@@ -125,23 +125,31 @@
               <input type="number" id="diff_threshold" name="detection.diff_threshold" value="{{ settings.detection.diff_threshold }}" required>
               <span class="hint">Lower catches holes on dark rings (less contrast there); raise if outdoor lighting flicker causes false positives.</span>
             </div>
+            <div class="field checkbox-field">
+              <input type="checkbox" id="auto_hole_area" name="detection.auto_hole_area"
+                     {% if settings.detection.auto_hole_area %}checked{% endif %}>
+              <label for="auto_hole_area">Work out hole size automatically</label>
+            </div>
+            <p class="hint" style="margin: -0.4rem 0 0.9rem;">
+              Sizes a hole from the selected ammo's bullet diameter and the
+              calibrated scale, so it follows your framing instead of being a
+              fixed pixel figure. Needs a bullet diameter on the ammo and a
+              completed calibration; without either it falls back to the two
+              values below. The live view shows which is in force.
+            </p>
             <div class="field">
               <label for="min_hole_area_px">Min hole area (px&sup2;)</label>
               <input type="number" id="min_hole_area_px" name="detection.min_hole_area_px" value="{{ settings.detection.min_hole_area_px }}" required>
-              <span class="hint">Below this a blob is treated as noise rather than a hole.</span>
+              <span class="hint">Fallback when the size can't be worked out. Below this, a blob is noise rather than a hole.</span>
             </div>
             <div class="field">
               <label for="max_hole_area_px">Max hole area (px&sup2;)</label>
               <input type="number" id="max_hole_area_px" name="detection.max_hole_area_px" value="{{ settings.detection.max_hole_area_px }}" required>
               <span class="hint">
-                <strong>Depends on your framing</strong> &mdash; a hole's size in pixels
-                is set by how much of the frame the target fills, so the defaults will
-                not suit every setup. Work it out as:
+                Fallback maximum. These depend entirely on framing:
                 <code>hole_px = bullet_mm / 10 &times; (frame_width_px / target_width_cm)</code>,
-                then area = &pi; &times; (hole_px / 2)&sup2;. Set the max to roughly twice
-                that and the min to about a fifth. A .308 (7.8&nbsp;mm) on a 60&nbsp;cm
-                target filling a 1920&nbsp;px frame is about 25&nbsp;px across
-                &mdash; ~490&nbsp;px&sup2;, which the default 400 would reject.
+                area = &pi; &times; (hole_px / 2)&sup2;. A .308 on a 60&nbsp;cm target filling a
+                1920&nbsp;px frame is ~25&nbsp;px across, about 490&nbsp;px&sup2;.
               </span>
             </div>
             <div class="field">
