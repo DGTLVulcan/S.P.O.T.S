@@ -363,6 +363,67 @@
   // renderTargetDiagram lives in diagram.js -- the session history detail
   // page draws the same diagram, so it is shared rather than duplicated.
 
+  // Audible confirmation. You are behind the rifle, not watching the phone,
+  // so a shot registering needs to be something you can hear. Synthesised
+  // with WebAudio rather than shipping an audio file -- no asset to load
+  // over the Pi's own WiFi, and it cuts through ear defenders better than a
+  // soft click. Browsers block audio until the user has interacted with the
+  // page, so the context is created on the first gesture.
+  const SOUND_KEY = "spots.shotSound";
+  let audioContext = null;
+  let soundEnabled = localStorage.getItem(SOUND_KEY) !== "off";
+  let lastSeenSeq = null;
+
+  function primeAudio() {
+    if (!audioContext) {
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (Ctor) audioContext = new Ctor();
+    }
+    if (audioContext && audioContext.state === "suspended") audioContext.resume();
+  }
+  document.addEventListener("pointerdown", primeAudio, { once: true });
+  document.addEventListener("keydown", primeAudio, { once: true });
+
+  function beep(count) {
+    if (!soundEnabled || !audioContext || audioContext.state !== "running") return;
+    // One short two-tone chirp per shot, spaced out when several land at once.
+    for (let i = 0; i < count; i++) {
+      const startAt = audioContext.currentTime + i * 0.22;
+      [880, 1320].forEach((frequency, step) => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = "sine";
+        osc.frequency.value = frequency;
+        const t = startAt + step * 0.07;
+        // Ramped rather than switched, or it clicks on start and stop.
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.28, t + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+        osc.connect(gain).connect(audioContext.destination);
+        osc.start(t);
+        osc.stop(t + 0.13);
+      });
+    }
+  }
+
+  const soundToggle = document.getElementById("sound-toggle");
+  function updateSoundUI() {
+    if (!soundToggle) return;
+    soundToggle.classList.toggle("active", soundEnabled);
+    soundToggle.textContent = soundEnabled ? "♪" : "✗";
+    soundToggle.title = soundEnabled ? "Shot sound on" : "Shot sound off";
+  }
+  if (soundToggle) {
+    soundToggle.addEventListener("click", () => {
+      soundEnabled = !soundEnabled;
+      localStorage.setItem(SOUND_KEY, soundEnabled ? "on" : "off");
+      updateSoundUI();
+      primeAudio();
+      if (soundEnabled) beep(1); // so you know what you just turned on
+    });
+    updateSoundUI();
+  }
+
   async function refreshShots() {
     const resp = await fetch("/api/shots");
     const data = await resp.json();
@@ -448,6 +509,14 @@
           })
           .join("")
       : '<span class="hud-empty">No shots yet.</span>';
+
+    // Highest sequence number seen, so this covers detected shots and
+    // manually placed test shots alike -- both land in the same list.
+    const highestSeq = data.shots.length ? data.shots[data.shots.length - 1].seq : 0;
+    if (lastSeenSeq !== null && highestSeq > lastSeenSeq) {
+      beep(Math.min(highestSeq - lastSeenSeq, 3));
+    }
+    lastSeenSeq = highestSeq;
 
     const scopeEl = document.getElementById("scope-correction");
     const sc = data.scope_correction;

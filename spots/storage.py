@@ -548,6 +548,21 @@ class Storage:
             ).fetchone()
         return row[0] if row else None
 
+    def backup_to(self, destination_path: str) -> None:
+        """Writes a consistent copy of the database to `destination_path`.
+
+        Uses SQLite's own backup API rather than copying the file: the app
+        keeps writing while this runs (the detector commits shots on its own
+        thread), and a plain file copy of a live database can catch a
+        half-written page and produce a backup that won't open.
+        """
+        with self._lock:
+            target = sqlite3.connect(destination_path)
+            try:
+                self._conn.backup(target)
+            finally:
+                target.close()
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()

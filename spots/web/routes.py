@@ -4,6 +4,7 @@ import csv
 import io
 import logging
 import os
+import tempfile
 import time
 from datetime import datetime
 
@@ -468,6 +469,33 @@ def api_equipment_select():
 
     _storage().set_selected_equipment(kind, item_id)
     return jsonify({"ok": True, "selected": item_id, "cleared_ammo": cleared})
+
+
+@bp.route("/api/backup")
+def api_backup():
+    """Downloads the whole database -- sessions, shots, equipment, settings.
+
+    It lives on an SD card in a device that travels to a range, and the only
+    other way out is a CSV per session, so a card failure would take the lot.
+    """
+    storage = _storage()
+    handle, temp_path = tempfile.mkstemp(prefix="spots-backup-", suffix=".db")
+    os.close(handle)
+    try:
+        storage.backup_to(temp_path)
+        with open(temp_path, "rb") as backup_file:
+            payload = backup_file.read()
+    finally:
+        try:
+            os.remove(temp_path)
+        except OSError:
+            logger.warning("Could not remove temporary backup %s", temp_path)
+
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    response = Response(payload, mimetype="application/octet-stream")
+    response.headers["Content-Disposition"] = f'attachment; filename="spots-backup-{stamp}.db"'
+    response.headers["Content-Length"] = str(len(payload))
+    return response
 
 
 @bp.route("/api/health")

@@ -143,6 +143,18 @@
     </div>
 
     <div class="card full-width">
+      <h2>Backup</h2>
+      <p class="hint">
+        Everything is kept in one database file on the Pi's SD card &mdash;
+        sessions, shots, equipment and settings. Download a copy to keep it
+        somewhere that isn't in the range bag.
+      </p>
+      <div class="controls">
+        <a class="btn primary" href="{{ url_for('spots.api_backup') }}">Download Backup</a>
+      </div>
+    </div>
+
+    <div class="card full-width">
       <h2>System Health</h2>
       <div id="health-root">
         <p class="empty-state">Loading...</p>
