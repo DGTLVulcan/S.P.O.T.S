@@ -9,7 +9,15 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import unittest
 
-from spots.equipment_specs import clean_specs, fields_for, schema_payload, summarise
+from spots.equipment_specs import (
+    calibre_of,
+    calibres_match,
+    clean_specs,
+    fields_for,
+    normalise_calibre,
+    schema_payload,
+    summarise,
+)
 
 
 class SchemaTests(unittest.TestCase):
@@ -123,3 +131,45 @@ class SummaryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CalibreMatchingTests(unittest.TestCase):
+    """A rifle and its ammo have to agree on chambering, but people write
+    the same cartridge several ways and often don't record it at all."""
+
+    def test_same_cartridge_written_differently(self):
+        for left, right in [
+            (".308 Winchester", ".308 Win"),
+            (".308 Winchester", "308win"),
+            (".223 Remington", ".223 Rem"),
+            ("  .308  Win ", ".308win"),
+            ("6.5 Creedmoor", "6.5 creedmoor"),
+        ]:
+            self.assertTrue(calibres_match(left, right), f"{left} vs {right}")
+
+    def test_different_cartridges_do_not_match(self):
+        for left, right in [
+            (".308 Winchester", ".223 Remington"),
+            (".308 Win", ".300 Win Mag"),
+            (".22 LR", ".22-250"),
+            ("6.5 Creedmoor", ".308 Winchester"),
+        ]:
+            self.assertFalse(calibres_match(left, right), f"{left} vs {right}")
+
+    def test_an_unrecorded_calibre_matches_anything(self):
+        """Refusing to pair kit because a field is blank would be worse than
+        letting it through -- there's no mismatch to prove."""
+        self.assertTrue(calibres_match(None, ".308 Win"))
+        self.assertTrue(calibres_match(".308 Win", None))
+        self.assertTrue(calibres_match("", ""))
+        self.assertTrue(calibres_match("   ", ".223"))
+
+    def test_normalisation(self):
+        self.assertEqual(normalise_calibre(".308 Winchester"), "308winchester")
+        self.assertEqual(normalise_calibre("  6.5 Creedmoor "), "65creedmoor")
+        self.assertEqual(normalise_calibre(None), "")
+
+    def test_calibre_of_reads_the_specs(self):
+        self.assertEqual(calibre_of({"specs": {"calibre": ".308 Win"}}), ".308 Win")
+        self.assertIsNone(calibre_of({"specs": {}}))
+        self.assertIsNone(calibre_of(None))

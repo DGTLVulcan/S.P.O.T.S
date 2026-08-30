@@ -25,7 +25,13 @@ from flask import (
 from spots import health
 from spots.camera.client import ZCamError
 from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
-from spots.equipment_specs import clean_specs, schema_payload, summarise
+from spots.equipment_specs import (
+    calibre_of,
+    calibres_match,
+    clean_specs,
+    schema_payload,
+    summarise,
+)
 from spots.storage import EQUIPMENT_KINDS
 from spots.vision.calibration import Calibration
 from spots.vision.detection import invert_homography, warp_point
@@ -311,11 +317,17 @@ def _selected_equipment():
 
 def _equipment_payload():
     storage = _storage()
+    chosen = _selected_equipment()
+    # A rifle and its ammo have to agree on chambering. Compatibility is
+    # decided here rather than in the browser so the rule that filters the
+    # dropdowns is the same one that validates a selection.
+    opposite = {"rifle": calibre_of(chosen["ammo"]), "ammo": calibre_of(chosen["rifle"])}
 
     def decorate(item):
         # A one-line "what is this" for the header dropdowns, derived from
         # whichever specs are filled in.
         item["summary"] = summarise(item)
+        item["compatible"] = calibres_match(calibre_of(item), opposite.get(item["kind"]))
         return item
 
     return {
@@ -323,6 +335,7 @@ def _equipment_payload():
         # maps come back alphabetical (ammo, rifle, scope) and can't carry
         # the running order on their own.
         "order": list(EQUIPMENT_KINDS),
+        "calibres": {kind: calibre_of(item) for kind, item in chosen.items()},
         "schema": schema_payload(),
         "items": {
             kind: [decorate(i) for i in storage.list_equipment(kind)] for kind in EQUIPMENT_KINDS
@@ -432,8 +445,29 @@ def api_equipment_select():
         item = _storage().get_equipment(item_id)
         if item is None or item["kind"] != kind:
             return jsonify({"error": f"No {kind} #{item_id}"}), 404
+
+    chosen = _selected_equipment()
+    cleared = None
+    if kind == "ammo" and item_id is not None:
+        # Ammo must suit the rifle already chosen -- the dropdown doesn't
+        # offer a mismatch, so this only catches a direct API call.
+        rifle = chosen["rifle"]
+        if not calibres_match(calibre_of(item), calibre_of(rifle)):
+            return jsonify({
+                "error": f"{item['name']} is {calibre_of(item)}, but "
+                         f"{rifle['name']} is {calibre_of(rifle)}"
+            }), 409
+    elif kind == "rifle" and item_id is not None:
+        # Changing rifle is how you change calibre, so this must never be
+        # refused: drop the now-unusable ammo instead of getting stuck
+        # unable to pick either half of a new pairing.
+        ammo = chosen["ammo"]
+        if ammo is not None and not calibres_match(calibre_of(item), calibre_of(ammo)):
+            _storage().set_selected_equipment("ammo", None)
+            cleared = ammo["name"]
+
     _storage().set_selected_equipment(kind, item_id)
-    return jsonify({"ok": True, "selected": item_id})
+    return jsonify({"ok": True, "selected": item_id, "cleared_ammo": cleared})
 
 
 @bp.route("/api/health")

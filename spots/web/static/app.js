@@ -608,11 +608,22 @@
     for (const kind of EQUIPMENT_KINDS) {
       const select = equipmentSelect(kind);
       if (!select) continue;
-      const items = data.items[kind] || [];
+      // Ammo has to suit the rifle's chambering, so only compatible loads
+      // are offered. The server decides compatibility (see /api/equipment)
+      // so the filter here can't disagree with what it will accept.
+      const all = data.items[kind] || [];
+      const usable = all.filter((item) => item.compatible !== false);
+      const hidden = all.length - usable.length;
       const selected = data.selected[kind];
+
+      let placeholder = `${EQUIPMENT_LABELS[kind]}: none`;
+      if (kind === "ammo" && !usable.length && data.calibres && data.calibres.rifle) {
+        placeholder = `No ${data.calibres.rifle} ammo`;
+      }
+
       select.innerHTML =
-        `<option value="">${EQUIPMENT_LABELS[kind]}: none</option>` +
-        items
+        `<option value="">${placeholder}</option>` +
+        usable
           .map((item) => {
             const detail = kind === "scope" && item.click_value
               ? [item.summary, `${item.click_value} ${item.click_unit || "moa"}/click`]
@@ -622,6 +633,10 @@
             return `<option value="${item.id}"${item.id === selected ? " selected" : ""}>${label}</option>`;
           })
           .join("");
+
+      select.title = hidden
+        ? `${EQUIPMENT_LABELS[kind]} — ${hidden} hidden: wrong calibre for the selected rifle`
+        : EQUIPMENT_LABELS[kind];
     }
   }
 
@@ -630,9 +645,16 @@
     if (!select) continue;
     select.addEventListener("change", async () => {
       try {
-        await postJson("/api/equipment/select", { kind, id: select.value || null });
-        setStatus(`${EQUIPMENT_LABELS[kind]} set to ${select.options[select.selectedIndex].text}.`);
-        refreshShots(); // scope choice changes the turret click value
+        const result = await postJson("/api/equipment/select", { kind, id: select.value || null });
+        let message = `${EQUIPMENT_LABELS[kind]} set to ${select.options[select.selectedIndex].text}.`;
+        if (result.cleared_ammo) {
+          message += ` ${result.cleared_ammo} unselected -- wrong calibre for this rifle.`;
+        }
+        setStatus(message);
+        // Reload the pickers: changing the rifle changes which ammo is on
+        // offer, and the scope choice changes the turret click value.
+        loadEquipment();
+        refreshShots();
       } catch (err) {
         setStatus(`Error selecting ${kind}: ` + err.message);
         loadEquipment();

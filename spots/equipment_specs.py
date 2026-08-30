@@ -13,6 +13,7 @@ own column rather than the free-form specs blob.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 
@@ -185,6 +186,39 @@ def summarise(item: dict) -> str:
     elif kind == "ammo":
         parts = [specs.get("calibre"), _with_unit(specs.get("bullet_grains"), " gr")]
     return " ".join(p for p in parts if p)
+
+
+def normalise_calibre(text: str | None) -> str:
+    """Reduces a chambering to something comparable.
+
+    People write the same cartridge half a dozen ways -- ".308 Winchester",
+    ".308 Win", "308win" -- so punctuation, spacing and case are stripped
+    before comparing. Returns "" when nothing is recorded.
+    """
+    if not text:
+        return ""
+    return re.sub(r"[^a-z0-9]", "", str(text).lower())
+
+
+def calibres_match(left: str | None, right: str | None) -> bool:
+    """Whether two chamberings can be used together.
+
+    An unrecorded calibre matches anything: the app can't prove a mismatch
+    it has no data for, and refusing to pair kit just because a field is
+    blank would be worse than letting it through. Otherwise one being a
+    prefix of the other counts, so ".308 Win" and ".308 Winchester" agree
+    while ".308" and ".300 Win Mag" don't.
+    """
+    a, b = normalise_calibre(left), normalise_calibre(right)
+    if not a or not b:
+        return True
+    return a == b or a.startswith(b) or b.startswith(a)
+
+
+def calibre_of(item: dict | None) -> str | None:
+    if not item:
+        return None
+    return (item.get("specs") or {}).get("calibre")
 
 
 def _with_unit(value, suffix: str) -> str | None:
