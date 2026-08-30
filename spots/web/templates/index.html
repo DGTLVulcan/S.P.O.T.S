@@ -16,6 +16,7 @@
       <select id="equip-rifle" class="equipment-select" aria-label="Rifle" title="Rifle"></select>
       <select id="equip-scope" class="equipment-select" aria-label="Scope" title="Scope"></select>
       <select id="equip-ammo" class="equipment-select" aria-label="Ammo" title="Ammo"></select>
+      <select id="equip-target" class="equipment-select" aria-label="Target" title="Target face"></select>
     </div>
     <nav class="icon-nav">
       <button id="sound-toggle" class="icon-btn" type="button" title="Shot sound" aria-label="Toggle shot sound">&#9834;</button>
@@ -95,6 +96,11 @@
         <p id="status" class="status"></p>
       </div>
 
+      <div class="card" id="score-card" style="display:none;">
+        <h2>Score</h2>
+        <div id="score-body"></div>
+      </div>
+
       <div class="card">
         <h2>Scope Correction</h2>
         <div id="scope-correction"></div>
@@ -135,7 +141,7 @@
         <h2>Shots</h2>
         <div class="table-scroll">
           <table id="shot-table">
-            <thead><tr><th>#</th><th>X</th><th>Y</th><th>Split</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>X</th><th>Y</th><th>Split</th><th>Score</th><th></th></tr></thead>
             <tbody></tbody>
           </table>
         </div>

@@ -968,3 +968,18 @@ input[type="range"] { accent-color: var(--accent); }
 @media (max-width: 900px) {
   .compare-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- Target scoring ---------- */
+
+.score-headline { display: flex; align-items: baseline; gap: 0.35rem; }
+.score-total { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
+.score-possible { font-size: 1rem; color: var(--ink-muted); }
+
+.ring-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+.ring-row input { width: 100%; }

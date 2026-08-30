@@ -38,6 +38,10 @@ CREATE TABLE IF NOT EXISTS equipment (
     notes TEXT,
     click_value REAL,
     click_unit TEXT,
+    -- Scoring rings for a target face: [{"value": 10, "diameter": 5.0}, ...]
+    -- in the app's target unit, outermost ring last. Its own column rather
+    -- than a specs entry because it is a list, not a scalar field.
+    rings TEXT,
     -- Kind-specific specs (calibre, barrel length, bullet weight, ...) as a
     -- JSON object: the three kinds record genuinely different things, and a
     -- column per field across all of them would be mostly NULL. See
@@ -57,7 +61,7 @@ CREATE TABLE IF NOT EXISTS app_state (
 );
 """
 
-EQUIPMENT_KINDS = ("rifle", "scope", "ammo")
+EQUIPMENT_KINDS = ("rifle", "scope", "ammo", "target")
 
 # Seeded once, on a database that has never had equipment, purely so the
 # dropdowns aren't empty on first run. All of it is editable.
@@ -76,7 +80,32 @@ _DEFAULT_EQUIPMENT = [
     ("ammo", "Handload", None, None, None,
      {"calibre": ".308 Winchester", "bullet_grains": 168.0, "powder": "Varget",
       "charge_grains": 42.5}),
+    # An illustrative face with round ring sizes, NOT a real competition
+    # target -- measure the one you actually shoot and enter its rings.
+    ("target", "Example 5-ring (edit to match yours)", None, None, None, {}),
 ]
+
+# Rings for the seeded example only, in the app's target unit (cm by
+# default): value and the ring's overall diameter.
+_DEFAULT_TARGET_RINGS = [
+    {"value": 10, "diameter": 4.0},
+    {"value": 9, "diameter": 8.0},
+    {"value": 8, "diameter": 12.0},
+    {"value": 7, "diameter": 16.0},
+    {"value": 6, "diameter": 20.0},
+]
+
+
+def _decode_rings(raw: str | None) -> list:
+    """Ring list as stored; anything unparseable reads as no rings, which
+    simply means that target isn't scored."""
+    if not raw:
+        return []
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    return value if isinstance(value, list) else []
 
 
 def _decode_specs(raw: str | None) -> dict:
@@ -117,6 +146,8 @@ class Storage:
         equipment_columns = {row[1] for row in self._conn.execute("PRAGMA table_info(equipment)")}
         if equipment_columns and "specs" not in equipment_columns:
             self._conn.execute("ALTER TABLE equipment ADD COLUMN specs TEXT")
+        if equipment_columns and "rings" not in equipment_columns:
+            self._conn.execute("ALTER TABLE equipment ADD COLUMN rings TEXT")
 
         session_columns = {row[1] for row in self._conn.execute("PRAGMA table_info(sessions)")}
         if "distance_m" not in session_columns:
@@ -152,10 +183,12 @@ class Storage:
         if existing:
             return
         self._conn.executemany(
-            "INSERT INTO equipment (kind, name, notes, click_value, click_unit, specs, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO equipment (kind, name, notes, click_value, click_unit, specs, rings,"
+            " created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             [
-                (k, n, notes, cv, cu, json.dumps(specs), time.time())
+                (k, n, notes, cv, cu, json.dumps(specs),
+                 json.dumps(_DEFAULT_TARGET_RINGS if k == "target" else []), time.time())
                 for k, n, notes, cv, cu, specs in _DEFAULT_EQUIPMENT
             ],
         )
@@ -210,7 +243,7 @@ class Storage:
 
     def list_equipment(self, kind: str | None = None) -> list[dict]:
         query = (
-            "SELECT id, kind, name, notes, click_value, click_unit, specs FROM equipment"
+            "SELECT id, kind, name, notes, click_value, click_unit, specs, rings FROM equipment"
             + (" WHERE kind = ?" if kind else "")
             + " ORDER BY kind ASC, name ASC"
         )
@@ -225,6 +258,7 @@ class Storage:
                 "click_value": r[4],
                 "click_unit": r[5],
                 "specs": _decode_specs(r[6]),
+                "rings": _decode_rings(r[7]),
             }
             for r in rows
         ]
@@ -232,8 +266,8 @@ class Storage:
     def get_equipment(self, equipment_id: int) -> dict | None:
         with self._lock:
             row = self._conn.execute(
-                "SELECT id, kind, name, notes, click_value, click_unit, specs FROM equipment"
-                " WHERE id = ?",
+                "SELECT id, kind, name, notes, click_value, click_unit, specs, rings"
+                " FROM equipment WHERE id = ?",
                 (equipment_id,),
             ).fetchone()
         if row is None:
@@ -246,6 +280,7 @@ class Storage:
             "click_value": row[4],
             "click_unit": row[5],
             "specs": _decode_specs(row[6]),
+            "rings": _decode_rings(row[7]),
         }
 
     def add_equipment(
@@ -256,12 +291,15 @@ class Storage:
         click_value: float | None = None,
         click_unit: str | None = None,
         specs: dict | None = None,
+        rings: list | None = None,
     ) -> int:
         with self._lock:
             cur = self._conn.execute(
-                "INSERT INTO equipment (kind, name, notes, click_value, click_unit, specs, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (kind, name, notes, click_value, click_unit, json.dumps(specs or {}), time.time()),
+                "INSERT INTO equipment (kind, name, notes, click_value, click_unit, specs,"
+                " rings, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (kind, name, notes, click_value, click_unit, json.dumps(specs or {}),
+                 json.dumps(rings or []), time.time()),
             )
             self._conn.commit()
             return cur.lastrowid
@@ -274,12 +312,14 @@ class Storage:
         click_value: float | None = None,
         click_unit: str | None = None,
         specs: dict | None = None,
+        rings: list | None = None,
     ) -> bool:
         with self._lock:
             cur = self._conn.execute(
                 "UPDATE equipment SET name = ?, notes = ?, click_value = ?, click_unit = ?,"
-                " specs = ? WHERE id = ?",
-                (name, notes, click_value, click_unit, json.dumps(specs or {}), equipment_id),
+                " specs = ?, rings = ? WHERE id = ?",
+                (name, notes, click_value, click_unit, json.dumps(specs or {}),
+                 json.dumps(rings or []), equipment_id),
             )
             self._conn.commit()
             return cur.rowcount > 0

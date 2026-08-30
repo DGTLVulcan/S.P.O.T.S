@@ -28,12 +28,14 @@ from spots.camera.client import ZCamError
 from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
 from spots.equipment_specs import (
     calibre_of,
+    calibres_match,
     clean_conditions,
+    clean_rings,
+    clean_specs,
     conditions_schema,
     describe_conditions,
-    calibres_match,
-    clean_specs,
     schema_payload,
+    score_group,
     summarise,
 )
 from spots.storage import EQUIPMENT_KINDS
@@ -241,6 +243,35 @@ def _stats_dict(stats, unit_name, distance_m):
     }
 
 
+def _score_dict(snapshot, rings):
+    """Scores the current group against the selected target face.
+
+    Shots are already offsets from the marked centre, so their distance
+    from the origin is the radius scoring needs -- which is why this is
+    only meaningful once Mark Center has been used.
+    """
+    calibration = snapshot.calibration
+    if not rings or calibration is None or not calibration.origin_is_target_center:
+        return None
+    points = [
+        (s.x_units, s.y_units)
+        for s in snapshot.shots
+        if s.x_units is not None and not s.excluded
+    ]
+    if not points:
+        return None
+    result = score_group(points, rings)
+    if result is not None:
+        result["per_shot"] = {
+            s.seq: score
+            for s, score in zip(
+                [s for s in snapshot.shots if s.x_units is not None and not s.excluded],
+                result["scores"],
+            )
+        }
+    return result
+
+
 def _scope_correction_dict(snapshot, target):
     """Turret advice for the current group, or None when it wouldn't mean
     anything: no group yet, no calibration, a calibration whose origin is
@@ -299,6 +330,7 @@ def api_shots():
             "stats": _stats_dict(snapshot.stats, unit_name, snapshot.distance_m),
             "best_subgroups": _best_subgroups_dict(points, unit_name, snapshot.distance_m),
             "scope_correction": _scope_correction_dict(snapshot, _settings().target),
+            "score": _score_dict(snapshot, (_selected_equipment()["target"] or {}).get("rings")),
             "equipment": {
                 kind: (item["name"] if item else None)
                 for kind, item in _selected_equipment().items()
@@ -387,10 +419,13 @@ def api_equipment_add():
     )
     specs, spec_errors = clean_specs(kind, specs_in)
     errors.extend(spec_errors)
+    rings, ring_errors = clean_rings(data.get("rings")) if kind == "target" else ([], [])
+    errors.extend(ring_errors)
     if errors:
         return jsonify({"error": "; ".join(errors)}), 400
     new_id = _storage().add_equipment(
-        kind, name, (data.get("notes") or "").strip() or None, click_value, click_unit, specs
+        kind, name, (data.get("notes") or "").strip() or None, click_value, click_unit,
+        specs, rings,
     )
     return jsonify({"ok": True, "id": new_id})
 
@@ -411,11 +446,15 @@ def api_equipment_update(equipment_id):
     )
     specs, spec_errors = clean_specs(existing["kind"], specs_in)
     errors.extend(spec_errors)
+    rings, ring_errors = (
+        clean_rings(data.get("rings")) if existing["kind"] == "target" else ([], [])
+    )
+    errors.extend(ring_errors)
     if errors:
         return jsonify({"error": "; ".join(errors)}), 400
     _storage().update_equipment(
         equipment_id, name, (data.get("notes") or "").strip() or None,
-        click_value, click_unit, specs,
+        click_value, click_unit, specs, rings,
     )
     return jsonify({"ok": True})
 
@@ -630,6 +669,7 @@ def api_new_session():
                 "specs": item.get("specs") or {},
                 "click_value": item.get("click_value"),
                 "click_unit": item.get("click_unit"),
+                "rings": item.get("rings") or [],
                 "notes": item.get("notes"),
             }
             if item
@@ -886,6 +926,7 @@ def _session_summary(session):
         "equipment": snapshot,
         "conditions": session.get("conditions") or {},
         "conditions_summary": describe_conditions(session.get("conditions")),
+        "score": score_group(points, ((snapshot.get("target") or {}).get("rings"))),
         "shots": [
             {"x_units": s["x_units"], "y_units": s["y_units"],
              "is_test": s["is_test"], "excluded": s["excluded"]}

@@ -7,15 +7,21 @@ import sys
 # Import the app regardless of where the runner sets its working directory
 # (Visual Studio Test Explorer, `python -m unittest`, and pytest all differ).
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import math
 import unittest
+
+from spots.storage import EQUIPMENT_KINDS
 
 from spots.equipment_specs import (
     calibre_of,
     calibres_match,
+    clean_rings,
     clean_specs,
     fields_for,
     normalise_calibre,
     schema_payload,
+    score_group,
+    score_shot,
     summarise,
 )
 
@@ -42,7 +48,8 @@ class SchemaTests(unittest.TestCase):
 
     def test_payload_shape(self):
         payload = schema_payload()
-        self.assertEqual(set(payload), {"rifle", "scope", "ammo"})
+        # Derived rather than hardcoded, so adding a kind doesn't fail here.
+        self.assertEqual(set(payload), set(EQUIPMENT_KINDS))
         for kind, meta in payload.items():
             self.assertTrue(meta["title"] and meta["singular"])
             for field in meta["fields"]:
@@ -173,3 +180,56 @@ class CalibreMatchingTests(unittest.TestCase):
         self.assertEqual(calibre_of({"specs": {"calibre": ".308 Win"}}), ".308 Win")
         self.assertIsNone(calibre_of({"specs": {}}))
         self.assertIsNone(calibre_of(None))
+
+
+class TargetScoringTests(unittest.TestCase):
+    RINGS = [{"value": 10, "diameter": 4.0}, {"value": 9, "diameter": 8.0},
+             {"value": 8, "diameter": 12.0}]
+
+    def test_a_shot_counts_for_the_smallest_ring_it_falls_inside(self):
+        self.assertEqual(score_shot(0.0, self.RINGS), 10)
+        self.assertEqual(score_shot(1.99, self.RINGS), 10)
+        self.assertEqual(score_shot(2.0, self.RINGS), 10)    # exactly on the line
+        self.assertEqual(score_shot(2.01, self.RINGS), 9)
+        self.assertEqual(score_shot(6.0, self.RINGS), 8)
+
+    def test_outside_every_ring_scores_zero(self):
+        self.assertEqual(score_shot(6.01, self.RINGS), 0.0)
+
+    def test_no_rings_is_unscored_rather_than_zero(self):
+        """'Not scored' and 'a miss' are different things and must not look
+        the same on the dashboard."""
+        self.assertIsNone(score_shot(1.0, []))
+        self.assertIsNone(score_shot(1.0, None))
+        self.assertIsNone(score_group([(0.0, 0.0)], []))
+
+    def test_group_total_and_possible(self):
+        result = score_group([(0, 0), (3, 0), (5, 0), (30, 0)], self.RINGS)
+        self.assertEqual(result["scores"], [10, 9, 8, 0.0])
+        self.assertEqual(result["total"], 27)
+        self.assertEqual(result["possible"], 40)
+        self.assertEqual(result["best_ring"], 10)
+
+    def test_distance_is_radial_not_per_axis(self):
+        """A shot 3 across and 4 up is 5 from centre, not 4."""
+        self.assertEqual(score_shot(math.hypot(3, 4), self.RINGS), 8)
+
+    def test_rings_are_sorted_and_validated(self):
+        rings, errors = clean_rings([
+            {"value": 8, "diameter": 12}, {"value": 10, "diameter": 4}, {"value": 9, "diameter": 8},
+        ])
+        self.assertEqual(errors, [])
+        self.assertEqual([r["diameter"] for r in rings], [4.0, 8.0, 12.0])
+
+    def test_ring_validation_errors(self):
+        self.assertTrue(clean_rings([{"value": "x", "diameter": 4}])[1])
+        self.assertTrue(clean_rings([{"value": 10, "diameter": 0}])[1])
+        self.assertTrue(clean_rings([{"value": 10, "diameter": -2}])[1])
+        self.assertIn("share a diameter",
+                      clean_rings([{"value": 10, "diameter": 4},
+                                   {"value": 9, "diameter": 4}])[1][0])
+
+    def test_blank_rows_and_empty_input_are_fine(self):
+        self.assertEqual(clean_rings([{"value": "", "diameter": ""}]), ([], []))
+        self.assertEqual(clean_rings(None), ([], []))
+        self.assertEqual(clean_rings([]), ([], []))

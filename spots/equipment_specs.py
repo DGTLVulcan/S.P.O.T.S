@@ -13,6 +13,7 @@ own column rather than the free-form specs blob.
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 
@@ -73,6 +74,11 @@ EQUIPMENT_SPECS: dict[str, tuple[SpecField, ...]] = {
         SpecField("tube_diameter_mm", "Tube diameter", "number", unit="mm", step="0.1",
                   placeholder="30"),
         SpecField("zero_distance_m", "Zero distance", "number", unit="m", step="1",
+                  placeholder="100"),
+    ),
+    "target": (
+        SpecField("face", "Target face", placeholder="e.g. NRA B-8, 25 yd"),
+        SpecField("distance_m", "Intended distance", "number", unit="m", step="1",
                   placeholder="100"),
     ),
     "ammo": (
@@ -178,13 +184,85 @@ def describe_conditions(conditions: dict | None) -> str:
     return ", ".join(parts)
 
 
-EQUIPMENT_TITLES = {"rifle": "Rifles", "scope": "Scopes", "ammo": "Ammo"}
-EQUIPMENT_SINGULAR = {"rifle": "Rifle", "scope": "Scope", "ammo": "Ammo"}
+EQUIPMENT_TITLES = {"rifle": "Rifles", "scope": "Scopes", "ammo": "Ammo",
+                    "target": "Targets"}
+EQUIPMENT_SINGULAR = {"rifle": "Rifle", "scope": "Scope", "ammo": "Ammo",
+                      "target": "Target"}
 EQUIPMENT_NAME_PLACEHOLDER = {
     "rifle": "e.g. Tikka T3x CTR",
     "scope": "e.g. Vortex Viper PST Gen II",
     "ammo": "e.g. Federal GMM 168gr",
+    "target": "e.g. NRA B-8 at 25 yd",
 }
+
+
+def clean_rings(raw) -> tuple[list, list[str]]:
+    """Validates a target's scoring rings.
+
+    Each is {"value": points, "diameter": across}, the diameter in the same
+    unit as everything else on the target. Sorted smallest first so scoring
+    can take the first ring a shot falls inside.
+    """
+    rings: list = []
+    errors: list[str] = []
+    if raw in (None, ""):
+        return rings, errors
+    if not isinstance(raw, list):
+        return rings, ["Rings must be a list"]
+    for index, entry in enumerate(raw, start=1):
+        if not isinstance(entry, dict):
+            errors.append(f"Ring {index} is malformed")
+            continue
+        value, diameter = entry.get("value"), entry.get("diameter")
+        if value in (None, "") and diameter in (None, ""):
+            continue  # a blank row in the editor
+        try:
+            value = float(value)
+            diameter = float(diameter)
+        except (TypeError, ValueError):
+            errors.append(f"Ring {index} needs a number for both score and diameter")
+            continue
+        if diameter <= 0:
+            errors.append(f"Ring {index} diameter must be greater than zero")
+            continue
+        rings.append({"value": value, "diameter": diameter})
+    diameters = [r["diameter"] for r in rings]
+    if len(set(diameters)) != len(diameters):
+        errors.append("Two rings share a diameter")
+    return sorted(rings, key=lambda r: r["diameter"]), errors
+
+
+def score_shot(distance_from_centre: float, rings: list | None) -> float | None:
+    """Points for a shot that landed `distance_from_centre` from the middle.
+
+    A shot counts for the first ring whose radius it falls within, so the
+    smallest (highest-scoring) ring wins. Outside every ring scores zero;
+    with no rings defined there is nothing to score against and the result
+    is None rather than 0, so "unscored" is distinguishable from "a miss".
+    """
+    if not rings:
+        return None
+    for ring in sorted(rings, key=lambda r: r["diameter"]):
+        if distance_from_centre <= ring["diameter"] / 2.0:
+            return ring["value"]
+    return 0.0
+
+
+def score_group(points: list[tuple[float, float]], rings: list | None) -> dict | None:
+    """Totals a string against a target face. `points` are offsets from the
+    marked centre, so their distance is the radius used for scoring.
+    """
+    if not rings:
+        return None
+    scores = [score_shot(math.hypot(x, y), rings) for x, y in points]
+    best = max((r["value"] for r in rings), default=0)
+    return {
+        "total": sum(scores),
+        "possible": best * len(scores),
+        "shot_count": len(scores),
+        "best_ring": best,
+        "scores": scores,
+    }
 
 
 def spec_fields(kind: str) -> tuple[SpecField, ...]:

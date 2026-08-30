@@ -518,6 +518,23 @@
     }
     lastSeenSeq = highestSeq;
 
+    // Score against the selected target face, when there is one.
+    const scoreCard = document.getElementById("score-card");
+    const scoreBody = document.getElementById("score-body");
+    if (scoreCard && scoreBody) {
+      const sc = data.score;
+      scoreCard.style.display = sc ? "" : "none";
+      if (sc) {
+        const pct = sc.possible ? Math.round((sc.total / sc.possible) * 100) : 0;
+        scoreBody.innerHTML = `
+          <div class="score-headline">
+            <span class="score-total">${sc.total}</span>
+            <span class="score-possible">/ ${sc.possible}</span>
+          </div>
+          <div class="hint">${sc.shot_count} shots counted &middot; ${pct}% of possible</div>`;
+      }
+    }
+
     const scopeEl = document.getElementById("scope-correction");
     const sc = data.scope_correction;
     if (!sc) {
@@ -579,6 +596,11 @@
         `<td>${fmt(shot.x_units)}</td>` +
         `<td>${fmt(shot.y_units)}</td>` +
         `<td class="split-cell">${split}</td>` +
+        `<td class="split-cell">${
+          data.score && data.score.per_shot && data.score.per_shot[shot.seq] !== undefined
+            ? data.score.per_shot[shot.seq]
+            : "-"
+        }</td>` +
         `<td class="row-btns">` +
         `<button class="row-exclude-btn" data-seq="${shot.seq}" data-excluded="${shot.excluded}" ` +
         `title="${shot.excluded ? "Include in group stats" : "Exclude from group stats (flyer)"}">` +
@@ -660,8 +682,8 @@
   // config.yaml so it survives a restart, and is stamped onto each session
   // at New Target time; the chosen scope also supplies the turret click
   // value that Scope Correction uses.
-  const EQUIPMENT_KINDS = ["rifle", "scope", "ammo"];
-  const EQUIPMENT_LABELS = { rifle: "Rifle", scope: "Scope", ammo: "Ammo" };
+  const EQUIPMENT_KINDS = ["rifle", "scope", "ammo", "target"];
+  const EQUIPMENT_LABELS = { rifle: "Rifle", scope: "Scope", ammo: "Ammo", target: "Target" };
 
   function equipmentSelect(kind) {
     return document.getElementById("equip-" + kind);

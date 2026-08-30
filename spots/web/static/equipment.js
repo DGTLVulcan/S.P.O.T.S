@@ -8,7 +8,7 @@
   const detailEl = document.getElementById("equip-detail");
   if (!sidebarEl || !detailEl) return;
 
-  const KIND_ICONS = { rifle: "&#127919;", scope: "&#128301;", ammo: "&#9679;" };
+  const KIND_ICONS = { rifle: "&#127919;", scope: "&#128301;", ammo: "&#9679;", target: "&#127919;" };
 
   let schema = {};
   let order = [];        // kinds in display order, from the server
@@ -115,6 +115,50 @@
     );
   }
 
+  // Scoring rings are a list, not a scalar field, so they get their own
+  // editor rather than coming from the schema-driven form above.
+  function ringRow(ring) {
+    return `
+      <div class="ring-row">
+        <input class="ring-value" type="number" step="any" placeholder="score"
+               value="${ring && ring.value !== undefined ? escapeHtml(ring.value) : ""}">
+        <input class="ring-diameter" type="number" step="any" min="0" placeholder="diameter"
+               value="${ring && ring.diameter !== undefined ? escapeHtml(ring.diameter) : ""}">
+        <button type="button" class="ring-remove row-delete-btn" title="Remove ring">&times;</button>
+      </div>`;
+  }
+
+  function ringEditor(rings) {
+    return `
+      <div class="equip-field-block equip-notes-block">
+        <span class="equip-field-label">
+          Scoring rings
+          <span class="hint">score and ring diameter, in your target unit</span>
+        </span>
+        <div class="ring-row" style="font-size:0.72rem;color:var(--ink-muted);">
+          <span>Score</span><span>Diameter across</span><span></span>
+        </div>
+        <div id="ring-list">
+          ${(rings.length ? rings : [null]).map(ringRow).join("")}
+        </div>
+        <button type="button" id="ring-add">Add ring</button>
+        <p class="hint">
+          A shot counts for the smallest ring it falls inside; outside them all
+          scores zero. Leave empty to not score this target.
+        </p>
+      </div>`;
+  }
+
+  function collectRings() {
+    return Array.from(detailEl.querySelectorAll(".ring-row"))
+      .filter((row) => row.querySelector(".ring-value"))
+      .map((row) => ({
+        value: row.querySelector(".ring-value").value,
+        diameter: row.querySelector(".ring-diameter").value,
+      }))
+      .filter((r) => r.value !== "" || r.diameter !== "");
+  }
+
   function renderDetail() {
     const item = findItem(current);
     if (!item) {
@@ -158,6 +202,8 @@
           )
           .join("")}
       </div>
+
+      ${item.kind === "target" ? ringEditor(item.rings || []) : ""}
 
       <label class="equip-field-block equip-notes-block">
         <span class="equip-field-label">Notes</span>
@@ -215,6 +261,7 @@
         name: document.getElementById("equip-name").value.trim(),
         notes: document.getElementById("equip-notes").value.trim(),
         specs: collectSpecs(),
+        rings: collectRings(),
       });
       await load(true);
       toast("Saved");
@@ -255,6 +302,19 @@
   detailEl.addEventListener("click", async (ev) => {
     if (ev.target.closest("#equip-save")) {
       save();
+      return;
+    }
+    if (ev.target.closest("#ring-add")) {
+      document.getElementById("ring-list").insertAdjacentHTML("beforeend", ringRow(null));
+      dirty = true;
+      return;
+    }
+    const ringRemove = ev.target.closest(".ring-remove");
+    if (ringRemove) {
+      const list = document.getElementById("ring-list");
+      ringRemove.closest(".ring-row").remove();
+      if (!list.querySelector(".ring-row")) list.insertAdjacentHTML("beforeend", ringRow(null));
+      dirty = true;
       return;
     }
     if (ev.target.closest("#equip-use")) {

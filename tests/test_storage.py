@@ -14,7 +14,7 @@ import tempfile
 import time
 import unittest
 
-from spots.storage import Storage
+from spots.storage import EQUIPMENT_KINDS, Storage
 
 
 class StorageTestCase(unittest.TestCase):
@@ -306,7 +306,7 @@ class EquipmentSelectionTests(StorageTestCase):
 
     def test_nothing_selected_by_default(self):
         self.assertEqual(
-            self.storage.get_selected_equipment(), {"rifle": None, "scope": None, "ammo": None}
+            self.storage.get_selected_equipment(), {kind: None for kind in EQUIPMENT_KINDS}
         )
 
     def test_selection_can_be_cleared(self):
