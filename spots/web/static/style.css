@@ -554,6 +554,30 @@ tbody tr:hover { background: var(--page); }
 #delete-all-sessions:hover { border-color: var(--critical); color: var(--critical); }
 .session-name { font-weight: 600; }
 
+/* Excluded (flyer) shots: still listed and plotted, visibly not counted. */
+.shot-row-excluded { opacity: 0.5; }
+.shot-row-excluded td:nth-child(2),
+.shot-row-excluded td:nth-child(3) { text-decoration: line-through; }
+.target-diagram .shot-excluded { fill: none; stroke: var(--ink-muted); stroke-dasharray: 2 2; }
+.split-cell { color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
+.row-btns { display: flex; gap: 0.25rem; }
+.row-exclude-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0;
+}
+.row-exclude-btn:hover { border-color: var(--warning); color: var(--warning); }
+
 .table-scroll { overflow-x: auto; }
 
 /* ---------- Forms (settings) ---------- */

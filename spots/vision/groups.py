@@ -75,6 +75,54 @@ def to_moa(size: float, unit_name: str, distance_m: float | None) -> float | Non
     return math.degrees(math.atan(size_m / distance_m)) * _ARCMINUTES_PER_DEGREE
 
 
+def to_mrad(size: float, unit_name: str, distance_m: float | None) -> float | None:
+    """Converts a linear size to milliradians at a given distance. Same
+    availability rules as to_moa(): None when there's no usable distance or
+    the unit isn't one we can convert to meters.
+    """
+    if not distance_m or distance_m <= 0:
+        return None
+    factor = _UNIT_TO_METERS.get(unit_name.strip().lower())
+    if factor is None:
+        return None
+    return math.atan(size * factor / distance_m) * 1000.0
+
+
+def scope_correction(
+    center: tuple[float, float],
+    unit_name: str,
+    distance_m: float | None,
+    click_value: float,
+    click_unit: str,
+) -> dict | None:
+    """Turret adjustment that would move the group onto the point of aim.
+
+    `center` is the group's centre relative to the marked target centre, in
+    `unit_name`, with +x right and +y up (Calibration.to_units' convention).
+    The dial goes the opposite way to the error: a group printing high and
+    right needs DOWN and LEFT. Returns None when the angle can't be worked
+    out (no distance, or a unit with no fixed conversion to meters).
+    """
+    if click_value <= 0:
+        return None
+    to_angle = to_mrad if click_unit == "mrad" else to_moa
+    horizontal = to_angle(abs(center[0]), unit_name, distance_m)
+    vertical = to_angle(abs(center[1]), unit_name, distance_m)
+    if horizontal is None or vertical is None:
+        return None
+    return {
+        "click_unit": click_unit,
+        "click_value": click_value,
+        # Direction to turn the turret, i.e. opposite the group's error.
+        "horizontal_dir": "left" if center[0] > 0 else "right",
+        "vertical_dir": "down" if center[1] > 0 else "up",
+        "horizontal_angle": horizontal,
+        "vertical_angle": vertical,
+        "horizontal_clicks": round(horizontal / click_value),
+        "vertical_clicks": round(vertical / click_value),
+    }
+
+
 def best_subgroup(points: list[tuple[float, float]], n: int, unit_name: str) -> GroupStats | None:
     """Tightest N-shot subset by extreme spread, out of however many shots
     exist -- the standard "best N-shot group" precision-shooting metric.

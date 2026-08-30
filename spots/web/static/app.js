@@ -66,6 +66,20 @@
   // Delegated once on the table body rather than per-row, since rows are
   // fully rebuilt (innerHTML = "") every refreshShots() poll.
   document.querySelector("#shot-table tbody").addEventListener("click", async (ev) => {
+    const excludeBtn = ev.target.closest(".row-exclude-btn");
+    if (excludeBtn) {
+      const seq = excludeBtn.dataset.seq;
+      const excluded = excludeBtn.dataset.excluded !== "true";
+      try {
+        await postJson(`/api/shots/${seq}/exclude`, { excluded });
+        setStatus(excluded ? `Shot #${seq} excluded as a flyer.` : `Shot #${seq} back in the group.`);
+        refreshShots();
+      } catch (err) {
+        setStatus("Error updating shot: " + err.message);
+      }
+      return;
+    }
+
     const btn = ev.target.closest(".row-delete-btn");
     if (!btn) return;
     const seq = btn.dataset.seq;
@@ -435,6 +449,33 @@
           .join("")
       : '<span class="hud-empty">No shots yet.</span>';
 
+    const scopeEl = document.getElementById("scope-correction");
+    const sc = data.scope_correction;
+    if (!sc) {
+      // Spell out which prerequisite is missing rather than just going blank
+      // -- the usual one is having calibrated but not marked the centre.
+      let why = "Fire a group to get a correction.";
+      if (!data.calibrated) why = "Calibrate the scale first.";
+      else if (!data.stats) why = "Fire a group to get a correction.";
+      else if (!data.distance_m) why = "Set the distance to target.";
+      else why = "Click Mark Center on the target's point of aim.";
+      scopeEl.innerHTML = `<p class="empty-state">${why}</p>`;
+    } else {
+      const unit = sc.click_unit === "mrad" ? "mrad" : "MOA";
+      const tile = (dir, clicks, angle) => `
+        <div class="stat-tile">
+          <div class="label">${dir.toUpperCase()}</div>
+          <div class="value">${clicks}<span class="unit"> click${clicks === 1 ? "" : "s"}</span></div>
+          <div class="hint">${fmt(angle)} ${unit}</div>
+        </div>`;
+      scopeEl.innerHTML =
+        `<div class="stat-grid">
+           ${tile(sc.vertical_dir, sc.vertical_clicks, sc.vertical_angle)}
+           ${tile(sc.horizontal_dir, sc.horizontal_clicks, sc.horizontal_angle)}
+         </div>
+         <p class="hint">Turret: ${sc.click_value} ${unit}/click &mdash; change in Settings.</p>`;
+    }
+
     const exportLink = document.getElementById("export-csv");
     if (data.session_id) {
       exportLink.href = `/api/session/${data.session_id}/export.csv`;
@@ -446,12 +487,33 @@
 
     const tbody = document.querySelector("#shot-table tbody");
     tbody.innerHTML = "";
+    let previousAt = null;
     for (const shot of data.shots) {
       const tr = document.createElement("tr");
-      if (shot.is_test) tr.className = "shot-row-test";
+      const classes = [];
+      if (shot.is_test) classes.push("shot-row-test");
+      if (shot.excluded) classes.push("shot-row-excluded");
+      tr.className = classes.join(" ");
       const testBadge = shot.is_test ? ' <span class="badge warn" style="position:static;">Test</span>' : "";
-      tr.innerHTML = `<td>${shot.seq}${testBadge}</td><td>${fmt(shot.x_units)}</td><td>${fmt(shot.y_units)}</td>` +
-        `<td><button class="row-delete-btn" data-seq="${shot.seq}" title="Delete this shot">&times;</button></td>`;
+      // Split from the previous shot, so a string's cadence is visible
+      // without digging through the session history.
+      let split = "-";
+      if (shot.created_at) {
+        if (previousAt) split = `+${(shot.created_at - previousAt).toFixed(1)}s`;
+        else split = "start";
+        previousAt = shot.created_at;
+      }
+      tr.innerHTML =
+        `<td>${shot.seq}${testBadge}</td>` +
+        `<td>${fmt(shot.x_units)}</td>` +
+        `<td>${fmt(shot.y_units)}</td>` +
+        `<td class="split-cell">${split}</td>` +
+        `<td class="row-btns">` +
+        `<button class="row-exclude-btn" data-seq="${shot.seq}" data-excluded="${shot.excluded}" ` +
+        `title="${shot.excluded ? "Include in group stats" : "Exclude from group stats (flyer)"}">` +
+        `${shot.excluded ? "&#8853;" : "&#8854;"}</button>` +
+        `<button class="row-delete-btn" data-seq="${shot.seq}" title="Delete this shot">&times;</button>` +
+        `</td>`;
       tbody.appendChild(tr);
     }
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 from dataclasses import dataclass, field
 
 import cv2
@@ -35,6 +36,8 @@ class ShotRecord:
     y_units: float | None
     snapshot_path: str | None = None
     is_test: bool = False
+    excluded: bool = False
+    created_at: float = 0.0
 
 
 @dataclass
@@ -86,8 +89,33 @@ class SessionState:
             if self._state.calibration is None:
                 return False
             self._state.calibration.origin_px = origin_px
+            self._state.calibration.origin_is_target_center = True
             self._recompute_units_locked(unit_name)
             return True
+
+    def _stats_points_locked(self) -> list[tuple[float, float]]:
+        """Shots that count toward the group: calibrated, and not excluded.
+        Excluded shots stay in the list (and on the target) but are left out
+        of every statistic.
+        """
+        return [
+            (s.x_units, s.y_units)
+            for s in self._state.shots
+            if s.x_units is not None and not s.excluded
+        ]
+
+    def _recompute_stats_locked(self, unit_name: str) -> None:
+        points = self._stats_points_locked()
+        self._state.stats = compute_group_stats(points, unit_name) if points else None
+
+    def set_excluded(self, seq: int, excluded: bool, unit_name: str) -> bool:
+        with self._lock:
+            for shot in self._state.shots:
+                if shot.seq == seq:
+                    shot.excluded = excluded
+                    self._recompute_stats_locked(unit_name)
+                    return True
+            return False
 
     def _recompute_units_locked(self, unit_name: str) -> None:
         """Re-derives every recorded shot's x_units/y_units from its stored
@@ -102,25 +130,18 @@ class SessionState:
                 shot.x_units, shot.y_units = cal.to_units((shot.x_px, shot.y_px))
             else:
                 shot.x_units, shot.y_units = None, None
-        points = [(s.x_units, s.y_units) for s in self._state.shots if s.x_units is not None]
-        self._state.stats = compute_group_stats(points, unit_name) if points else None
+        self._recompute_stats_locked(unit_name)
 
     def add_shot(self, record: ShotRecord, unit_name: str) -> None:
         with self._lock:
             self._state.shots.append(record)
-            points = [
-                (s.x_units, s.y_units) for s in self._state.shots if s.x_units is not None
-            ]
-            self._state.stats = compute_group_stats(points, unit_name) if points else None
+            self._recompute_stats_locked(unit_name)
 
     def undo_last(self, unit_name: str) -> None:
         with self._lock:
             if self._state.shots:
                 self._state.shots.pop()
-            points = [
-                (s.x_units, s.y_units) for s in self._state.shots if s.x_units is not None
-            ]
-            self._state.stats = compute_group_stats(points, unit_name) if points else None
+            self._recompute_stats_locked(unit_name)
 
     def delete_shot(self, seq: int, unit_name: str) -> bool:
         with self._lock:
@@ -128,10 +149,7 @@ class SessionState:
             self._state.shots = [s for s in self._state.shots if s.seq != seq]
             if len(self._state.shots) == before:
                 return False
-            points = [
-                (s.x_units, s.y_units) for s in self._state.shots if s.x_units is not None
-            ]
-            self._state.stats = compute_group_stats(points, unit_name) if points else None
+            self._recompute_stats_locked(unit_name)
             return True
 
 
@@ -203,7 +221,7 @@ class DetectionWorker:
             state.session_id, seq, x_px, y_px, x_units, y_units, snapshot_path
         )
         self.state.add_shot(
-            ShotRecord(seq, x_px, y_px, x_units, y_units, snapshot_path),
+            ShotRecord(seq, x_px, y_px, x_units, y_units, snapshot_path, created_at=time.time()),
             self._target_config.unit_name,
         )
         logger.info("Committed shot #%d at px (%.1f, %.1f)", seq, x_px, y_px)
@@ -330,6 +348,7 @@ class DetectionWorker:
                 units_per_px=session["calib_units_per_px"],
                 unit_name=session["unit_name"],
                 origin_px=(session["calib_origin_x"], session["calib_origin_y"]),
+                origin_is_target_center=session["calib_center_marked"],
             )
 
         distance_m = session["distance_m"] or 0.0
@@ -349,6 +368,8 @@ class DetectionWorker:
                     row["y_units"],
                     row["snapshot_path"],
                     row["is_test"],
+                    row["excluded"],
+                    row["created_at"],
                 ),
                 self._target_config.unit_name,
             )
@@ -427,7 +448,10 @@ class DetectionWorker:
             state.session_id, seq, x_px, y_px, x_units, y_units, snapshot_path, is_test=True
         )
         self.state.add_shot(
-            ShotRecord(seq, x_px, y_px, x_units, y_units, snapshot_path, is_test=True),
+            ShotRecord(
+                seq, x_px, y_px, x_units, y_units, snapshot_path,
+                is_test=True, created_at=time.time(),
+            ),
             self._target_config.unit_name,
         )
         logger.info("Test shot #%d placed at px (%.1f, %.1f)", seq, x_px, y_px)
@@ -442,6 +466,7 @@ class DetectionWorker:
             snapshot.session_id,
             cal.units_per_px if cal else None,
             cal.origin_px if cal else None,
+            cal.origin_is_target_center if cal else False,
         )
 
     def _persist_shot_units(self) -> None:
@@ -467,6 +492,18 @@ class DetectionWorker:
         if state.session_id is not None:
             self._storage.delete_last_shot(state.session_id)
         self.state.undo_last(self._target_config.unit_name)
+
+    def set_shot_excluded(self, seq: int, excluded: bool) -> bool:
+        """Marks a shot as a flyer (or un-marks it): kept in the string and
+        on the target, but left out of the group statistics. Returns False if
+        no shot with that sequence number exists.
+        """
+        if not self.state.set_excluded(seq, excluded, self._target_config.unit_name):
+            return False
+        session_id = self.state.snapshot().session_id
+        if session_id is not None:
+            self._storage.set_shot_excluded(session_id, seq, excluded)
+        return True
 
     def delete_shot(self, seq: int) -> bool:
         """Removes an arbitrary shot by sequence number, not just the last

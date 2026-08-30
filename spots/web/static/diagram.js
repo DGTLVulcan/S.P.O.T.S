@@ -61,7 +61,10 @@ function renderTargetDiagram(svgId, shots, center) {
     dot.setAttribute("cx", x);
     dot.setAttribute("cy", y);
     dot.setAttribute("r", 5);
-    dot.setAttribute("class", s.is_test ? "shot shot-test" : "shot");
+    const cls = ["shot"];
+    if (s.is_test) cls.push("shot-test");
+    if (s.excluded) cls.push("shot-excluded");
+    dot.setAttribute("class", cls.join(" "));
     svg.appendChild(dot);
   }
 

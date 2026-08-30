@@ -26,7 +26,7 @@ from spots.camera.client import ZCamError
 from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
 from spots.vision.calibration import Calibration
 from spots.vision.detection import invert_homography, warp_point
-from spots.vision.groups import best_subgroup, compute_group_stats, to_moa
+from spots.vision.groups import best_subgroup, compute_group_stats, scope_correction, to_moa
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +228,25 @@ def _stats_dict(stats, unit_name, distance_m):
     }
 
 
+def _scope_correction_dict(snapshot, target):
+    """Turret advice for the current group, or None when it wouldn't mean
+    anything: no group yet, no calibration, or a calibration whose origin is
+    still the first calibration click rather than the marked target centre.
+    """
+    calibration = snapshot.calibration
+    if snapshot.stats is None or calibration is None:
+        return None
+    if not calibration.origin_is_target_center:
+        return None
+    return scope_correction(
+        snapshot.stats.center,
+        target.unit_name,
+        snapshot.distance_m,
+        target.click_value,
+        target.click_unit,
+    )
+
+
 def _best_subgroups_dict(points, unit_name, distance_m):
     return {
         str(n): _stats_dict(stats, unit_name, distance_m)
@@ -252,11 +271,14 @@ def api_shots():
                     "x_units": s.x_units,
                     "y_units": s.y_units,
                     "is_test": s.is_test,
+                    "excluded": s.excluded,
+                    "created_at": s.created_at,
                 }
                 for s in snapshot.shots
             ],
             "stats": _stats_dict(snapshot.stats, unit_name, snapshot.distance_m),
             "best_subgroups": _best_subgroups_dict(points, unit_name, snapshot.distance_m),
+            "scope_correction": _scope_correction_dict(snapshot, _settings().target),
         }
     )
 
@@ -385,6 +407,17 @@ def api_delete_shot(seq):
     if not _worker().delete_shot(seq):
         return jsonify({"error": f"No shot #{seq} in the current session"}), 404
     return jsonify({"ok": True})
+
+
+@bp.route("/api/shots/<int:seq>/exclude", methods=["POST"])
+def api_exclude_shot(seq):
+    data = request.get_json(force=True)
+    excluded = data.get("excluded", True)
+    if not isinstance(excluded, bool):
+        return jsonify({"error": "excluded must be true or false"}), 400
+    if not _worker().set_shot_excluded(seq, excluded):
+        return jsonify({"error": f"No shot #{seq} in the current session"}), 404
+    return jsonify({"ok": True, "excluded": excluded})
 
 
 @bp.route("/api/calibration", methods=["POST"])
@@ -640,6 +673,12 @@ def _apply_settings_form(settings, form) -> list[str]:
     width_units = _parse_float(form, "target.width_units", errors)
     best_subgroup_sizes = _parse_subgroup_sizes(form, errors)
     best_subgroup_max_shots = _parse_int(form, "target.best_subgroup_max_shots", errors)
+    click_value = _parse_float(form, "target.click_value", errors)
+    if click_value is not None and click_value <= 0:
+        errors.append("Scope click value must be greater than zero")
+    click_unit = form.get("target.click_unit", "moa")
+    if click_unit not in ("moa", "mrad"):
+        errors.append("Scope click unit must be 'moa' or 'mrad'")
 
     diff_threshold = _parse_int(form, "detection.diff_threshold", errors)
     min_hole_area_px = _parse_int(form, "detection.min_hole_area_px", errors)
@@ -675,6 +714,8 @@ def _apply_settings_form(settings, form) -> list[str]:
     settings.target.width_units = width_units
     settings.target.best_subgroup_sizes = best_subgroup_sizes
     settings.target.best_subgroup_max_shots = best_subgroup_max_shots
+    settings.target.click_value = click_value
+    settings.target.click_unit = click_unit
 
     settings.detection.diff_threshold = diff_threshold
     settings.detection.min_hole_area_px = min_hole_area_px

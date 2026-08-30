@@ -47,6 +47,20 @@
                  value="{{ settings.target.best_subgroup_max_shots }}" required>
           <span class="hint">Subgroup search is combinatorial; skipped above this many shots in a session.</span>
         </div>
+        <div class="field">
+          <label for="click_value">Scope click value</label>
+          <input type="number" step="0.001" min="0.001" id="click_value" name="target.click_value"
+                 value="{{ settings.target.click_value }}" required>
+          <span class="hint">How far one turret click moves impact -- typically 0.25 MOA or 0.1 mrad.</span>
+        </div>
+        <div class="field">
+          <label for="click_unit">Scope click unit</label>
+          <select id="click_unit" name="target.click_unit">
+            <option value="moa" {% if settings.target.click_unit == 'moa' %}selected{% endif %}>MOA</option>
+            <option value="mrad" {% if settings.target.click_unit == 'mrad' %}selected{% endif %}>mrad</option>
+          </select>
+          <span class="hint">Used for the Scope Correction card once you've marked the target centre.</span>
+        </div>
       </div>
 
       <div class="card">

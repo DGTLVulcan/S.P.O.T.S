@@ -13,3 +13,4 @@ config.yaml
 /snapshots/
 
 /nul
+server.log

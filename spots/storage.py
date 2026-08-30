@@ -44,6 +44,12 @@ class Storage:
             self._conn.execute("ALTER TABLE shots ADD COLUMN snapshot_path TEXT")
         if "is_test" not in shot_columns:
             self._conn.execute("ALTER TABLE shots ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0")
+        # Excluded shots stay on the target and in history but are left out
+        # of the group maths -- a called flyer shouldn't have to be deleted
+        # (and lose its snapshot and place in the string) to stop skewing
+        # the group size.
+        if "excluded" not in shot_columns:
+            self._conn.execute("ALTER TABLE shots ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0")
 
         session_columns = {row[1] for row in self._conn.execute("PRAGMA table_info(sessions)")}
         if "distance_m" not in session_columns:
@@ -57,6 +63,10 @@ class Storage:
         for column in ("calib_units_per_px", "calib_origin_x", "calib_origin_y"):
             if column not in session_columns:
                 self._conn.execute(f"ALTER TABLE sessions ADD COLUMN {column} REAL")
+        if "calib_center_marked" not in session_columns:
+            self._conn.execute(
+                "ALTER TABLE sessions ADD COLUMN calib_center_marked INTEGER NOT NULL DEFAULT 0"
+            )
 
     def _next_free_session_id_locked(self) -> int:
         """Smallest positive integer not currently used by a session.
@@ -137,14 +147,16 @@ class Storage:
         session_id: int,
         units_per_px: float | None,
         origin_px: tuple[float, float] | None,
+        center_marked: bool = False,
     ) -> None:
         origin_x, origin_y = origin_px if origin_px is not None else (None, None)
         with self._lock:
             self._conn.execute(
                 """UPDATE sessions
-                   SET calib_units_per_px = ?, calib_origin_x = ?, calib_origin_y = ?
+                   SET calib_units_per_px = ?, calib_origin_x = ?, calib_origin_y = ?,
+                       calib_center_marked = ?
                    WHERE id = ?""",
-                (units_per_px, origin_x, origin_y, session_id),
+                (units_per_px, origin_x, origin_y, int(center_marked), session_id),
             )
             self._conn.commit()
 
@@ -201,6 +213,15 @@ class Storage:
             )
             self._conn.commit()
 
+    def set_shot_excluded(self, session_id: int, seq: int, excluded: bool) -> bool:
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE shots SET excluded = ? WHERE session_id = ? AND seq = ?",
+                (int(excluded), session_id, seq),
+            )
+            self._conn.commit()
+            return cur.rowcount > 0
+
     def delete_shot(self, session_id: int, seq: int) -> None:
         with self._lock:
             self._conn.execute(
@@ -222,8 +243,8 @@ class Storage:
     def get_shots(self, session_id: int) -> list[dict]:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT seq, x_px, y_px, x_units, y_units, snapshot_path, is_test, created_at "
-                "FROM shots WHERE session_id = ? ORDER BY seq ASC",
+                "SELECT seq, x_px, y_px, x_units, y_units, snapshot_path, is_test, created_at, "
+                "excluded FROM shots WHERE session_id = ? ORDER BY seq ASC",
                 (session_id,),
             )
             rows = cur.fetchall()
@@ -237,6 +258,7 @@ class Storage:
                 "snapshot_path": r[5],
                 "is_test": bool(r[6]),
                 "created_at": r[7],
+                "excluded": bool(r[8]),
             }
             for r in rows
         ]
@@ -265,7 +287,8 @@ class Storage:
         with self._lock:
             row = self._conn.execute(
                 """SELECT id, created_at, unit_name, distance_m, name,
-                          calib_units_per_px, calib_origin_x, calib_origin_y
+                          calib_units_per_px, calib_origin_x, calib_origin_y,
+                          calib_center_marked
                    FROM sessions WHERE id = ?""",
                 (session_id,),
             ).fetchone()
@@ -280,6 +303,7 @@ class Storage:
             "calib_units_per_px": row[5],
             "calib_origin_x": row[6],
             "calib_origin_y": row[7],
+            "calib_center_marked": bool(row[8]),
         }
 
     def latest_session_id(self) -> int | None:

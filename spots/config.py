@@ -49,6 +49,13 @@ class TargetConfig:
     # Exhaustive subgroup search is combinatorial (n choose k); above this
     # many shots in the session it's skipped rather than eating Pi CPU.
     best_subgroup_max_shots: int = 30
+    # Scope turret: how much one click moves the point of impact, and in
+    # which angular unit. 0.25 MOA and 0.1 mrad are the common ones. Used to
+    # turn the group's offset from the marked target centre into "up 6, left
+    # 2" -- only shown once the centre has actually been marked, since
+    # before that the origin is just wherever calibration was clicked.
+    click_value: float = 0.25
+    click_unit: str = "moa"  # "moa" or "mrad"
 
 
 @dataclass

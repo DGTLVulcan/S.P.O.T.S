@@ -17,6 +17,11 @@ class Calibration:
     units_per_px: float
     unit_name: str
     origin_px: tuple[float, float]
+    # True only once Mark Center has been used. Two-point calibration puts
+    # the origin on the first click, which is an arbitrary spot on the
+    # target -- offsets measured from it are meaningless as a zero
+    # correction, so scope advice stays hidden until this is set.
+    origin_is_target_center: bool = False
 
     @classmethod
     def from_two_points(
