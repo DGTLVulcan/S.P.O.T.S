@@ -321,7 +321,7 @@ def _equipment_payload():
     def decorate(item):
         # A one-line "what is this" for the header dropdowns, derived from
         # whichever specs are filled in.
-        item["summary"] = summarise(item["kind"], item.get("specs"))
+        item["summary"] = summarise(item)
         return item
 
     return {

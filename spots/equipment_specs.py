@@ -165,16 +165,23 @@ def clean_specs(kind: str, raw: dict) -> tuple[dict, list[str]]:
     return cleaned, errors
 
 
-def summarise(kind: str, specs: dict) -> str:
-    """Short one-line description used in the header dropdowns and lists --
+def summarise(item: dict) -> str:
+    """Short one-line description for the sidebar and the header dropdowns --
     the couple of fields that actually identify a piece of kit at a glance.
+
+    Takes the whole record rather than just its specs because a scope is
+    best identified by its turret, which lives in a column.
     """
-    specs = specs or {}
+    kind = item.get("kind")
+    specs = item.get("specs") or {}
     parts: list[str] = []
     if kind == "rifle":
         parts = [specs.get("calibre"), _with_unit(specs.get("barrel_length_in"), '"')]
     elif kind == "scope":
-        parts = [specs.get("magnification")]
+        click = None
+        if item.get("click_value"):
+            click = f"{float(item['click_value']):g} {item.get('click_unit') or 'moa'}/click"
+        parts = [specs.get("magnification"), click]
     elif kind == "ammo":
         parts = [specs.get("calibre"), _with_unit(specs.get("bullet_grains"), " gr")]
     return " ".join(p for p in parts if p)

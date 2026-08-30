@@ -19,19 +19,14 @@
     </nav>
   </header>
 
-  <main>
-    <div class="card full-width">
-      <p class="hint" style="margin-top: 0;">
-        Rifles, scopes and ammo offered by the dropdowns at the top of the live
-        view. Whatever is selected there is recorded against each session, so
-        history shows what a string was actually shot with. The selected
-        scope's click value is what Scope Correction converts a group offset
-        into, so each scope carries its own turret setting.
-      </p>
-      <p id="equipment-error" class="status"></p>
-      <div id="equipment-root">
+  <main class="equip-main">
+    <div class="equip-layout">
+      <aside class="equip-sidebar card" id="equip-sidebar">
         <p class="empty-state">Loading...</p>
-      </div>
+      </aside>
+      <section class="equip-detail card" id="equip-detail">
+        <p class="empty-state">Loading...</p>
+      </section>
     </div>
   </main>
 

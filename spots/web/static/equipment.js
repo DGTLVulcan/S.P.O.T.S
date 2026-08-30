@@ -1,13 +1,20 @@
-// Equipment manager. The three kinds record genuinely different things --
-// a rifle's twist rate, a scope's turret click value, a bullet's weight --
-// so the forms are built from the schema the server sends rather than
-// hardcoded here, which keeps them in step with the validation.
+// Equipment manager: a sidebar of everything you own, and one detail form
+// for whatever is selected. Rendering every field of all three kinds at once
+// turned this into a wall of inputs, and only one piece of kit is ever being
+// edited -- so the fields (built from the schema the server sends, which is
+// also what validates them) are rendered only for the current selection.
 (function () {
-  const root = document.getElementById("equipment-root");
-  if (!root) return;
-  const errorEl = document.getElementById("equipment-error");
+  const sidebarEl = document.getElementById("equip-sidebar");
+  const detailEl = document.getElementById("equip-detail");
+  if (!sidebarEl || !detailEl) return;
+
+  const KIND_ICONS = { rifle: "&#127919;", scope: "&#128301;", ammo: "&#9679;" };
 
   let schema = {};
+  let items = {};       // kind -> [item]
+  let selectedIds = {}; // kind -> id currently chosen on the live view
+  let current = null;   // {kind, id} being edited
+  let dirty = false;
 
   function escapeHtml(text) {
     return String(text === null || text === undefined ? "" : text).replace(
@@ -27,11 +34,66 @@
     return data;
   }
 
-  function setError(message) {
-    errorEl.textContent = message || "";
+  function findItem(ref) {
+    if (!ref) return null;
+    return (items[ref.kind] || []).find((i) => i.id === ref.id) || null;
   }
 
-  function fieldInput(field, value) {
+  function toast(message, isError) {
+    const el = document.getElementById("equip-toast");
+    if (!el) return;
+    el.textContent = message || "";
+    el.className = "equip-toast" + (isError ? " is-error" : message ? " is-ok" : "");
+    if (message && !isError) {
+      setTimeout(() => {
+        if (el.textContent === message) el.textContent = "";
+      }, 2500);
+    }
+  }
+
+  // ---------------------------------------------------------------- sidebar
+
+  function sidebarItem(kind, item) {
+    const isOpen = current && current.kind === kind && current.id === item.id;
+    const inUse = selectedIds[kind] === item.id;
+    return `
+      <button type="button" class="equip-nav-item${isOpen ? " is-open" : ""}"
+              data-kind="${kind}" data-id="${item.id}">
+        <span class="equip-nav-text">
+          <span class="equip-nav-name">${escapeHtml(item.name)}</span>
+          ${item.summary ? `<span class="equip-nav-sub">${escapeHtml(item.summary)}</span>` : ""}
+        </span>
+        ${inUse ? '<span class="equip-in-use" title="Selected on the live view">in use</span>' : ""}
+      </button>`;
+  }
+
+  function renderSidebar() {
+    sidebarEl.innerHTML = Object.keys(schema)
+      .map((kind) => {
+        const list = items[kind] || [];
+        return `
+          <div class="equip-nav-group">
+            <div class="equip-nav-head">
+              <span class="equip-nav-title">
+                <span class="equip-nav-icon">${KIND_ICONS[kind] || ""}</span>
+                ${escapeHtml(schema[kind].title)}
+                <span class="equip-nav-count">${list.length}</span>
+              </span>
+              <button type="button" class="equip-add-btn" data-kind="${kind}"
+                      title="Add ${escapeHtml(schema[kind].singular)}"
+                      aria-label="Add ${escapeHtml(schema[kind].singular)}">+</button>
+            </div>
+            ${list.length
+              ? list.map((i) => sidebarItem(kind, i)).join("")
+              : '<p class="equip-nav-empty">None yet</p>'}
+          </div>`;
+      })
+      .join("");
+  }
+
+  // ----------------------------------------------------------------- detail
+
+  function fieldControl(field, value) {
     const val = value === null || value === undefined ? "" : value;
     if (field.type === "select") {
       const options = field.options
@@ -44,154 +106,203 @@
         .join("");
       return `<select class="equip-field" data-key="${field.key}">${options}</select>`;
     }
-    const type = field.type === "number" ? "number" : "text";
     const step = field.type === "number" ? ` step="${escapeHtml(field.step)}"` : "";
+    const type = field.type === "number" ? "number" : "text";
     return (
       `<input class="equip-field" data-key="${field.key}" type="${type}"${step}` +
       ` value="${escapeHtml(val)}" placeholder="${escapeHtml(field.placeholder)}">`
     );
   }
 
-  function fieldBlock(field, value) {
-    return `
-      <label class="field equip-field-block">
-        <span class="equip-field-label">${escapeHtml(field.label)}${
-          field.unit ? ` <span class="hint">(${escapeHtml(field.unit)})</span>` : ""
-        }</span>
-        ${fieldInput(field, value)}
-      </label>`;
-  }
-
-  function itemCard(kind, item) {
+  function renderDetail() {
+    const item = findItem(current);
+    if (!item) {
+      detailEl.innerHTML =
+        '<div class="equip-placeholder"><p class="empty-state">Nothing selected.<br>' +
+        "Pick something on the left, or add one with &plus;.</p></div>";
+      return;
+    }
+    const meta = schema[item.kind];
     const specs = item.specs || {};
     // click_value/click_unit are real columns rather than specs entries, but
     // they belong in the same form, in schema order.
-    const valueFor = (field) => (field.column ? item[field.key] : specs[field.key]);
-    return `
-      <div class="equip-card" data-id="${item.id}" data-kind="${kind}">
-        <div class="equip-card-head">
-          <input class="equip-name" type="text" value="${escapeHtml(item.name)}"
-                 placeholder="Name" aria-label="Name">
-          <div class="row-actions">
-            <button type="button" class="equip-save">Save</button>
-            <button type="button" class="equip-delete session-delete-btn">Delete</button>
-          </div>
+    const valueFor = (f) => (f.column ? item[f.key] : specs[f.key]);
+    const inUse = selectedIds[item.kind] === item.id;
+
+    detailEl.innerHTML = `
+      <div class="equip-detail-head">
+        <div class="equip-detail-titles">
+          <span class="equip-detail-kind">${escapeHtml(meta.singular)}</span>
+          <input id="equip-name" class="equip-title-input" type="text"
+                 value="${escapeHtml(item.name)}" placeholder="Name" aria-label="Name">
         </div>
-        <div class="equip-fields">
-          ${schema[kind].fields.map((f) => fieldBlock(f, valueFor(f))).join("")}
+        <div class="row-actions">
+          ${inUse
+            ? '<span class="equip-in-use">in use</span>'
+            : '<button type="button" id="equip-use">Use this</button>'}
+          <button type="button" id="equip-delete" class="session-delete-btn">Delete</button>
         </div>
-        <label class="field equip-notes-block">
-          <span class="equip-field-label">Notes</span>
-          <input class="equip-notes" type="text" value="${escapeHtml(item.notes)}"
-                 placeholder="anything else worth remembering">
-        </label>
+      </div>
+
+      <div class="equip-fields">
+        ${meta.fields
+          .map(
+            (f) => `
+          <label class="equip-field-block">
+            <span class="equip-field-label">${escapeHtml(f.label)}${
+              f.unit ? ` <span class="hint">(${escapeHtml(f.unit)})</span>` : ""
+            }</span>
+            ${fieldControl(f, valueFor(f))}
+          </label>`
+          )
+          .join("")}
+      </div>
+
+      <label class="equip-field-block equip-notes-block">
+        <span class="equip-field-label">Notes</span>
+        <input id="equip-notes" class="equip-field-notes" type="text"
+               value="${escapeHtml(item.notes)}" placeholder="anything else worth remembering">
+      </label>
+
+      <div class="equip-detail-foot">
+        <button type="button" id="equip-save" class="primary">Save changes</button>
+        <span id="equip-toast" class="equip-toast"></span>
       </div>`;
+    dirty = false;
   }
 
-  function section(kind, items) {
-    const meta = schema[kind];
-    return `
-      <section class="equip-section" data-kind="${kind}">
-        <h2>${escapeHtml(meta.title)}</h2>
-        ${items.length
-          ? items.map((i) => itemCard(kind, i)).join("")
-          : `<p class="empty-state">No ${escapeHtml(meta.title.toLowerCase())} yet.</p>`}
-        <div class="controls equip-add-row">
-          <input class="equip-new-name" type="text"
-                 placeholder="${escapeHtml(meta.name_placeholder)}">
-          <button type="button" class="equip-add primary">Add ${escapeHtml(meta.singular)}</button>
-        </div>
-      </section>`;
+  function render() {
+    renderSidebar();
+    renderDetail();
   }
 
-  function collect(container) {
+  async function load(keepSelection) {
+    let data;
+    try {
+      data = await (await fetch("/api/equipment")).json();
+    } catch (err) {
+      sidebarEl.innerHTML = '<p class="empty-state">Could not load equipment.</p>';
+      detailEl.innerHTML = "";
+      return;
+    }
+    schema = data.schema;
+    items = data.items;
+    selectedIds = data.selected;
+    if (!keepSelection || !findItem(current)) {
+      const firstKind = Object.keys(schema).find((k) => (items[k] || []).length);
+      current = firstKind ? { kind: firstKind, id: items[firstKind][0].id } : null;
+    }
+    render();
+  }
+
+  // ---------------------------------------------------------------- actions
+
+  function collectSpecs() {
     const specs = {};
-    container.querySelectorAll(".equip-field").forEach((el) => {
+    detailEl.querySelectorAll(".equip-field").forEach((el) => {
       specs[el.dataset.key] = el.value;
     });
     return specs;
   }
 
-  async function render() {
-    let data;
+  async function save() {
+    const item = findItem(current);
+    if (!item) return;
     try {
-      data = await (await fetch("/api/equipment")).json();
+      await api(`/api/equipment/${item.id}`, {
+        name: document.getElementById("equip-name").value.trim(),
+        notes: document.getElementById("equip-notes").value.trim(),
+        specs: collectSpecs(),
+      });
+      await load(true);
+      toast("Saved");
     } catch (err) {
-      root.innerHTML = `<p class="empty-state">Couldn't load equipment.</p>`;
-      return;
+      toast(err.message, true);
     }
-    schema = data.schema;
-    root.innerHTML = Object.keys(schema)
-      .map((kind) => section(kind, data.items[kind] || []))
-      .join("");
   }
 
-  // Delegated: cards are rebuilt on every change, so per-card listeners
-  // would go stale immediately.
-  root.addEventListener("click", async (ev) => {
-    const addBtn = ev.target.closest(".equip-add");
+  sidebarEl.addEventListener("click", async (ev) => {
+    const addBtn = ev.target.closest(".equip-add-btn");
     if (addBtn) {
-      const wrap = addBtn.closest(".equip-section");
-      const kind = wrap.dataset.kind;
-      const nameInput = wrap.querySelector(".equip-new-name");
-      const name = nameInput.value.trim();
-      if (!name) {
-        setError("Give it a name first.");
-        nameInput.focus();
-        return;
-      }
+      const kind = addBtn.dataset.kind;
+      const name = window.prompt(`Name for the new ${schema[kind].singular.toLowerCase()}:`, "");
+      if (name === null || !name.trim()) return;
       try {
-        // Added with just a name; the specs are filled in on the card that
-        // appears, which avoids a second sprawling form up front.
-        await api("/api/equipment", { kind, name });
-        setError("");
-        await render();
+        const created = await api("/api/equipment", { kind, name: name.trim() });
+        current = { kind, id: created.id };
+        await load(true);
+        // Land in the first (empty) field of the thing just created.
+        const first = detailEl.querySelector(".equip-field");
+        if (first) first.focus();
       } catch (err) {
-        setError("Add failed: " + err.message);
+        toast(err.message, true);
       }
       return;
     }
 
-    const saveBtn = ev.target.closest(".equip-save");
-    if (saveBtn) {
-      const card = saveBtn.closest(".equip-card");
+    const navItem = ev.target.closest(".equip-nav-item");
+    if (navItem) {
+      const next = { kind: navItem.dataset.kind, id: Number(navItem.dataset.id) };
+      const same = current && current.kind === next.kind && current.id === next.id;
+      if (dirty && !same && !window.confirm("Discard unsaved changes?")) return;
+      current = next;
+      render();
+    }
+  });
+
+  detailEl.addEventListener("click", async (ev) => {
+    if (ev.target.closest("#equip-save")) {
+      save();
+      return;
+    }
+    if (ev.target.closest("#equip-use")) {
+      const item = findItem(current);
       try {
-        await api(`/api/equipment/${card.dataset.id}`, {
-          name: card.querySelector(".equip-name").value.trim(),
-          notes: card.querySelector(".equip-notes").value.trim(),
-          specs: collect(card),
-        });
-        setError("");
-        saveBtn.textContent = "Saved";
-        setTimeout(() => (saveBtn.textContent = "Save"), 1200);
+        await api("/api/equipment/select", { kind: item.kind, id: item.id });
+        await load(true);
+        toast(item.name + " selected on the live view");
       } catch (err) {
-        setError("Save failed: " + err.message);
+        toast(err.message, true);
       }
       return;
     }
-
-    const deleteBtn = ev.target.closest(".equip-delete");
-    if (deleteBtn) {
-      const card = deleteBtn.closest(".equip-card");
-      const name = card.querySelector(".equip-name").value;
-      if (!window.confirm(`Delete "${name}"?`)) return;
+    if (ev.target.closest("#equip-delete")) {
+      const item = findItem(current);
+      if (!window.confirm(`Delete "${item.name}"?`)) return;
       try {
-        await api(`/api/equipment/${card.dataset.id}/delete`);
-        setError("");
-        await render();
+        await api(`/api/equipment/${item.id}/delete`);
+        current = null;
+        await load(false);
       } catch (err) {
-        setError("Delete failed: " + err.message);
+        toast(err.message, true);
       }
     }
   });
 
-  // Enter in the "add" box adds, rather than doing nothing.
-  root.addEventListener("keydown", (ev) => {
-    if (ev.key === "Enter" && ev.target.classList.contains("equip-new-name")) {
+  detailEl.addEventListener("input", () => {
+    dirty = true;
+  });
+
+  // Enter anywhere in the form saves, the way a form would.
+  detailEl.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && ev.target.tagName === "INPUT") {
       ev.preventDefault();
-      ev.target.closest(".equip-add-row").querySelector(".equip-add").click();
+      save();
+    }
+  });
+  document.addEventListener("keydown", (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "s") {
+      ev.preventDefault();
+      save();
+    }
+  });
+  // Leaving with unsaved edits is almost always a mistake here.
+  window.addEventListener("beforeunload", (ev) => {
+    if (dirty) {
+      ev.preventDefault();
+      ev.returnValue = "";
     }
   });
 
-  render();
+  load(false);
 })();

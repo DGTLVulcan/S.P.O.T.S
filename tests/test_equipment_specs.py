@@ -88,20 +88,37 @@ class CleanSpecsTests(unittest.TestCase):
 class SummaryTests(unittest.TestCase):
     def test_rifle_summary(self):
         self.assertEqual(
-            summarise("rifle", {"calibre": ".308 Win", "barrel_length_in": 20.0}), '.308 Win 20"'
+            summarise({"kind": "rifle",
+                       "specs": {"calibre": ".308 Win", "barrel_length_in": 20.0}}),
+            '.308 Win 20"',
         )
 
     def test_ammo_summary(self):
         self.assertEqual(
-            summarise("ammo", {"calibre": ".308 Win", "bullet_grains": 168.0}), ".308 Win 168 gr"
+            summarise({"kind": "ammo",
+                       "specs": {"calibre": ".308 Win", "bullet_grains": 168.0}}),
+            ".308 Win 168 gr",
+        )
+
+    def test_scope_falls_back_to_its_turret(self):
+        """A scope with no magnification recorded is still identifiable by
+        its click value, which is the thing that changes the maths."""
+        self.assertEqual(
+            summarise({"kind": "scope", "specs": {}, "click_value": 0.25, "click_unit": "moa"}),
+            "0.25 moa/click",
+        )
+        self.assertEqual(
+            summarise({"kind": "scope", "specs": {"magnification": "5-25x56"},
+                       "click_value": 0.1, "click_unit": "mrad"}),
+            "5-25x56 0.1 mrad/click",
         )
 
     def test_missing_specs_summarise_to_empty(self):
-        self.assertEqual(summarise("rifle", {}), "")
-        self.assertEqual(summarise("ammo", None), "")
+        self.assertEqual(summarise({"kind": "rifle", "specs": {}}), "")
+        self.assertEqual(summarise({"kind": "ammo", "specs": None}), "")
 
     def test_whole_numbers_are_not_shown_as_floats(self):
-        self.assertNotIn(".0", summarise("ammo", {"bullet_grains": 168.0}))
+        self.assertNotIn(".0", summarise({"kind": "ammo", "specs": {"bullet_grains": 168.0}}))
 
 
 if __name__ == "__main__":

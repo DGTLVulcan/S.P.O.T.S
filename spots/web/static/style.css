@@ -132,524 +132,193 @@ a { color: var(--accent); }
 }
 .equipment-select:hover { border-color: var(--accent); }
 
-/* Equipment page: one card per item, its fields driven by the schema. */
-.equip-section { margin-bottom: 2rem; }
-.equip-section > h2 {
-  margin: 0 0 0.75rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--ink-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.equip-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--page);
-  padding: 0.9rem;
-  margin-bottom: 0.75rem;
-}
-.equip-card-head {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-.equip-card-head .equip-name {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-weight: 600;
-}
-.equip-fields {
+/* ---------- Equipment page (sidebar list + detail form) ----------
+   One thing edited at a time: the sidebar is the index of what you own,
+   the panel beside it is the only form on screen. */
+
+.equip-main { display: block; }
+.equip-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 0.6rem 0.9rem;
-}
-.equip-field-block, .equip-notes-block { margin: 0; }
-.equip-notes-block { margin-top: 0.6rem; }
-.equip-field-label {
-  display: block;
-  font-size: 0.78rem;
-  color: var(--ink-secondary);
-  margin-bottom: 0.2rem;
-}
-.equip-card input, .equip-card select { width: 100%; }
-.equip-add-row { margin-top: 0.5rem; }
-.equip-add-row .equip-new-name { flex: 1 1 16rem; }
-
-/* The pickers would crowd the title on a phone; stack them under it. */
-@media (max-width: 900px) {
-  .appbar { flex-wrap: wrap; }
-  .equipment-bar { order: 3; width: 100%; margin: 0.5rem 0 0; }
-  .equipment-select { flex: 1 1 30%; max-width: none; }
-}
-
-.icon-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--ink-secondary);
-  cursor: pointer;
-  text-decoration: none;
-  font-size: 1.1rem;
-  line-height: 1;
-}
-.icon-btn:hover { background: var(--page); border-color: var(--border); color: var(--ink); }
-
-main {
-  max-width: 1800px;
-  margin: 0 auto;
-  padding: 1.25rem;
-  display: flex;
-  flex-wrap: wrap;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
   gap: 1.25rem;
-  align-items: flex-start;
+  align-items: start;
 }
 
-/* ---------- Cards ---------- */
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.1rem;
-}
-
-.card h2 {
-  margin: 0 0 0.85rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--ink-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-/* ---------- Video panel ---------- */
-
-.video-panel { flex: 2 1 640px; min-width: 320px; display: flex; flex-direction: column; gap: 1rem; }
-
-/* ---------- Stats panel (Group Stats / Best Subgroups / Shots) ----------
-   A nested flex-wrap row rather than a single stacked column, so all three
-   cards sit side by side once there's room, instead of Best Subgroups
-   (which only appears after 3+ shots) knocking Shots down to its own row. */
-
-.stats-panel {
-  flex: 3 1 900px;
-  min-width: 300px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
-  align-items: flex-start;
-}
-
-.stats-panel > .card {
-  flex: 1 1 270px;
-  min-width: 250px;
-}
-
-.video-frame {
-  position: relative;
-  border-radius: var(--radius);
-  overflow: hidden;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  background: #000;
-  line-height: 0;
-}
-
-#feed {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  display: block;
-  cursor: crosshair;
-}
-
-/* In fullscreen the frame fills the viewport; letterbox the feed (preserve
-   aspect ratio, center it) rather than stretching or cropping it. */
-.video-frame:fullscreen {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100vw;
-  height: 100vh;
-}
-.video-frame:fullscreen #feed {
-  width: auto;
-  height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.fullscreen-btn {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: none;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-  backdrop-filter: blur(4px);
-}
-.fullscreen-btn:hover { background: rgba(0, 0, 0, 0.75); }
-.fullscreen-btn.active { background: rgba(57, 135, 229, 0.85); }
-
-/* ---------- Fullscreen HUD (Group Stats + target diagram) ----------
-   Always dark/semi-transparent regardless of the page's light/dark theme,
-   since it overlays arbitrary video content rather than the page surface --
-   shown only while the video frame is actually in fullscreen. */
-
-.hud {
-  display: none;
-  position: absolute;
-  background: rgba(10, 10, 10, 0.62);
-  backdrop-filter: blur(6px);
-  color: #fff;
-  border-radius: 10px;
-  padding: 0.9rem 1rem;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
-  /* .video-frame sets line-height:0 (to remove the inline-image whitespace
-     gap below #feed) which would otherwise inherit in here and collapse
-     every text row on top of each other. */
-  line-height: 1.5;
-}
-.video-frame:fullscreen .hud {
-  display: block;
-}
-
-.hud-group-stats {
-  top: 50%;
-  right: 1.5rem;
-  transform: translateY(-50%);
-  min-width: 220px;
-}
-
-.hud-subgroups {
-  top: 50%;
-  left: 1.5rem;
-  transform: translateY(-50%);
-  min-width: 180px;
-  max-height: 80vh;
+.equip-sidebar {
+  padding: 0.6rem;
+  position: sticky;
+  top: 5rem;
+  max-height: calc(100vh - 6.5rem);
   overflow-y: auto;
 }
+.equip-nav-group + .equip-nav-group {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+.equip-nav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.15rem 0.4rem 0.45rem;
+}
+.equip-nav-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+}
+.equip-nav-icon { font-size: 0.85rem; }
+.equip-nav-count {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+}
+.equip-add-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 6px;
+  font-size: 1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink-secondary);
+}
+.equip-add-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-.hud-shots {
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: min(90%, 560px);
-  padding: 0.6rem 0.9rem;
+.equip-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.55rem;
+  margin-bottom: 0.15rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.equip-nav-item:hover { background: var(--page); border-color: var(--border); }
+.equip-nav-item.is-open {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--ink);
+}
+.equip-nav-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.equip-nav-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.equip-nav-sub {
+  font-size: 0.73rem;
+  font-weight: 400;
+  color: var(--ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.equip-nav-empty {
+  margin: 0 0 0.2rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+}
+.equip-in-use {
+  flex: none;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--good);
+  background: color-mix(in srgb, var(--good) 16%, transparent);
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
 }
 
-.hud-header {
-  font-size: 0.75rem;
+.equip-detail { min-height: 22rem; }
+.equip-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.9rem;
+  margin-bottom: 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+.equip-detail-titles { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; flex: 1 1 14rem; }
+.equip-detail-kind {
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.75);
-  margin-bottom: 0.5rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--ink-muted);
 }
-
-.hud-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.55rem 1.25rem;
-  font-size: 0.82rem;
-  font-variant-numeric: tabular-nums;
-  margin-bottom: 0.8rem;
-}
-.hud-label {
-  color: rgba(255, 255, 255, 0.6);
-  margin-right: 0.35rem;
-}
-
-.hud-diagram {
-  width: 150px;
-  height: 150px;
-  display: block;
-  margin: 0 auto;
-}
-.hud-diagram .ring, .hud-diagram .crosshair { stroke: rgba(255, 255, 255, 0.25); }
-.hud-diagram .shot { fill: #3987e5; stroke: rgba(0, 0, 0, 0.5); }
-.hud-diagram .center { stroke: #e66767; }
-.hud-diagram .empty-label { fill: rgba(255, 255, 255, 0.55); }
-
-.hud-shots-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  font-size: 0.78rem;
-  font-variant-numeric: tabular-nums;
-}
-.hud-shot-chip {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  padding: 0.2rem 0.6rem;
-  white-space: nowrap;
-}
-.hud-shot-chip.is-test {
-  border-style: dashed;
-  color: rgba(255, 255, 255, 0.75);
-}
-.hud-shot-chip .hud-shot-seq {
-  color: rgba(255, 255, 255, 0.55);
-  margin-right: 0.3rem;
-}
-.hud-empty {
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 0.8rem;
-}
-
-.badge-row {
-  position: absolute;
-  top: 0.6rem;
-  left: 0.6rem;
-  display: flex;
-  gap: 0.4rem;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
+.equip-title-input {
+  font-size: 1.15rem;
   font-weight: 600;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  backdrop-filter: blur(4px);
-}
-.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.badge.good { color: #7be07b; }
-.badge.warn { color: #ffd166; }
-.badge.bad { color: #ff8a8a; }
-
-.controls {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-/* Consistent gap between stacked control rows -- a class rule rather than
-   relying on each instance remembering an inline margin-top (which is how
-   this was drifting out of sync as rows got added over time). */
-.controls + .controls {
-  margin-top: 0.6rem;
-}
-
-button, .btn {
-  padding: 0.55rem 1rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid transparent;
   border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  background: transparent;
   color: var(--ink);
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  transition: border-color 0.12s ease, background 0.12s ease;
-}
-button:hover, .btn:hover { border-color: var(--accent); }
-button.active { border-color: var(--accent); color: var(--accent); }
-button.primary, .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-}
-button.primary:hover, .btn.primary:hover { filter: brightness(1.08); }
-button:disabled, .btn.disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
-.status {
-  min-height: 1.2em;
-  color: var(--ink-secondary);
-  font-size: 0.85rem;
-}
-
-/* ---------- Stat tiles ---------- */
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 0.75rem;
-}
-
-.stat-tile {
-  padding: 0.75rem 0.9rem;
-  border-radius: 8px;
-  background: var(--page);
-  border: 1px solid var(--border);
-}
-
-.stat-tile .label {
-  font-size: 0.75rem;
-  color: var(--ink-muted);
-  margin-bottom: 0.15rem;
-}
-
-.stat-tile .value {
-  font-size: 1.4rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.stat-tile .value .unit {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--ink-secondary);
-  margin-left: 0.15rem;
-}
-
-/* ---------- Target diagram ---------- */
-
-.target-diagram {
   width: 100%;
-  aspect-ratio: 1;
-  max-width: 320px;
-  margin: 0 auto;
+}
+.equip-title-input:hover { border-color: var(--border); }
+.equip-title-input:focus { border-color: var(--accent); background: var(--page); outline: none; }
+
+.equip-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.85rem 1rem;
+}
+.equip-field-block { display: block; min-width: 0; }
+.equip-notes-block { margin-top: 1rem; }
+.equip-field-label {
   display: block;
-}
-
-.target-diagram .ring { fill: none; stroke: var(--gridline); stroke-width: 1; }
-.target-diagram .crosshair { stroke: var(--gridline); stroke-width: 1; }
-.target-diagram .shot {
-  fill: var(--shot-marker);
-  stroke: var(--surface);
-  stroke-width: 2;
-}
-.target-diagram .shot-test {
-  fill: none;
-  stroke: var(--shot-marker);
-  stroke-width: 2;
-  stroke-dasharray: 2 2;
-}
-.target-diagram .center {
-  fill: none;
-  stroke: var(--center-marker);
-  stroke-width: 2;
-}
-.target-diagram .empty-label {
-  fill: var(--ink-muted);
-  font-size: 11px;
-  text-anchor: middle;
-}
-
-.legend-row {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin-top: 0.6rem;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--ink-secondary);
+  margin-bottom: 0.25rem;
 }
-.legend-row .swatch {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  margin-right: 0.3rem;
-  vertical-align: middle;
-}
+.equip-field, .equip-field-notes { width: 100%; }
 
-/* ---------- Tables ---------- */
-
-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-th, td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--gridline); }
-th { color: var(--ink-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
-td { font-variant-numeric: tabular-nums; }
-tbody tr:hover { background: var(--page); }
-.shot-row-test { background: color-mix(in srgb, var(--warning) 10%, transparent); }
-.shot-row-test:hover { background: color-mix(in srgb, var(--warning) 18%, transparent); }
-
-.row-delete-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--ink-muted);
-  cursor: pointer;
-  font-size: 0.9rem;
-  line-height: 1;
-  padding: 0;
-}
-.row-delete-btn:hover { border-color: var(--critical); color: var(--critical); }
-
-/* Session history row actions (View / Rename / Delete). */
-.row-actions {
+.equip-detail-foot {
   display: flex;
-  gap: 0.4rem;
   align-items: center;
-  white-space: nowrap;
+  gap: 0.75rem;
+  margin-top: 1.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
 }
-/* Covers the .btn anchor ("View") as well as the <button>s, or it keeps the
-   full-size base padding and makes the row taller than its neighbours. */
-.row-actions button,
-.row-actions .btn {
-  font-size: 0.8rem;
-  padding: 0.3rem 0.6rem;
-  font-weight: 500;
-  line-height: 1.2;
-}
-.session-delete-btn:hover,
-#delete-all-sessions:hover { border-color: var(--critical); color: var(--critical); }
-.session-name { font-weight: 600; }
+.equip-toast { font-size: 0.82rem; color: var(--ink-secondary); }
+.equip-toast.is-ok { color: var(--good); }
+.equip-toast.is-error { color: var(--critical); }
 
-/* Excluded (flyer) shots: still listed and plotted, visibly not counted. */
-.shot-row-excluded { opacity: 0.5; }
-.shot-row-excluded td:nth-child(2),
-.shot-row-excluded td:nth-child(3) { text-decoration: line-through; }
-.target-diagram .shot-excluded { fill: none; stroke: var(--ink-muted); stroke-dasharray: 2 2; }
-.split-cell { color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
-.row-btns { display: flex; gap: 0.25rem; }
-.row-exclude-btn {
-  display: inline-flex;
+.equip-placeholder {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--ink-muted);
-  cursor: pointer;
-  font-size: 0.9rem;
-  line-height: 1;
-  padding: 0;
+  min-height: 18rem;
+  text-align: center;
 }
-.row-exclude-btn:hover { border-color: var(--warning); color: var(--warning); }
+
+@media (max-width: 820px) {
+  .equip-layout { grid-template-columns: 1fr; }
+  .equip-sidebar { position: static; max-height: none; }
+}
 
 .table-scroll { overflow-x: auto; }
 
