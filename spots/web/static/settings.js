@@ -103,7 +103,7 @@
 
   // Panel switching, matching the equipment page: one section on screen at a
   // time instead of every setting stacked into one long scroll.
-  const FORM_PANELS = ["target", "detection", "camera"];
+  const FORM_PANELS = ["target", "detection", "camera", "range"];
   const PANEL_KEY = "spots.settingsPanel";
   const navButtons = Array.from(document.querySelectorAll(".settings-nav"));
   const panels = Array.from(document.querySelectorAll(".settings-panel"));

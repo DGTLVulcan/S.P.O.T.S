@@ -1139,7 +1139,9 @@ input[type="range"] { accent-color: var(--accent); }
   background: currentColor;
 }
 
-.icon-btn[aria-pressed="true"] {
+/* Scoped to the layout button: the range toggle also reports aria-pressed,
+   and this rule was painting it as an accent-coloured square. */
+#layout-toggle[aria-pressed="true"] {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent);
@@ -1537,11 +1539,14 @@ a.equip-nav-item { text-decoration: none; }
 /* The button that switches it, in the app bar. */
 .range-toggle .range-toggle-dot {
   display: block;
-  width: 13px;
-  height: 13px;
+  width: 15px;
+  height: 15px;
+  flex: none;
   border-radius: 50%;
-  border: 2px solid currentColor;
   background: currentColor;
+  /* A ring in the bar's own colour, so the circle keeps its shape against
+     a hover background instead of blending into a rounded square. */
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px currentColor;
 }
 
 .range-toggle.is-hot { color: #c1272d; }
@@ -1561,6 +1566,7 @@ a.equip-nav-item { text-decoration: none; }
 
 .range-toggle.is-disabled .range-toggle-dot {
   background: transparent;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px currentColor;
 }
 
 /* ---------- Range status card ----------

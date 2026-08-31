@@ -74,5 +74,29 @@ class RangeStatusTests(unittest.TestCase):
             self.assertLess(html.index("_range_banner.html"), body, name)
 
 
+class SettingsPanelTests(unittest.TestCase):
+    """A panel with fields in it must offer a way to save them."""
+
+    def test_every_panel_with_inputs_is_listed_as_a_form_panel(self):
+        static = os.path.join(os.path.dirname(TEMPLATES), "static")
+        with open(os.path.join(static, "settings.js"), encoding="utf-8") as fh:
+            listed = set(re.findall(r'"(\w+)"', re.search(
+                r"FORM_PANELS = \[([^\]]*)\]", fh.read()).group(1)))
+        with open(os.path.join(TEMPLATES, "settings.html"), encoding="utf-8") as fh:
+            html = fh.read()
+
+        needs_saving = set()
+        for panel in re.findall(
+                r'<div class="settings-panel" data-panel="(\w+)"[^>]*>(.*?)(?=<div class="settings-panel"|</form>)',
+                html, re.S):
+            name, body = panel
+            if re.search(r'<(?:input|select|textarea)[^>]*name="', body):
+                needs_saving.add(name)
+
+        self.assertTrue(needs_saving, "no settings panels found - has the markup changed?")
+        missing = needs_saving - listed
+        self.assertFalse(missing, f"panels with fields but no Save row: {missing}")
+
+
 if __name__ == "__main__":
     unittest.main()
