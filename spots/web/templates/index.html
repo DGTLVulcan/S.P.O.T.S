@@ -32,7 +32,8 @@
 
   <div class="layout-bar" id="layout-bar" hidden>
     <span class="layout-bar-title">Arranging cards</span>
-    <span class="layout-bar-hint">Drag a card by its handle into any column.</span>
+    <span class="layout-bar-hint">Drag a card by its handle, or hide it.</span>
+    <span class="layout-hidden-bar" id="layout-hidden-bar" hidden></span>
     <span class="layout-bar-spacer"></span>
     <button id="layout-add-column" type="button">Add column</button>
     <button id="layout-reset" type="button">Reset layout</button>
@@ -41,6 +42,20 @@
 
 {#- Each card is a macro, so the page can be rendered in whatever order the
     stored layout asks for without the markup existing twice. -#}
+{% macro tile_range() %}
+      {%- if range_status.enabled %}
+      <div class="card range-card" data-tile="range">
+        <button id="range-big" type="button" class="range-big is-{{ range_status.state }}">
+          <span class="range-big-state">{% if range_status.state == 'hot' %}Range Hot{% else %}Cease Fire{% endif %}</span>
+          <span class="range-big-action">{% if range_status.state == 'hot' %}Tap to call a cease fire{% else %}Tap to make the range hot{% endif %}</span>
+        </button>
+        <p class="hint range-big-note">
+          {%- if range_status.state == 'hot' %}Detection is running.{% else %}Detection is paused &mdash; shots fired now are not recorded.{% endif %}
+        </p>
+      </div>
+      {%- endif %}
+{% endmacro %}
+
 {% macro tile_feed() %}
       <div class="card" data-tile="feed">
         <div class="video-frame" id="video-frame">
@@ -204,6 +219,7 @@
 {% endmacro %}
 
 {% set TILE_MACROS = {
+  "range": tile_range,
   "feed": tile_feed,
   "score": tile_score,
   "scope": tile_scope,
@@ -221,6 +237,14 @@
     </section>
     {%- endfor %}
   </main>
+
+  {#- Cards put away in the layout editor. They stay in the page so bringing
+      one back is a matter of moving it, not re-rendering it. -#}
+  <div id="layout-hidden" hidden>
+    {%- for tile in layout.hidden %}
+    {{ TILE_MACROS[tile]() }}
+    {%- endfor %}
+  </div>
 
   <script>
     window.SPOTS_UNIT_NAME = {{ target.unit_name | tojson }};

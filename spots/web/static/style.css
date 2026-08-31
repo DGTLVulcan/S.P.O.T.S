@@ -1562,3 +1562,78 @@ a.equip-nav-item { text-decoration: none; }
 .range-toggle.is-disabled .range-toggle-dot {
   background: transparent;
 }
+
+/* ---------- Range status card ----------
+   A target the size of a gloved thumb: this gets pressed in a hurry, and
+   often by someone who is not looking closely at the screen. */
+
+.range-card { padding: 0.9rem; }
+
+.range-big {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 1.15rem 1rem;
+  border: none;
+  border-radius: var(--radius);
+  color: #ffffff;
+  background: #c1272d;
+  cursor: pointer;
+  /* Fixed colours, as on the banner: the meaning must not shift with the
+     theme. */
+}
+
+.range-big.is-cease { background: #1a7f37; }
+.range-big:hover { filter: brightness(1.08); }
+.range-big:active { transform: translateY(1px); }
+
+.range-big-state {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.range-big-action {
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+.range-big-note { margin: 0.6rem 0 0; text-align: center; }
+
+/* ---------- Hiding cards while arranging ---------- */
+
+.tile-hide {
+  margin-left: auto;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--ink-secondary);
+  background: var(--surface);
+}
+
+.tile-hide:hover { border-color: var(--critical); color: var(--critical); }
+
+.layout-hidden-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.layout-hidden-label { font-size: 0.8rem; color: var(--ink-muted); }
+
+.layout-chip {
+  padding: 0.15rem 0.55rem;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-secondary);
+  font-size: 0.78rem;
+}
+
+.layout-chip:hover { border-style: solid; border-color: var(--accent); color: var(--accent); }

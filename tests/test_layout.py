@@ -21,7 +21,7 @@ class CleanLayoutTests(unittest.TestCase):
     def test_default_matches_the_original_hand_written_page(self):
         columns = layout.DEFAULT_LAYOUT["columns"]
         self.assertEqual(len(columns), 2)
-        self.assertEqual(columns[0]["tiles"], ["feed", "score", "scope"])
+        self.assertEqual(columns[0]["tiles"], ["range", "feed", "score", "scope"])
         self.assertEqual(columns[1]["tiles"], ["group-stats", "shots", "subgroups"])
         self.assertEqual(columns[0]["flow"], "stack")
         self.assertEqual(columns[1]["flow"], "wrap")
@@ -33,10 +33,10 @@ class CleanLayoutTests(unittest.TestCase):
 
     def test_rearrangement_is_kept(self):
         cleaned = layout.clean_layout({"columns": [
-            {"weight": 4, "flow": "wrap", "tiles": ["shots", "feed"]},
+            {"weight": 4, "flow": "wrap", "tiles": ["shots", "feed", "range"]},
             {"weight": 1, "flow": "stack", "tiles": ["score", "scope", "group-stats", "subgroups"]},
         ]})
-        self.assertEqual(cleaned["columns"][0]["tiles"], ["shots", "feed"])
+        self.assertEqual(cleaned["columns"][0]["tiles"], ["shots", "feed", "range"])
         self.assertEqual(cleaned["columns"][0]["weight"], 4)
         self.assertEqual(cleaned["columns"][0]["flow"], "wrap")
 
@@ -80,7 +80,7 @@ class CleanLayoutTests(unittest.TestCase):
     def test_empty_columns_are_dropped(self):
         cleaned = layout.clean_layout({"columns": [
             {"tiles": []},
-            {"tiles": ["feed", "score", "scope", "group-stats", "shots", "subgroups"]},
+            {"tiles": ["range", "feed", "score", "scope", "group-stats", "shots", "subgroups"]},
         ]})
         self.assertEqual(len(cleaned["columns"]), 1)
 
@@ -99,6 +99,40 @@ class CleanLayoutTests(unittest.TestCase):
             {"weight": 2, "flow": "stack", "tiles": ["shots", "score", "scope", "subgroups"]},
         ]}
         self.assertEqual(layout.loads(layout.dumps(wanted)), layout.clean_layout(wanted))
+
+
+class HiddenCardTests(unittest.TestCase):
+    def test_a_hidden_card_is_not_put_back(self):
+        # Without this, hiding a card would be undone by the same rule that
+        # restores a card the layout was written before.
+        cleaned = layout.clean_layout({
+            "columns": [{"tiles": ["feed"]}],
+            "hidden": ["shots"],
+        })
+        self.assertEqual(cleaned["hidden"], ["shots"])
+        self.assertNotIn("shots", tiles_in(cleaned))
+
+    def test_a_card_cannot_be_hidden_and_placed_at_once(self):
+        cleaned = layout.clean_layout({
+            "columns": [{"tiles": ["feed", "shots"]}],
+            "hidden": ["shots"],
+        })
+        self.assertNotIn("shots", tiles_in(cleaned))
+        self.assertEqual(cleaned["hidden"], ["shots"])
+
+    def test_unknown_hidden_ids_are_dropped(self):
+        cleaned = layout.clean_layout({"columns": [{"tiles": ["feed"]}],
+                                       "hidden": ["nope", "shots"]})
+        self.assertEqual(cleaned["hidden"], ["shots"])
+
+    def test_every_card_can_be_hidden_without_losing_the_layout(self):
+        cleaned = layout.clean_layout({"columns": [{"tiles": []}],
+                                       "hidden": list(layout.TILES)})
+        self.assertEqual(sorted(cleaned["hidden"]), sorted(layout.TILES))
+        self.assertEqual(tiles_in(cleaned), [])
+
+    def test_the_default_hides_nothing(self):
+        self.assertEqual(layout.DEFAULT_LAYOUT["hidden"], [])
 
 
 class LayoutStorageTests(unittest.TestCase):

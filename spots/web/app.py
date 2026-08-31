@@ -108,6 +108,11 @@ def create_app(settings: Settings) -> Flask:
     # mid-string doesn't lose the shots and calibration already recorded.
     if worker.resume_last_session():
         logger.info("Resumed the most recent session from storage")
+    # A cease fire called before a reboot is still a cease fire after it.
+    if settings.web.range_status_enabled and storage.get_range_state() == "cease":
+        worker.set_paused(True)
+        logger.info("Cease fire was in force at shutdown; detection starts paused")
+
     # Auto hole-sizing needs the ammo's bullet diameter, or a resumed
     # session quietly falls back to the fixed pixel figures.
     selected_ammo = storage.get_selected_equipment().get("ammo")

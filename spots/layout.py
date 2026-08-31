@@ -16,6 +16,7 @@ import json
 # Card id -> label shown while rearranging. Also the whitelist: anything
 # else in a stored layout is dropped rather than rendered.
 TILES: dict[str, str] = {
+    "range": "Range status",
     "feed": "Live feed",
     "score": "Score",
     "scope": "Scope correction",
@@ -32,9 +33,14 @@ MAX_WEIGHT = 6
 
 DEFAULT_LAYOUT: dict = {
     "columns": [
-        {"weight": 2, "flow": "stack", "tiles": ["feed", "score", "scope"]},
+        {"weight": 2, "flow": "stack", "tiles": ["range", "feed", "score", "scope"]},
         {"weight": 3, "flow": "wrap", "tiles": ["group-stats", "shots", "subgroups"]},
-    ]
+    ],
+    # Cards put away while arranging. Kept as a list rather than dropped, so
+    # a card can be brought back -- and so the "any tile the layout doesn't
+    # mention goes back where it started" rule below can tell "hidden on
+    # purpose" apart from "written before this card existed".
+    "hidden": [],
 }
 
 # Where a card goes when a stored layout doesn't mention it -- a layout
@@ -71,8 +77,10 @@ def clean_layout(raw) -> dict:
     if not isinstance(raw, dict):
         return default_layout()
 
+    hidden = [t for t in (raw.get("hidden") or []) if t in TILES]
+
     columns = []
-    seen: set[str] = set()
+    seen: set[str] = set(hidden)
     for entry in (raw.get("columns") or [])[:MAX_COLUMNS]:
         if not isinstance(entry, dict):
             continue
@@ -100,8 +108,14 @@ def clean_layout(raw) -> dict:
     # only keep one if it is the last thing standing.
     columns = [c for c in columns if c["tiles"]]
     if not columns:
+        if hidden:
+            # Every card put away is a legitimate arrangement, so keep one
+            # empty column to drop them back into. Falling through to the
+            # default here would quietly un-hide the lot.
+            return {"columns": [{"weight": 2, "flow": "stack", "tiles": []}],
+                    "hidden": hidden}
         return default_layout()
-    return {"columns": columns}
+    return {"columns": columns, "hidden": hidden}
 
 
 def loads(raw: str | None) -> dict:

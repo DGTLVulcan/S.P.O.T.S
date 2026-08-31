@@ -105,11 +105,25 @@ def _range_status():
         return {"range_status": {"enabled": False, "state": "hot"}}
 
 
+def _sync_detection_pause():
+    """Detection is paused only while a cease fire is actually in force.
+
+    A stored "cease" with the feature switched off would otherwise leave
+    detection silently stopped with no visible banner and a greyed-out
+    button that cannot clear it.
+    """
+    settings = _settings()
+    paused = settings.web.range_status_enabled and _storage().get_range_state() == "cease"
+    _worker().set_paused(paused)
+    return paused
+
+
 @bp.route("/api/range_state")
 def api_range_state():
     return jsonify({
         "enabled": _settings().web.range_status_enabled,
         "state": _storage().get_range_state(),
+        "detection_paused": _worker().paused,
     })
 
 
@@ -122,7 +136,7 @@ def api_range_state_set():
         state = _storage().set_range_state(wanted)
     except ValueError as err:
         return jsonify({"error": str(err)}), 400
-    return jsonify({"ok": True, "state": state})
+    return jsonify({"ok": True, "state": state, "detection_paused": _sync_detection_pause()})
 
 
 @bp.route("/api/layout")
@@ -1267,6 +1281,9 @@ def settings_page():
         errors = _apply_settings_form(settings, request.form)
         if errors:
             return redirect(url_for("spots.settings_page", error=" / ".join(errors)))
+        # Switching the feature off has to lift any cease fire it was
+        # holding, or detection stays stopped with nothing on screen saying so.
+        _sync_detection_pause()
         return redirect(url_for("spots.settings_page", saved=1))
 
     return render_template(

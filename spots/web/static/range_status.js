@@ -7,6 +7,7 @@
 (function () {
   const banner = document.getElementById("range-banner");
   const toggle = document.getElementById("range-toggle");
+  const big = document.getElementById("range-big");
   if (!toggle) return;
 
   const POLL_MS = 15000;
@@ -24,6 +25,24 @@
     }
     toggle.classList.toggle("is-hot", hot);
     toggle.classList.toggle("is-cease", !hot);
+    if (big) {
+      big.classList.toggle("is-hot", hot);
+      big.classList.toggle("is-cease", !hot);
+      const stateEl = big.querySelector(".range-big-state");
+      const action = big.querySelector(".range-big-action");
+      if (stateEl) stateEl.textContent = hot ? "Range Hot" : "Cease Fire";
+      if (action) {
+        action.textContent = hot
+          ? "Tap to call a cease fire"
+          : "Tap to make the range hot";
+      }
+      const note = document.querySelector(".range-big-note");
+      if (note) {
+        note.textContent = hot
+          ? "Detection is running."
+          : "Detection is paused — shots fired now are not recorded.";
+      }
+    }
     toggle.setAttribute("aria-pressed", hot ? "false" : "true");
     if (!toggle.disabled) {
       toggle.title = hot
@@ -59,7 +78,12 @@
     }
   }
 
-  toggle.addEventListener("click", () => set(state === "hot" ? "cease" : "hot"));
+  function flip() {
+    set(state === "hot" ? "cease" : "hot");
+  }
+
+  toggle.addEventListener("click", flip);
+  if (big) big.addEventListener("click", flip);
 
   async function poll() {
     if (busy) return;
@@ -74,6 +98,7 @@
   }
 
   if (!toggle.disabled) {
+    poll();                            // another device may have called it
     setInterval(poll, POLL_MS);
     // Coming back to a page that has been open in a pocket all morning
     // should not show a stale banner.

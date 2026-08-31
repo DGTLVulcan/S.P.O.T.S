@@ -178,12 +178,42 @@ class DetectionWorker:
         # Selected ammo's bullet diameter in mm; with the calibrated scale
         # it gives the expected hole size in pixels.
         self._bullet_diameter_mm: float | None = None
+        # Set while the range is on a cease fire.
+        self._paused = False
 
     def start(self) -> None:
         self._frame_source.start()
         self._stop.clear()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
+
+    def set_paused(self, paused: bool) -> None:
+        """Stop or restart detection for a cease fire.
+
+        People walk downrange during a cease fire and targets get patched or
+        replaced, all of it in front of the camera. Detection stops rather
+        than trying to tell that apart from shooting, and coming back off a
+        cease fire re-baselines against the target as it now looks -- so a
+        target that was patched doesn't read as a wall of new holes.
+        """
+        paused = bool(paused)
+        if paused == self._paused:
+            return
+        self._paused = paused
+        if paused:
+            logger.info("Cease fire: detection paused")
+            return
+        snapshot = self.state.snapshot()
+        if snapshot.session_id is not None and self._detector.has_reference:
+            # Same re-baselining a resumed session gets: carry on the
+            # numbering, but measure against the target as it looks now.
+            self._pending_rearm_seq = max(
+                (shot.seq for shot in snapshot.shots), default=0) + 1
+        logger.info("Range hot: detection resumed")
+
+    @property
+    def paused(self) -> bool:
+        return self._paused
 
     def set_bullet_diameter_mm(self, diameter_mm: float | None) -> None:
         self._bullet_diameter_mm = diameter_mm if diameter_mm else None
@@ -224,6 +254,10 @@ class DetectionWorker:
         while not self._stop.wait(self._sample_interval_s):
             frame = self._frame_source.get_latest_frame()
             if frame is None:
+                continue
+            if self._paused:
+                # Nothing is diffed while the range is cold, which also
+                # takes the detector's share of the CPU back.
                 continue
             if self._pending_rearm_seq is not None:
                 # Re-baseline onto the target as it looks now, so the

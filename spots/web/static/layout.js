@@ -14,6 +14,7 @@
 
   const hint = bar.querySelector(".layout-bar-hint");
   const addColumnBtn = document.getElementById("layout-add-column");
+  const hiddenBar = document.getElementById("layout-hidden-bar");
   const resetBtn = document.getElementById("layout-reset");
   const doneBtn = document.getElementById("layout-done");
 
@@ -31,6 +32,14 @@
     return Array.from(layoutEl.querySelectorAll(".layout-column"));
   }
 
+  // Hidden cards stay in the page, parked here, so putting one back is a
+  // move rather than a re-render.
+  const store = document.getElementById("layout-hidden");
+
+  function hiddenCards() {
+    return store ? Array.from(store.querySelectorAll(".card[data-tile]")) : [];
+  }
+
   function say(message) {
     if (hint) hint.textContent = message;
   }
@@ -45,6 +54,7 @@
         tiles: Array.from(column.querySelectorAll(".card[data-tile]"))
           .map((card) => card.dataset.tile),
       })),
+      hidden: hiddenCards().map((card) => card.dataset.tile),
     };
   }
 
@@ -78,7 +88,18 @@
     grip.className = "tile-grip";
     const label = document.createElement("span");
     label.textContent = LABELS[card.dataset.tile] || card.dataset.tile;
-    handle.append(grip, label);
+    const hide = document.createElement("span");
+    hide.className = "tile-hide";
+    hide.textContent = "Hide";
+    hide.title = "Put this card away";
+    // On the handle rather than the card, so it only exists while editing.
+    hide.addEventListener("pointerdown", (ev) => ev.stopPropagation());
+    hide.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      hideCard(card);
+    });
+    handle.append(grip, label, hide);
     handle.addEventListener("pointerdown", (ev) => startDrag(ev, card));
     return handle;
   }
@@ -112,7 +133,46 @@
 
   function refreshAll() {
     columns().forEach(refreshStrip);
+    refreshHidden();
     if (addColumnBtn) addColumnBtn.disabled = columns().length >= MAX_COLUMNS;
+  }
+
+  function hideCard(card) {
+    if (!store) return;
+    store.appendChild(card);
+    refreshAll();
+    save();
+  }
+
+  function restoreCard(tile) {
+    const card = store && store.querySelector(`.card[data-tile="${tile}"]`);
+    const target = columns()[0];
+    if (!card || !target) return;
+    target.appendChild(card);
+    if (editing) card.prepend(makeHandle(card));
+    refreshAll();
+    save();
+  }
+
+  function refreshHidden() {
+    if (!hiddenBar) return;
+    const cards = hiddenCards();
+    hiddenBar.hidden = cards.length === 0;
+    hiddenBar.textContent = "";
+    if (!cards.length) return;
+    const caption = document.createElement("span");
+    caption.className = "layout-hidden-label";
+    caption.textContent = "Hidden:";
+    hiddenBar.append(caption);
+    cards.forEach((card) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "layout-chip";
+      chip.textContent = LABELS[card.dataset.tile] || card.dataset.tile;
+      chip.title = "Put this card back";
+      chip.addEventListener("click", () => restoreCard(card.dataset.tile));
+      hiddenBar.append(chip);
+    });
   }
 
   function setEditing(on) {
@@ -129,13 +189,16 @@
       });
       refreshAll();
     } else {
-      layoutEl.querySelectorAll(".tile-handle, .column-strip")
+      document.querySelectorAll(".tile-handle, .column-strip")
         .forEach((el) => el.remove());
       // An empty column has nothing to show and no way to drop into it
       // once the handles are gone, so it goes when editing ends.
       const emptied = columns().filter((c) => !c.querySelector(".card[data-tile]"));
-      if (emptied.length) {
-        emptied.forEach((c) => c.remove());
+      // ...but never the last one: with every card hidden there has to be
+      // somewhere to put them back.
+      const removable = emptied.length === columns().length ? emptied.slice(1) : emptied;
+      if (removable.length) {
+        removable.forEach((c) => c.remove());
         save();
       }
     }
