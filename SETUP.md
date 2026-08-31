@@ -183,9 +183,10 @@ the committed configuration.
 
 ### Visual Studio
 
-Open `S.P.O.T.S.slnx`. The project is bound to the `.venv` in the project
-folder, so F5 runs the app with the right interpreter -- create it first if
-it isn't there:
+The solution and project files are local-only and deliberately not in the
+repo, so a fresh clone won't have them. With them in place, `S.P.O.T.S.slnx`
+opens a project bound to the `.venv` in the project folder, so F5 runs the
+app with the right interpreter -- create the venv first if it isn't there:
 
 ```
 python -m venv .venv

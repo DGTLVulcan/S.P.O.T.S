@@ -15,3 +15,10 @@ config.yaml
 /nul
 server.log
 .env
+
+# Visual Studio solution and project files -- local only, not shared
+*.pyproj
+*.pyproj.user
+*.sln
+*.slnx
+*.suo
