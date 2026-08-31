@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
-# Configures the Pi as its own network: wlan0 becomes a WiFi access point
-# for phones/tablets, and eth0 becomes a static-IP DHCP server for the Z CAM
-# plugged directly into it. Uses NetworkManager (nmcli), the default network
-# stack on Raspberry Pi OS (Bookworm and later).
+# Makes the Pi its own network: wlan0 becomes a WiFi access point for
+# phones and tablets, eth0 a static-IP DHCP server for the Z CAM plugged
+# into it. Uses nmcli, the default stack on Raspberry Pi OS.
 #
-# WARNING: if you're running this over SSH via WiFi, putting wlan0 into AP
-# mode will drop that connection immediately. Run this from the console, or
-# over SSH via Ethernet, or a wired connection to the Pi.
+# WARNING: over SSH on WiFi this drops your connection the moment wlan0
+# goes into AP mode. Run it from the console or over Ethernet.
 #
-# Safe to re-run -- existing spots-ap/spots-eth profiles are updated in
-# place rather than duplicated.
+# Safe to re-run: spots-ap/spots-eth are updated in place, not duplicated.
 #
 # Env vars:
 #   SPOTS_AP_SSID       WiFi network name (default: SPOTS)
@@ -28,11 +25,9 @@ if ! command -v nmcli >/dev/null 2>&1; then
 fi
 
 AP_SSID="${SPOTS_AP_SSID:-SPOTS}"
-# head -c reads a bounded chunk from urandom *first*, then tr filters it --
-# piping urandom (an infinite source) directly into tr | head the other way
-# round means head closes the pipe after N bytes while tr is still trying
-# to write more, killing tr with SIGPIPE; under `set -o pipefail` that
-# aborts the whole script (exit 141) before it prints anything.
+# head -c reads a bounded chunk BEFORE tr filters it. The other order
+# (urandom | tr | head) SIGPIPEs tr when head closes the pipe, and under
+# pipefail that killed the whole script with exit 141 before any output.
 AP_PASSWORD="${SPOTS_AP_PASSWORD:-$(head -c 2048 /dev/urandom | tr -dc '0-9' | head -c 8)}"
 AP_IP="${SPOTS_AP_IP:-192.168.4.1}"
 ETH_IP="${SPOTS_ETH_IP:-192.168.10.1}"
@@ -48,11 +43,9 @@ if [ "$(id -u)" -ne 0 ]; then
   SUDO="sudo"
 fi
 
-# Print the credentials BEFORE touching the network at all. Everything below
-# this point can drop the connection you're running over (putting wlan0 into
-# AP mode kills an SSH session on WiFi), and a randomly generated password
-# would otherwise be lost with it. Printed here it has already reached your
-# terminal by the time anything can disconnect.
+# Print the credentials BEFORE touching the network: everything below can
+# drop the SSH session you're running over, taking a freshly generated
+# password with it.
 echo
 echo "==================================================================="
 echo "  WiFi access point credentials -- WRITE THESE DOWN NOW"
@@ -75,22 +68,16 @@ if command -v raspi-config >/dev/null 2>&1; then
 fi
 $SUDO rfkill unblock wifi 2>/dev/null || true
 
-# rfkill only clears the KERNEL block. NetworkManager keeps a separate
-# WirelessEnabled flag of its own, persisted in
-# /var/lib/NetworkManager/NetworkManager.state -- when that is false it
-# logs "Wi-Fi disabled by radio killswitch; disabled by state file", holds
-# wlan0 in "unavailable", and does so again after every reboot no matter
-# how many times rfkill is cleared. Turning the radio on through nmcli is
-# what actually rewrites that state file, so the AP survives a reboot.
+# rfkill only clears the KERNEL block. NetworkManager keeps its own
+# WirelessEnabled flag in NetworkManager.state, and while that is false it
+# holds wlan0 "unavailable" after every reboot however often rfkill is
+# cleared. Only nmcli rewrites that file, so the AP survives a reboot.
 echo "==> Enabling NetworkManager's WiFi radio (persists across reboots)"
 $SUDO nmcli radio wifi on || true
 
-# A fresh Pi ships with WiFi soft-blocked at the kernel level until a
-# regulatory country is set -- the two lines above are meant to clear that,
-# but either can fail silently (wrong country code, rfkill quirks) and
-# nmcli's errors from there are much more confusing than the real cause. so
-# check explicitly and stop here with an actionable message instead of
-# pressing on into a guaranteed-to-fail AP setup.
+# A fresh Pi soft-blocks WiFi until a regulatory country is set. The lines
+# above clear that but can fail silently, and nmcli's later errors hide the
+# real cause -- so check here and stop with something actionable.
 if command -v rfkill >/dev/null 2>&1 && rfkill list wifi 2>/dev/null | grep -qi "blocked: yes"; then
   echo "error: WiFi is still rfkill-blocked after attempting to unblock it." >&2
   rfkill list wifi >&2
@@ -103,16 +90,12 @@ if command -v rfkill >/dev/null 2>&1 && rfkill list wifi 2>/dev/null | grep -qi 
   exit 1
 fi
 
-# Make sure no other autoconnecting profile can grab these interfaces out
-# from under ours -- the default "Wired connection 1" NetworkManager creates
-# on first boot, or any saved home-WiFi profile.
+# Stop any other autoconnecting profile grabbing these interfaces -- the
+# default "Wired connection 1", or a saved home-WiFi profile.
 #
-# This deliberately does NOT filter on the DEVICE column: nmcli only fills
-# that in for connections that are active *right now*, so the previous
-# version silently skipped every inactive profile -- exactly the ones that
-# come back and compete for the interface on the next boot. Match on the
-# profile's configured interface-name and type instead, which are set
-# whether or not it happens to be up.
+# Deliberately NOT filtered on the DEVICE column: nmcli only fills that in
+# for currently-active connections, which silently skipped every inactive
+# profile -- exactly the ones that compete for the interface next boot.
 disable_competing_profiles() {
   local keep="$1" want_type="$2" want_iface="$3"
   local name type iface
@@ -161,11 +144,9 @@ $SUDO nmcli connection modify spots-eth \
   connection.autoconnect-retries 0
 $SUDO nmcli connection up spots-eth || true
 
-# Confirm both profiles will actually come back on their own. autoconnect
-# has to be "yes" on disk (not just active right now) or a reboot silently
-# drops back to whatever NetworkManager picks by default -- which is the
-# failure this whole section exists to prevent, so surface it loudly rather
-# than reporting success and letting it be discovered at the range.
+# Confirm both profiles come back on their own: autoconnect has to be
+# "yes" on disk, not merely active now, or a reboot quietly reverts to
+# NetworkManager's default -- better found here than at the range.
 setup_ok=1
 for profile in spots-ap spots-eth; do
   autoconnect="$(nmcli -g connection.autoconnect connection show "$profile" 2>/dev/null || true)"

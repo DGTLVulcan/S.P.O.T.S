@@ -1,21 +1,16 @@
 #!/usr/bin/env bash
-# Reverts scripts/setup-network.sh: takes wlan0 out of AP mode so the Pi can
-# rejoin a normal WiFi network for internet again. Safe to re-run. Run
-# scripts/setup-network.sh (or `spots -initnetwork`) again later to go back
-# to range mode.
+# Reverts scripts/setup-network.sh: wlan0 leaves AP mode so the Pi can
+# rejoin a normal WiFi network for internet. Safe to re-run; go back to
+# range mode with setup-network.sh or `spots -initnetwork`.
 #
-# eth0 is restored to a normal DHCP client too, so the Pi can be plugged into
-# an ordinary router/LAN and reached over Ethernet again. While spots-eth is
-# active eth0 keeps serving its own DHCP on a fixed address and never asks a
-# router for a lease, so it never appears on your LAN at all.
+# eth0 goes back to being a DHCP client too, so the Pi is reachable on an
+# ordinary LAN again -- under spots-eth it serves its own DHCP on a fixed
+# address and never appears on your network at all.
 #
-# NOTE: if you are SSH'd in *through* eth0, that session's address came from
-# spots-eth's own DHCP server, so switching eth0 back will drop it -- you'll
-# reconnect at whatever address your router hands out (check the router's
-# client list, or try <hostname>.local). The switch is handed to systemd so
-# it completes even if the SSH session dies mid-command; interrupting it
-# halfway is what would otherwise leave eth0 with no usable profile at all.
-# Use SPOTS_KEEP_ETH=1 to leave eth0 in camera-DHCP mode.
+# NOTE: an SSH session over eth0 is on an address from spots-eth's own DHCP,
+# so this drops it; reconnect at whatever the router hands out. The switch
+# runs under systemd so a mid-command hangup can't leave eth0 with no usable
+# profile. SPOTS_KEEP_ETH=1 leaves eth0 in camera-DHCP mode.
 #
 # Env vars:
 #   SPOTS_WIFI_SSID      If set, reconnects wlan0 to this network as a client
@@ -37,9 +32,8 @@ echo "==> Taking wlan0 out of AP mode"
 $SUDO nmcli connection down spots-ap 2>/dev/null || true
 $SUDO nmcli connection modify spots-ap autoconnect no 2>/dev/null || true
 
-# Re-enable autoconnect on whatever other WiFi/wired profiles exist (setup-
-# network.sh disabled them so they wouldn't fight spots-ap/spots-eth for the
-# interface), so a previously-known network can reconnect on its own too.
+# Re-enable autoconnect on the other profiles setup-network.sh disabled,
+# so a previously-known network can reconnect on its own.
 while IFS= read -r name; do
   [ -n "$name" ] || continue
   [ "$name" = "spots-ap" ] && continue
@@ -66,11 +60,9 @@ if [ "${SPOTS_KEEP_ETH:-0}" = "1" ]; then
 else
   echo "==> Restoring eth0 to a normal DHCP client"
 
-  # Find an existing ethernet profile to hand eth0 back to. A Pi that has
-  # only ever run range mode may not have one (NetworkManager's default
-  # "Wired connection 1" is created on first carrier and could have been
-  # deleted), in which case make one -- otherwise disabling spots-eth would
-  # leave eth0 with nothing to come up on at all.
+  # Find an ethernet profile to hand eth0 back to, and make one if there
+  # isn't any: disabling spots-eth would otherwise leave eth0 with nothing
+  # to come up on.
   dhcp_profile=""
   while IFS= read -r name; do
     [ -n "$name" ] || continue
@@ -91,18 +83,15 @@ else
   fi
   echo "    Handing eth0 back to '$dhcp_profile'"
 
-  # Order matters: every change that CAN'T drop the connection happens first,
-  # so if the link does go down during the final switch the Pi is already
-  # configured to come up correctly on its own (and on the next boot).
+  # Order matters: everything that can't drop the link happens first, so
+  # the Pi is already configured correctly if the final switch cuts it.
   $SUDO nmcli connection modify "$dhcp_profile" \
     ipv4.method auto connection.autoconnect yes connection.autoconnect-priority 0 || true
   $SUDO nmcli connection modify spots-eth autoconnect no 2>/dev/null || true
 
-  # The activation itself is what kills an SSH session running over eth0.
-  # Run it as a transient systemd unit so it is owned by init rather than
-  # this terminal: a hangup partway through would otherwise abort the script
-  # after spots-eth is down but before the DHCP profile is up, leaving the
-  # Pi unreachable on Ethernet entirely.
+  # This activation is what kills an SSH session on eth0, so hand it to
+  # systemd: a hangup partway would otherwise abort with spots-eth down and
+  # the DHCP profile not yet up, leaving the Pi unreachable.
   nmcli_path="$(command -v nmcli)"
   if command -v systemd-run >/dev/null 2>&1; then
     echo "    Switching now (detached, so it survives this session dropping)"

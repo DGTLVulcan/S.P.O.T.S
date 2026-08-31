@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# Launcher installed by scripts/install.sh -- do not run this copy directly,
-# run the installed one (`spots`) so INSTALL_DIR below is filled in.
+# Launcher installed by scripts/install.sh. Run the installed copy
+# (`spots`), not this one, so INSTALL_DIR below is filled in.
 #
-# install.sh (and -update's self-refresh below) fill in the two lines below
-# by matching on "^INSTALL_DIR=" / "^REPO_URL=" (line-anchored), not on the
-# placeholder text itself -- a magic-token substitution would corrupt the
-# -update block's own embedded sed command below, which necessarily
-# contains that same token as a literal string.
+# The two lines below are filled in by matching "^INSTALL_DIR=" and
+# "^REPO_URL=" line-anchored, not the placeholder text: substituting on the
+# token would corrupt the -update sed that contains it as a literal.
 set -euo pipefail
 
 INSTALL_DIR="/path/set/by/install.sh"
@@ -58,10 +56,8 @@ if [ "$update" -eq 1 ]; then
   pip install --quiet --upgrade pip
   pip install --quiet -r requirements.txt
 
-  # Refresh the installed launcher itself so new flags/fixes here take
-  # effect immediately, without disturbing this already-running copy --
-  # write to a temp file and rename over it (atomic) rather than truncating
-  # the file this script is currently executing from.
+  # Refresh the launcher itself so new flags apply at once. Rename over it
+  # rather than truncate the file this script is running from.
   echo "==> Refreshing the installed 'spots' command"
   launcher="$(command -v spots || echo "$HOME/.local/bin/spots")"
   sed \

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# S.P.O.T.S installer -- run on a fresh Raspberry Pi (Raspberry Pi OS /
-# Debian-based). Pulls the app from git, installs OS + Python dependencies,
-# and installs a `spots` command to start it.
+# S.P.O.T.S installer for a fresh Raspberry Pi. Pulls the app from git,
+# installs the OS and Python dependencies, and adds a `spots` command.
 #
 # Usage (fresh Pi, no repo cloned yet):
 #   curl -fsSL https://raw.githubusercontent.com/DGTLVulcan/S.P.O.T.S/main/scripts/install.sh | bash
@@ -9,14 +8,12 @@
 # Usage (repo already cloned):
 #   ./scripts/install.sh
 #
-# Also sets the Pi up as its own network (WiFi access point for phones/
-# tablets + DHCP for the Z CAM on Ethernet, see scripts/setup-network.sh)
-# and installs a systemd service so S.P.O.T.S starts automatically on boot.
+# Also makes the Pi its own network (see scripts/setup-network.sh) and
+# installs a systemd service so it starts on boot.
 #
-# WARNING: if you're running this over SSH via WiFi, the network setup step
-# puts wlan0 into access-point mode and will drop that connection. Run this
-# from the console, over Ethernet, or set SPOTS_SKIP_NETWORK=1 and run
-# scripts/setup-network.sh yourself later from the console.
+# WARNING: over SSH on WiFi, the network step puts wlan0 into AP mode and
+# drops that connection. Run it from the console or over Ethernet, or set
+# SPOTS_SKIP_NETWORK=1 and run setup-network.sh yourself later.
 #
 # Env vars:
 #   SPOTS_DIR            Where to install (default: $HOME/spots). Ignored if
@@ -30,9 +27,8 @@ set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/DGTLVulcan/S.P.O.T.S.git}"
 
-# If this script is running from inside an already-cloned repo (e.g. the
-# user cloned it themselves and ran ./scripts/install.sh), install in place
-# instead of cloning a second copy.
+# Running from inside an existing clone: install in place rather than
+# cloning a second copy.
 script_path=""
 if [ -n "${BASH_SOURCE:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
   script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -53,11 +49,9 @@ if command -v apt-get >/dev/null 2>&1; then
   fi
   echo "==> Installing OS packages (git, Python venv, OpenCV runtime libs)"
   $SUDO apt-get update
-  # libatlas-base-dev was ATLAS's Debian package -- ATLAS was dropped from
-  # the archive in Bookworm, so numpy/OpenCV now want OpenBLAS instead.
-  # dnsmasq-base is what NetworkManager shells out to for the DHCP server
-  # behind ipv4.method=shared; without it the WiFi AP comes up but hands out
-  # no addresses, so clients associate and then fail to get on the network.
+  # OpenBLAS, not libatlas-base-dev: ATLAS left the archive in Bookworm.
+  # dnsmasq-base is what NetworkManager shells out to for ipv4.method=shared
+  # -- without it the AP comes up but hands out no addresses.
   $SUDO apt-get install -y --no-install-recommends \
     git python3-venv python3-pip libopenblas-dev libopenjp2-7 libtiff6 dnsmasq-base
 else
