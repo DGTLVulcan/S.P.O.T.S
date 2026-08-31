@@ -8,6 +8,8 @@
 </head>
 <body>
   <header class="appbar">
+    {% set active = 'spots.index' %}
+    {% include '_menu.html' %}
     <div class="brand">
       <h1>S.P.O.T.S</h1>
       <span class="subtitle">Shot Placement and Optical Target Scoring</span>
@@ -18,16 +20,11 @@
       <select id="equip-ammo" class="equipment-select" aria-label="Ammo" title="Ammo"></select>
       <select id="equip-target" class="equipment-select" aria-label="Target" title="Target face"></select>
     </div>
-    <nav class="icon-nav">
+    <div class="icon-nav">
       <button id="layout-toggle" class="icon-btn" type="button" title="Arrange cards" aria-label="Arrange cards" aria-pressed="false"><span class="icon-columns" aria-hidden="true"></span></button>
       <button id="sound-toggle" class="icon-btn" type="button" title="Shot sound" aria-label="Toggle shot sound">&#9834;</button>
       <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
-      <a class="icon-btn" href="{{ url_for('spots.sessions_list') }}" title="Session history" aria-label="Session history">&#128337;</a>
-      <a class="icon-btn" href="{{ url_for('spots.compare_page') }}" title="Compare sessions" aria-label="Compare sessions">&#128202;</a>
-      <a class="icon-btn" href="{{ url_for('spots.ranges_page') }}" title="Ranges" aria-label="Ranges"><span class="icon-pin" aria-hidden="true"></span></a>
-      <a class="icon-btn" href="{{ url_for('spots.equipment_page') }}" title="Equipment" aria-label="Equipment">&#128295;</a>
-      <a class="icon-btn" href="{{ url_for('spots.settings_page') }}" title="Settings" aria-label="Settings">&#9881;</a>
-    </nav>
+    </div>
   </header>
 
   <div class="layout-bar" id="layout-bar" hidden>
@@ -228,6 +225,7 @@
     window.SPOTS_TILES = {{ tiles | tojson }};
   </script>
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='menu.js') }}"></script>
   <script src="{{ url_for('static', filename='diagram.js') }}"></script>
   <script src="{{ url_for('static', filename='health.js') }}"></script>
   <script src="{{ url_for('static', filename='layout.js') }}"></script>

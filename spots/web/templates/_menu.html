@@ -1,0 +1,33 @@
+{#- The one definition of the site menu, included by every page.
+
+    Set `active` to the endpoint name before including, so the page you are
+    on is marked. Every destination lives here: the app bar keeps only the
+    controls that act on the page in front of you. -#}
+{%- set items = [
+  ("spots.index",         "&#8962;",  "Live view",       "The target and the shot log"),
+  ("spots.ranges_page",   "pin",      "Ranges",          "Range maps and rules"),
+  ("spots.sessions_list", "&#128337;", "Session history", "Past strings"),
+  ("spots.compare_page",  "&#128202;", "Compare sessions", "Two strings side by side"),
+  ("spots.equipment_page", "&#128295;", "Equipment",      "Rifles, scopes, ammo and targets"),
+  ("spots.settings_page", "&#9881;",  "Settings",        "Target, detection and camera"),
+] -%}
+<div class="menu">
+  <button id="menu-button" class="menu-button" type="button"
+          aria-haspopup="true" aria-expanded="false" aria-controls="menu-panel"
+          title="Menu" aria-label="Menu">
+    <span class="menu-bars" aria-hidden="true"></span>
+  </button>
+  <nav id="menu-panel" class="menu-panel" role="menu" aria-labelledby="menu-button" hidden>
+    {%- for endpoint, icon, label, blurb in items %}
+    <a class="menu-item{% if active == endpoint %} is-current{% endif %}"
+       href="{{ url_for(endpoint) }}" role="menuitem"
+       {% if active == endpoint %}aria-current="page"{% endif %}>
+      <span class="menu-icon" aria-hidden="true">{% if icon == "pin" %}<span class="icon-pin"></span>{% else %}{{ icon | safe }}{% endif %}</span>
+      <span class="menu-text">
+        <span class="menu-label">{{ label }}</span>
+        <span class="menu-blurb">{{ blurb }}</span>
+      </span>
+    </a>
+    {%- endfor %}
+  </nav>
+</div>

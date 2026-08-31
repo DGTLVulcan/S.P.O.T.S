@@ -8,18 +8,15 @@
 </head>
 <body>
   <header class="appbar">
+    {% set active = 'spots.sessions_list' %}
+    {% include '_menu.html' %}
     <div class="brand">
       <h1>S.P.O.T.S</h1>
       <span class="subtitle">Session History</span>
     </div>
-    <nav class="icon-nav">
+    <div class="icon-nav">
       <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
-      <a class="icon-btn" href="{{ url_for('spots.compare_page') }}" title="Compare sessions" aria-label="Compare sessions">&#128202;</a>
-      <a class="icon-btn" href="{{ url_for('spots.ranges_page') }}" title="Ranges" aria-label="Ranges"><span class="icon-pin" aria-hidden="true"></span></a>
-      <a class="icon-btn" href="{{ url_for('spots.equipment_page') }}" title="Equipment" aria-label="Equipment">&#128295;</a>
-      <a class="icon-btn" href="{{ url_for('spots.settings_page') }}" title="Settings" aria-label="Settings">&#9881;</a>
-      <a class="icon-btn" href="{{ url_for('spots.index') }}" title="Back to live view" aria-label="Back to live view">&#8962;</a>
-    </nav>
+    </div>
   </header>
 
   <main>
@@ -68,6 +65,7 @@
   </main>
 
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='menu.js') }}"></script>
   <script>
     (function () {
       const statusEl = document.getElementById("session-status");
