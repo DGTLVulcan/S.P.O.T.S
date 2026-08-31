@@ -84,6 +84,25 @@ class EnvOverrideTests(unittest.TestCase):
         os.environ.update(self.saved_env)
         shutil.rmtree(self.dir, ignore_errors=True)
 
+    def test_range_status_flags_default_on_for_an_old_config(self):
+        # The file above predates both flags; an install that upgrades must
+        # get the feature rather than a missing attribute.
+        settings = Settings.load(self.config_path, env_path=None)
+        self.assertTrue(settings.web.range_status_enabled)
+        self.assertTrue(settings.web.range_status_spacebar)
+
+    def test_range_status_flags_survive_a_save_and_reload(self):
+        settings = Settings.load(self.config_path, env_path=None)
+        settings.web.range_status_enabled = False
+        settings.web.range_status_spacebar = False
+        # Save to the temp file explicitly: save() defaults to the real
+        # config.yaml whatever it was loaded from, and a test must not
+        # touch that.
+        settings.save(self.config_path)
+        reloaded = Settings.load(self.config_path, env_path=None)
+        self.assertFalse(reloaded.web.range_status_enabled)
+        self.assertFalse(reloaded.web.range_status_spacebar)
+
     def test_without_env_the_file_wins(self):
         settings = Settings.load(self.config_path, env_path=None)
         self.assertEqual(settings.camera.source, "zcam")

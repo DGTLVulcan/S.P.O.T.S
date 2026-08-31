@@ -97,12 +97,13 @@ def _range_status():
     try:
         return {"range_status": {
             "enabled": _settings().web.range_status_enabled,
+            "spacebar": _settings().web.range_status_spacebar,
             "state": _storage().get_range_state(),
         }}
     except Exception:
         # A context processor that raises takes down every page with it,
         # and this is furniture, not something worth failing a render for.
-        return {"range_status": {"enabled": False, "state": "hot"}}
+        return {"range_status": {"enabled": False, "spacebar": False, "state": "hot"}}
 
 
 def _sync_detection_pause():
@@ -122,6 +123,7 @@ def _sync_detection_pause():
 def api_range_state():
     return jsonify({
         "enabled": _settings().web.range_status_enabled,
+        "spacebar": _settings().web.range_status_spacebar,
         "state": _storage().get_range_state(),
         "detection_paused": _worker().paused,
     })
@@ -1232,6 +1234,7 @@ def _apply_settings_form(settings, form) -> list[str]:
     settings.camera.stream_bitrate = stream_bitrate
 
     settings.web.range_status_enabled = "web.range_status_enabled" in form
+    settings.web.range_status_spacebar = "web.range_status_spacebar" in form
 
     settings.save()
     return []

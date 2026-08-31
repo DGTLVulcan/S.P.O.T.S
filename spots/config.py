@@ -151,6 +151,9 @@ class WebConfig:
     # worse than none, so it can be switched off outright rather than left
     # showing a state nobody is keeping up to date.
     range_status_enabled: bool = True
+    # Space as a shortcut for the same toggle. Off is a legitimate choice:
+    # it is a big lever on a small key.
+    range_status_spacebar: bool = True
 
 
 def _build(config_class, raw: dict):

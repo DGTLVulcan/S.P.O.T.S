@@ -7,6 +7,7 @@
         title="Disabled &mdash; switch the range status banner on in Settings"
         {% else %}title="{% if range_status.state == 'hot' %}Range is hot &mdash; call a cease fire{% else %}Cease fire &mdash; make the range hot{% endif %}"
         {% endif %}
+        data-spacebar="{{ 1 if range_status.spacebar else 0 }}"
         aria-label="Range status" aria-pressed="{{ 'true' if range_status.state == 'cease' else 'false' }}">
   <span class="range-toggle-dot" aria-hidden="true"></span>
 </button>

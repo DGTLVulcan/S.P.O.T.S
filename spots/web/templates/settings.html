@@ -211,6 +211,18 @@
               top of every page, switched with the button beside the theme toggle. The state is
               shared, so every phone looking at S.P.O.T.S shows the same thing.
             </p>
+            <div class="field checkbox-field">
+              <input type="checkbox" id="range_status_spacebar" name="web.range_status_spacebar"
+                     {% if settings.web.range_status_spacebar %}checked{% endif %}>
+              <label for="range_status_spacebar">Space bar toggles it too</label>
+            </div>
+            <p class="hint" style="margin: -0.4rem 0 0.9rem;">
+              Pressing space anywhere in S.P.O.T.S switches between hot and cease fire, so it can
+              be called without looking at the screen. It is ignored while you are typing in a
+              field, and when a button or link has focus, since space already does something
+              there.
+            </p>
+
             <p class="hint">
               Switch it off if nobody is going to keep it up to date &mdash; a status that is wrong
               is worse than none. The button stays visible either way, greyed out, so it is

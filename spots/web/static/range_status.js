@@ -11,6 +11,7 @@
   if (!toggle) return;
 
   const POLL_MS = 15000;
+  const spacebar = toggle.dataset.spacebar === "1";
   let state = toggle.classList.contains("is-cease") ? "cease" : "hot";
   let busy = false;
 
@@ -32,9 +33,8 @@
       const action = big.querySelector(".range-big-action");
       if (stateEl) stateEl.textContent = hot ? "Range Hot" : "Cease Fire";
       if (action) {
-        action.textContent = hot
-          ? "Tap to call a cease fire"
-          : "Tap to make the range hot";
+        const tap = hot ? "Tap to call a cease fire" : "Tap to make the range hot";
+        action.textContent = spacebar ? `${tap}, or press space` : tap;
       }
       const note = document.querySelector(".range-big-note");
       if (note) {
@@ -84,6 +84,28 @@
 
   toggle.addEventListener("click", flip);
   if (big) big.addEventListener("click", flip);
+
+  // Space anywhere on the page, when it isn't already doing something else.
+  // A shortcut that flips a safety state must not go off while someone is
+  // typing a session name, nor steal the key from a focused control -- space
+  // presses buttons, ticks checkboxes and opens <summary>.
+  function busyElsewhere() {
+    const el = document.activeElement;
+    if (!el || el === document.body) return false;
+    if (el.isContentEditable) return true;
+    return ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A", "SUMMARY", "OPTION"]
+      .includes(el.tagName);
+  }
+
+  if (spacebar && !toggle.disabled) {
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key !== " " && ev.code !== "Space") return;
+      if (ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
+      if (busyElsewhere()) return;
+      ev.preventDefault();      // otherwise the page scrolls as well
+      flip();
+    });
+  }
 
   async function poll() {
     if (busy) return;

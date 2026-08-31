@@ -47,7 +47,7 @@
       <div class="card range-card" data-tile="range">
         <button id="range-big" type="button" class="range-big is-{{ range_status.state }}">
           <span class="range-big-state">{% if range_status.state == 'hot' %}Range Hot{% else %}Cease Fire{% endif %}</span>
-          <span class="range-big-action">{% if range_status.state == 'hot' %}Tap to call a cease fire{% else %}Tap to make the range hot{% endif %}</span>
+          <span class="range-big-action">{% if range_status.state == 'hot' %}Tap to call a cease fire{% else %}Tap to make the range hot{% endif %}{% if range_status.spacebar %}, or press space{% endif %}</span>
         </button>
         <p class="hint range-big-note">
           {%- if range_status.state == 'hot' %}Detection is running.{% else %}Detection is paused &mdash; shots fired now are not recorded.{% endif %}
