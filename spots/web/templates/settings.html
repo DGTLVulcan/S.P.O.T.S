@@ -77,9 +77,8 @@
       </aside>
 
       <section class="equip-detail card">
-        <!-- One form around all three config panels: a hidden field still
-             posts, so switching panels never drops a value, and Save always
-             writes the whole configuration rather than part of it. -->
+        <!-- One form around all three panels: hidden fields still post, so
+             Save always writes the whole configuration. -->
         <form method="post" id="settings-form">
           <!-- Not hidden: if the script fails, this panel and Save still work. -->
           <div class="settings-panel" data-panel="target">

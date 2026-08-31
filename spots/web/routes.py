@@ -48,9 +48,8 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint("spots", __name__)
 
-# MJPEG frame rate and JPEG quality now come from WebConfig (see
-# config.example.yaml's web.stream_fps / web.stream_quality) so the biggest
-# steady CPU cost on a Pi is tunable without a code change.
+# Frame rate and JPEG quality come from WebConfig, so the biggest steady
+# CPU cost on a Pi is tunable without a code change.
 
 
 def _worker():
@@ -66,15 +65,13 @@ def _storage():
 
 
 def _zcam_client():
-    # Dynamic, not a fixed startup value: the Z CAM connection is now made
-    # lazily on first switch to the live feed (see SwitchableFrameSource),
-    # so this may go from None to a real client mid-run.
+    # Dynamic, not fixed at startup: the Z CAM connects lazily on the first
+    # switch to live, so this can go from None to a real client mid-run.
     return _worker().get_zcam_client()
 
 
-# BGR (OpenCV) equivalents of the validated blue/red pair from the design
-# system's categorical palette -- shots and the group-center marker, chosen
-# so they clear the CVD/normal-vision separation checks (unlike red/orange).
+# BGR blue/red pair for shots and the group centre, picked because it
+# clears the colour-blind separation checks (unlike red/orange).
 _SHOT_MARKER_BGR = (214, 120, 42)  # #2a78d6
 _CENTER_MARKER_BGR = (72, 73, 227)  # #e34948
 
@@ -97,12 +94,10 @@ def _stream_target_size(width, height, max_width):
 def _view_to_frame_px(x, y):
     """Converts a click from streamed-image pixels to native frame pixels.
 
-    The browser measures clicks against the <img>'s naturalWidth/Height,
-    which is whatever the stream is actually sending -- so once the stream
-    is downscaled, every click arrives shrunk by the same factor.
-    Calibration, the detector and the overlay all work in native frame
-    pixels, so undo it here, at the one boundary where view coordinates
-    enter the app, rather than in four separate places in the browser.
+    The browser measures clicks against the <img>'s natural size, so a
+    downscaled stream shrinks every click by that factor. Undone here, at
+    the one boundary view coordinates enter, rather than in four places in
+    the browser.
     """
     max_width = _settings().web.stream_max_width
     if max_width <= 0:
@@ -118,13 +113,9 @@ def _view_to_frame_px(x, y):
 
 
 def _draw_overlay(frame, snapshot, homography, scale=1.0):
-    # Shots/stats are computed in the detector's anchor coordinate space.
-    # The live feed shows the raw, unwarped camera frame, so anchor-space
-    # points need the inverse homography applied to land in the right place.
-    # Test shots are the exception: they're recorded directly in the raw
-    # frame's own coordinate space (same convention as a Calibrate click),
-    # since there's no detection event to have put them in anchor space to
-    # begin with -- warping them here would misplace them.
+    # Shots live in the detector's anchor space but the feed shows the raw
+    # frame, so they need the inverse homography to land correctly. Test
+    # shots are already raw-frame points; warping them would misplace them.
     homography_inv = invert_homography(homography)
 
     for shot in snapshot.shots:
@@ -166,18 +157,15 @@ def _render_frame_jpeg(worker, quality, max_width):
         return None
     snapshot = worker.state.snapshot()
     homography = worker.get_last_homography()
-    # Downscale BEFORE drawing, so markers keep a constant on-screen size
-    # and stay crisp instead of being shrunk into faint lines. Shot
-    # positions are in native frame pixels, so _draw_overlay scales them by
-    # the same factor.
+    # Downscale before drawing, or the markers shrink into faint lines.
+    # Shot positions are native pixels, so _draw_overlay scales them too.
     target = _stream_target_size(frame.shape[1], frame.shape[0], max_width)
     scale = 1.0
     if target is not None:
         scale = target[0] / frame.shape[1]
         frame = cv2.resize(frame, target, interpolation=cv2.INTER_AREA)
-    # No defensive copy: FrameSource.get_latest_frame() contracts to hand
-    # back an array we own, so the overlay can be drawn straight into it
-    # (a 1080p copy per streamed frame is not free on a Pi).
+    # get_latest_frame() contracts to hand back an array we own, so the
+    # overlay goes straight into it -- a 1080p copy per frame isn't free.
     annotated = _draw_overlay(frame, snapshot, homography, scale)
     ok, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, quality])
     return buf.tobytes() if ok else None
@@ -187,16 +175,12 @@ def _render_frame_jpeg(worker, quality, max_width):
 def frame_jpeg():
     """One frame, fetched on demand by the dashboard.
 
-    The dashboard pulls frames one at a time rather than consuming the
-    MJPEG stream below, because a push stream has no backpressure: it
-    keeps emitting on a timer whether or not the client is keeping up,
-    and the excess piles into the kernel socket buffer (a couple of MB is
-    ~70 frames here). Over a link slower than the emit rate -- which is
-    what a Pi hosting its own 2.4GHz AP is -- the picture you see ends up
-    being whatever was queued seconds ago, and reloading the page is the
-    only way to discard the backlog. Pulling one frame at a time means
-    only ever one is in flight, so latency is a single round trip and the
-    rate self-adjusts to whatever the link can actually carry.
+    Pulled one at a time rather than served as the MJPEG stream below,
+    which has no backpressure: it emits on a timer regardless of the client
+    and the excess piles into the socket buffer (a couple of MB is ~70
+    frames), so over the Pi's own AP you watch a picture from seconds ago
+    until you reload. One frame in flight means latency is a single round
+    trip and the rate follows the link.
     """
     web = _settings().web
     data = _render_frame_jpeg(_worker(), web.stream_quality, web.stream_max_width)
@@ -315,9 +299,8 @@ def api_shots():
         {
             "session_id": snapshot.session_id,
             "calibrated": snapshot.calibration is not None,
-            # Distinct from "calibrated": two-point calibration sets the
-            # scale, marking the centre sets the point of aim. The setup
-            # checklist and scope correction both need to tell them apart.
+            # Distinct from "calibrated": that sets the scale, this sets
+            # the point of aim, and the setup checklist tracks both.
             "hole_area": _worker().hole_area_range(),
             "center_marked": bool(
                 snapshot.calibration is not None
@@ -371,9 +354,8 @@ def _selected_equipment():
 def _equipment_payload():
     storage = _storage()
     chosen = _selected_equipment()
-    # A rifle and its ammo have to agree on chambering. Compatibility is
-    # decided here rather than in the browser so the rule that filters the
-    # dropdowns is the same one that validates a selection.
+    # Decided here rather than in the browser, so the rule that filters
+    # the dropdowns is the same one that validates a selection.
     opposite = {"rifle": calibre_of(chosen["ammo"]), "ammo": calibre_of(chosen["rifle"])}
 
     def decorate(item):
@@ -384,9 +366,8 @@ def _equipment_payload():
         return item
 
     return {
-        # Explicit order: Flask sorts JSON object keys, so the schema/items
-        # maps come back alphabetical (ammo, rifle, scope) and can't carry
-        # the running order on their own.
+        # Flask sorts JSON keys, so the maps come back alphabetical and
+        # can't carry the running order themselves.
         "order": list(EQUIPMENT_KINDS),
         "calibres": {kind: calibre_of(item) for kind, item in chosen.items()},
         "schema": schema_payload(),
@@ -483,9 +464,8 @@ def api_equipment_delete(equipment_id):
     if existing is None:
         return jsonify({"error": f"No equipment #{equipment_id}"}), 404
     _storage().delete_equipment(equipment_id)
-    # get_selected_equipment() clears a dangling selection on read, so the
-    # header stops showing a rifle that no longer exists without needing a
-    # separate fix-up here.
+    # get_selected_equipment() clears a dangling selection on read, so a
+    # deleted rifle stops appearing in the header on its own.
     _storage().get_selected_equipment()
     return jsonify({"ok": True})
 
@@ -519,9 +499,8 @@ def api_equipment_select():
                          f"{rifle['name']} is {calibre_of(rifle)}"
             }), 409
     elif kind == "rifle" and item_id is not None:
-        # Changing rifle is how you change calibre, so this must never be
-        # refused: drop the now-unusable ammo instead of getting stuck
-        # unable to pick either half of a new pairing.
+        # Changing rifle is how you change calibre, so never refuse it --
+        # drop the mismatched ammo instead of deadlocking the pair.
         ammo = chosen["ammo"]
         if ammo is not None and not calibres_match(calibre_of(item), calibre_of(ammo)):
             _storage().set_selected_equipment("ammo", None)
@@ -675,11 +654,8 @@ def api_test_shot():
 
 @bp.route("/api/session/new", methods=["POST"])
 def api_new_session():
-    # Stamp the selected equipment onto the session by NAME, so history still
-    # shows what a string was shot with even if that rifle is deleted later.
-    # Snapshot the whole spec set, not just the names: a comparison needs to
-    # group by charge weight or bullet, and the equipment may be edited or
-    # deleted long before you look back at the session.
+    # Snapshot names and full specs onto the session, so history and
+    # comparisons still work after that kit is edited or deleted.
     chosen = _selected_equipment()
     snapshot = {
         kind: (
@@ -1037,9 +1013,8 @@ def api_live_group_image():
 
 @bp.route("/snapshots/<path:relpath>")
 def snapshot_file(relpath):
-    # A relative snapshot_dir resolves against Flask's app root_path
-    # (spots/web/), not the process cwd where DetectionWorker actually
-    # writes snapshots -- anchor it to cwd explicitly to match.
+    # A relative snapshot_dir would resolve against Flask's root_path, not
+    # the cwd the worker actually writes to, so anchor it explicitly.
     snapshot_dir = os.path.abspath(_settings().storage.snapshot_dir)
     return send_from_directory(snapshot_dir, relpath)
 
@@ -1068,11 +1043,9 @@ def export_csv(session_id):
     return resp
 
 
-# Fields that take effect immediately because the running worker/detector
-# hold a live reference to the same Settings.target / Settings.detection
-# objects being edited. Everything else (camera connection, sample rate,
-# re-alignment on/off/method) is baked into objects built once at app
-# startup, so those are saved to config.yaml but need a restart to apply.
+# Fields that apply immediately, because the worker holds a live reference
+# to the very objects being edited. Everything else is baked in at startup,
+# so it saves to config.yaml but needs a restart.
 _HOT_RELOAD_DETECTION_FIELDS = {
     "diff_threshold",
     "min_hole_area_px",

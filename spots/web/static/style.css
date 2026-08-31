@@ -1,7 +1,5 @@
-/* Design tokens -- validated palette (see the dataviz skill's palette.md).
-   Light values apply by default; dark values apply under prefers-color-scheme
-   and are overridden either way by an explicit [data-theme] stamp so a
-   manual toggle always wins over the OS setting. */
+/* Design tokens. Light by default, dark under prefers-color-scheme, and
+   an explicit [data-theme] stamp beats both so the toggle always wins. */
 :root {
   color-scheme: light;
   --surface: #fcfcfb;
@@ -60,10 +58,9 @@
 
 * { box-sizing: border-box; }
 
-/* The hidden attribute must win over any display a class sets, or an
-   element told to hide stays on screen -- .equip-detail-foot sets
-   display:flex, which outranks the browser's own [hidden] rule and left
-   the Save button showing on panels that have nothing to save. */
+/* [hidden] must beat any display a class sets. .equip-detail-foot's
+   display:flex outranks the browser's own rule and left the Save button
+   showing on panels with nothing to save. */
 [hidden] { display: none !important; }
 
 html, body {
@@ -128,10 +125,8 @@ a { color: var(--accent); }
   min-width: 0;
 }
 .equipment-select {
-  /* A fixed width rather than max-width: a select sizes to its widest
-     option, so a long scope name made that one dropdown wider than its
-     neighbours. Equal widths regardless of content; anything longer is
-     clipped by the browser, and the full text is still in the open list. */
+  /* Fixed, not max-width: a select sizes to its widest option, so one long
+     scope name made that dropdown wider than its neighbours. */
   width: 12rem;
   flex: none;
   text-overflow: ellipsis;
@@ -209,9 +204,8 @@ main {
 .video-panel { flex: 2 1 640px; min-width: 320px; display: flex; flex-direction: column; gap: 1rem; }
 
 /* ---------- Stats panel (Group Stats / Best Subgroups / Shots) ----------
-   A nested flex-wrap row rather than a single stacked column, so all three
-   cards sit side by side once there's room, instead of Best Subgroups
-   (which only appears after 3+ shots) knocking Shots down to its own row. */
+   Flex-wrap rather than a stacked column, so Best Subgroups appearing at
+   3 shots doesn't knock Shots down onto a row of its own. */
 
 .stats-panel {
   flex: 3 1 900px;
@@ -284,9 +278,8 @@ main {
 .fullscreen-btn.active { background: rgba(57, 135, 229, 0.85); }
 
 /* ---------- Fullscreen HUD (Group Stats + target diagram) ----------
-   Always dark/semi-transparent regardless of the page's light/dark theme,
-   since it overlays arbitrary video content rather than the page surface --
-   shown only while the video frame is actually in fullscreen. */
+   Always dark and semi-transparent whatever the page theme, since it sits
+   over video rather than the page surface. */
 
 .hud {
   display: none;
@@ -297,9 +290,8 @@ main {
   border-radius: 10px;
   padding: 0.9rem 1rem;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
-  /* .video-frame sets line-height:0 (to remove the inline-image whitespace
-     gap below #feed) which would otherwise inherit in here and collapse
-     every text row on top of each other. */
+  /* .video-frame sets line-height:0 to kill the gap under #feed; without
+     this it inherits and collapses every text row together. */
   line-height: 1.5;
 }
 .video-frame:fullscreen .hud {
@@ -422,9 +414,8 @@ main {
   gap: 0.5rem;
   flex-wrap: wrap;
 }
-/* Consistent gap between stacked control rows -- a class rule rather than
-   relying on each instance remembering an inline margin-top (which is how
-   this was drifting out of sync as rows got added over time). */
+/* One rule for the gap between stacked control rows, rather than each
+   instance remembering its own inline margin-top. */
 .controls + .controls {
   margin-top: 0.6rem;
 }
@@ -719,9 +710,9 @@ input[type="range"] { accent-color: var(--accent); }
 
 .full-width { flex-basis: 100%; }
 
-/* ---------- Equipment page (sidebar index + one detail form) ----------
-   Only one piece of kit is ever being edited, so the sidebar lists what you
-   own and the panel beside it holds the only form on screen. */
+/* ---------- Equipment page ----------
+   The sidebar lists what you own; the panel beside it holds the one form
+   for whatever is selected. */
 
 .equip-layout {
   display: grid;
@@ -991,8 +982,8 @@ input[type="range"] { accent-color: var(--accent); }
 .ring-row input { width: 100%; }
 
 /* ---------- Dashboard controls ----------
-   Three tiers, because the old flat list of ten buttons gave no clue which
-   ones you use every string and which you touch once a session:
+   Three tiers, since a flat list of ten buttons gave no clue what you use
+   every string and what you touch once:
    1. action bar  -- feed switch, New Target, Undo
    2. setup strip -- the ordered prerequisites, with their state visible
    3. details     -- zoom, reset and exports, folded away */

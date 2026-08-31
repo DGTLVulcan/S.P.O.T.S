@@ -93,9 +93,8 @@
   });
 
   resetSetupBtn.addEventListener("click", async () => {
-    // Not delegating to applyZoom() here: it swallows its own errors and
-    // sets its own status message, which would either mask a failure here
-    // or get overwritten by our own success message regardless of outcome.
+    // Not applyZoom(): it swallows errors and sets its own status, which
+    // would mask a failure here or overwrite our own message.
     try {
       await postJson("/api/calibration/reset");
       const data = await postJson("/api/zoom", { level: 1.0, center_x: 0.5, center_y: 0.5 });
@@ -191,9 +190,8 @@
     setStepDone("step-distance", ok);
   }
 
-  // The setup strip ticks off each prerequisite as it's satisfied, so what
-  // still needs doing is visible rather than hidden behind a disabled
-  // button's tooltip.
+  // Tick off each prerequisite as it's met, so what's still missing is
+  // visible instead of hidden in a disabled button's tooltip.
   function setStepDone(id, done) {
     const step = document.getElementById(id);
     if (!step) return;
@@ -254,9 +252,8 @@
     try {
       await postJson("/api/feed", { target });
       updateFeedUI(target);
-      // Nothing to do to the picture itself: frames are pulled one at a
-      // time (see pumpFrames), so the next one already comes from the new
-      // source.
+      // Nothing to do to the picture: frames are pulled one at a time,
+      // so the next one already comes from the new source.
       setStatus("Feed switched -- click New Target, then re-calibrate.");
     } catch (err) {
       setStatus("Feed switch error: " + err.message);
@@ -276,20 +273,14 @@
     }
   }
 
-  // Single click handler for the feed, branching on the current mode.
-  // Two different coordinate conventions are in play:
-  //  - "view space" (direct naturalWidth/rect.width scaling): matches
-  //    whatever the detector/calibration currently operate on -- the
-  //    CURRENT effective (already zoomed/cropped) view. Calibrate and Mark
-  //    Center both use this, since origin_px lives in that same space.
-  //  - "native frame fraction" (undoing the current zoom crop): needed
-  //    when the target itself is the synthetic source's own native canvas
-  //    (zoom pan center, and hole placement, which draws into that canvas
-  //    before any cropping happens).
+  // One click handler for the feed, with two coordinate conventions:
+  //  - view space: the current, already-zoomed view the detector and
+  //    calibration work in. Used by Calibrate and Mark Center.
+  //  - native frame fraction: undoes the zoom crop, for anything aimed at
+  //    the synthetic source's own canvas (pan centre, hole placement).
   feed.addEventListener("click", async (ev) => {
-    // Every coordinate below is derived from naturalWidth/Height; before the
-    // first frame has decoded those are 0, which would silently send (0, 0)
-    // for a calibration point or a shot.
+    // The coordinates below come from naturalWidth/Height, which are 0
+    // until the first frame decodes -- that would post (0, 0) silently.
     if (!feed.naturalWidth || !feed.naturalHeight) {
       setStatus("Waiting for the first video frame...");
       return;
@@ -346,10 +337,8 @@
       return;
     }
 
-    // Default action: place a shot. On the simulated feed this draws a
-    // real hole for the detector to find on its own next cycle; on the
-    // live feed there's no fake canvas to draw on, so it's recorded
-    // directly as a tagged test shot (see /api/test_shot).
+    // Place a shot: on the simulated feed by drawing a real hole for the
+    // detector to find, on the live feed as a tagged test shot.
     if (currentFeed === "synthetic") {
       const fx = (ev.clientX - rect.left) / rect.width;
       const fy = (ev.clientY - rect.top) / rect.height;
@@ -381,12 +370,9 @@
   // renderTargetDiagram lives in diagram.js -- the session history detail
   // page draws the same diagram, so it is shared rather than duplicated.
 
-  // Audible confirmation. You are behind the rifle, not watching the phone,
-  // so a shot registering needs to be something you can hear. Synthesised
-  // with WebAudio rather than shipping an audio file -- no asset to load
-  // over the Pi's own WiFi, and it cuts through ear defenders better than a
-  // soft click. Browsers block audio until the user has interacted with the
-  // page, so the context is created on the first gesture.
+  // You're behind the rifle, not watching the phone, so a shot needs to
+  // be audible. Synthesised rather than an audio file: nothing to load over
+  // the Pi's WiFi. Browsers block audio until the first user gesture.
   const SOUND_KEY = "spots.shotSound";
   let audioContext = null;
   let soundEnabled = localStorage.getItem(SOUND_KEY) !== "off";
@@ -447,9 +433,8 @@
     const data = await resp.json();
     const stats = data.stats;
 
-    // Say which hole-size window is actually in force -- auto-sizing fails
-    // quietly (no calibration, no bullet diameter) and the fallback figures
-    // are exactly what miss real holes, so it must not be invisible.
+    // Say which hole-size window is in force: auto-sizing fails quietly,
+    // and the fallback figures are exactly what miss real holes.
     const holeHint = document.getElementById("hole-size-hint");
     if (holeHint) {
       const h = data.hole_area;
@@ -500,9 +485,8 @@
       ? `${fmt(stats.std_dev)}<span class="unit"> ${data.unit_name}</span>`
       : "-";
 
-    // Fullscreen HUD mirrors the same figures -- only visible via CSS
-    // (.video-frame:fullscreen .hud) but kept in sync unconditionally so
-    // there's nothing to wire up on entering/exiting fullscreen.
+    // The fullscreen HUD shows the same figures. CSS decides whether it's
+    // visible; keeping it in sync always means nothing to wire up.
     document.getElementById("hud-stat-count").textContent = stats ? stats.shot_count : 0;
     document.getElementById("hud-stat-spread").textContent = stats
       ? `${fmt(stats.extreme_spread)} ${data.unit_name}` +
@@ -674,15 +658,11 @@
     renderTargetDiagram("hud-target-diagram", diagramShots, diagramCenter);
   }
 
-  // Pull the video one frame at a time instead of consuming a continuous
-  // MJPEG stream. A push stream has no backpressure -- the server keeps
-  // emitting on a timer whether or not the link can carry it, and the
-  // excess sits in the socket buffer, so over a slow link (the Pi hosting
-  // its own 2.4GHz AP) you end up watching a picture from several seconds
-  // ago, and only reloading the page clears the backlog. Requesting the
-  // next frame only once the previous one has arrived keeps exactly one
-  // frame in flight, so latency is a single round trip and the frame rate
-  // settles at whatever the link can actually sustain.
+  // Pull one frame at a time rather than consume an MJPEG stream. A push
+  // stream has no backpressure: the server keeps emitting whether the link
+  // can carry it or not, and the backlog sits in the socket buffer until
+  // you reload. One frame in flight means latency is a single round trip
+  // and the rate settles at whatever the link sustains.
   const FRAME_MIN_INTERVAL_MS = 100; // ceiling of ~10 fps on a fast link
   const FRAME_RETRY_MS = 1000;
   let feedObjectUrl = null;
@@ -718,9 +698,8 @@
         if (!resp.ok) throw new Error(String(resp.status));
         await showFrame(await resp.blob());
       } catch (err) {
-        // No frame yet (503 before the camera warms up) or a dropped
-        // connection -- back off a little and keep trying rather than
-        // leaving a dead picture until the user reloads.
+        // No frame yet, or a dropped connection: back off and retry
+        // rather than leave a dead picture until someone reloads.
         await new Promise((r) => setTimeout(r, FRAME_RETRY_MS));
         continue;
       }
@@ -731,10 +710,8 @@
     }
   }
 
-  // Rifle / scope / ammo pickers in the header. The selection lives in
-  // config.yaml so it survives a restart, and is stamped onto each session
-  // at New Target time; the chosen scope also supplies the turret click
-  // value that Scope Correction uses.
+  // Header pickers. The selection is stored server-side so it survives a
+  // restart, and the scope supplies the turret clicks for corrections.
   const EQUIPMENT_KINDS = ["rifle", "scope", "ammo", "target"];
   const EQUIPMENT_LABELS = { rifle: "Rifle", scope: "Scope", ammo: "Ammo", target: "Target" };
 
@@ -752,9 +729,8 @@
     for (const kind of EQUIPMENT_KINDS) {
       const select = equipmentSelect(kind);
       if (!select) continue;
-      // Ammo has to suit the rifle's chambering, so only compatible loads
-      // are offered. The server decides compatibility (see /api/equipment)
-      // so the filter here can't disagree with what it will accept.
+      // Only offer ammo that suits the rifle's chambering. The server
+      // decides that, so this filter can't disagree with it.
       const all = data.items[kind] || [];
       const usable = all.filter((item) => item.compatible !== false);
       const hidden = all.length - usable.length;

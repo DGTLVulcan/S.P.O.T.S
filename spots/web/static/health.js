@@ -1,7 +1,5 @@
-// Pi health readout. Used in two places: the full panel on the settings
-// page, and a compact badge on the dashboard that only appears when
-// something is actually wrong -- a health strip you have to read every time
-// is noise, a badge that shows up when the SD card is filling is not.
+// Pi health, in two forms: the full panel in settings, and a dashboard
+// badge that only appears when something is actually wrong.
 
 function healthTile(label, value, hint) {
   return `<div class="stat-tile">

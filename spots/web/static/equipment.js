@@ -1,8 +1,6 @@
-// Equipment manager: a sidebar of everything you own, and one detail form
-// for whatever is selected. Rendering every field of all three kinds at once
-// turned this into a wall of inputs, and only one piece of kit is ever being
-// edited -- so the fields (built from the schema the server sends, which is
-// also what validates them) are rendered only for the current selection.
+// A sidebar of everything you own plus one detail form for the selection,
+// because all three kinds at once was a wall of inputs. Fields come from
+// the server's schema, which is also what validates them.
 (function () {
   const sidebarEl = document.getElementById("equip-sidebar");
   const detailEl = document.getElementById("equip-detail");

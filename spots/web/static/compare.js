@@ -1,6 +1,5 @@
-// Compare sessions: stats side by side, the groups overlaid on one diagram,
-// and the kit and conditions each was shot under -- all read from what each
-// session recorded at the time, not from the current equipment list.
+// Compare sessions: stats side by side, groups overlaid, and the kit and
+// conditions each recorded at the time (not the current equipment list).
 (function () {
   const root = document.getElementById("compare-root");
   if (!root) return;

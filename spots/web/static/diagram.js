@@ -1,9 +1,7 @@
-// Shot-group diagram, shared by the live dashboard and the session history
-// detail page so the two can't drift apart. Draws into an existing <svg>
-// with a 0 0 200 200 viewBox; styling comes from .target-diagram in style.css.
-//
-// shots:  [{x_units, y_units, is_test}]
-// center: [x_units, y_units] or null
+// Shot-group diagram, shared by the dashboard and session detail so the
+// two can't drift. Draws into an existing 0 0 200 200 <svg>.
+//   shots:  [{x_units, y_units, is_test}]
+//   center: [x_units, y_units] or null
 function renderTargetDiagram(svgId, shots, center) {
   const svg = document.getElementById(svgId);
   if (!svg) return;

@@ -19,9 +19,8 @@ logger = logging.getLogger(__name__)
 
 def _make_zcam_factory(settings: Settings):
     def factory():
-        # The camera always plugs into the Pi's Ethernet port and gets its
-        # address from the Pi's own DHCP server (scripts/setup-network.sh),
-        # so re-discover on every connect rather than trusting a stale IP.
+        # The camera takes its address from the Pi's own DHCP server, so
+        # re-discover on every connect rather than trust a stale IP.
         ip = discover_zcam_ip(settings.camera.ip or None)
         if ip is None:
             raise ZCamError("Could not find a Z CAM on the Ethernet link")
@@ -44,11 +43,9 @@ def _make_zcam_factory(settings: Settings):
 def _migrate_equipment_selection(settings: Settings, storage: Storage) -> None:
     """Moves a selection previously kept in config.yaml into the database.
 
-    The selection used to live in config.yaml while the equipment it refers
-    to lived in the database -- two files that had to agree, where a
-    regenerated or unwritable config silently lost the choice. It is now
-    stored beside the equipment; this carries an existing choice across
-    once, then clears it from the config so there's only one owner.
+    It used to live in config.yaml while the equipment itself was in the
+    database, so an unwritable config silently lost the choice. This carries
+    an old selection across once, then clears it so there's one owner.
     """
     equipment = getattr(settings, "equipment", None)
     if equipment is None:
@@ -82,12 +79,9 @@ def _migrate_equipment_selection(settings: Settings, storage: Storage) -> None:
 def create_app(settings: Settings) -> Flask:
     switchable = SwitchableFrameSource(SyntheticFrameSource(), _make_zcam_factory(settings))
     if settings.camera.source == "zcam":
-        # Preserves prior behavior for anyone who already configured "zcam"
-        # as their default: connect eagerly at startup rather than waiting
-        # for a dashboard toggle. But the camera being unreachable (powered
-        # off, unplugged, asleep) must never take the whole app down with
-        # it -- fall back to synthetic and let the dashboard's Live Feed
-        # toggle retry once the camera's actually up.
+        # Configured default of "zcam" connects eagerly. An unreachable
+        # camera must never take the app down with it, so fall back to
+        # synthetic and let the Live Feed toggle retry.
         try:
             switchable.switch_to("zcam")
         except (requests.RequestException, ZCamError) as exc:
@@ -114,9 +108,8 @@ def create_app(settings: Settings) -> Flask:
     # mid-string doesn't lose the shots and calibration already recorded.
     if worker.resume_last_session():
         logger.info("Resumed the most recent session from storage")
-    # Auto hole-sizing needs the selected ammo's bullet diameter; without
-    # this a resumed session would silently fall back to the fixed pixel
-    # figures until the ammo was re-selected.
+    # Auto hole-sizing needs the ammo's bullet diameter, or a resumed
+    # session quietly falls back to the fixed pixel figures.
     selected_ammo = storage.get_selected_equipment().get("ammo")
     if selected_ammo:
         item = storage.get_equipment(selected_ammo)
