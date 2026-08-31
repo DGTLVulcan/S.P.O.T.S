@@ -6,6 +6,10 @@ import sqlite3
 import threading
 import time
 
+from spots import layout
+
+_LAYOUT_KEY = "dashboard_layout"
+
 _SCHEMA = """
 -- No AUTOINCREMENT on sessions: that keyword exists precisely to stop
 -- SQLite ever reusing a rowid, so deleted session numbers would be burned
@@ -235,6 +239,23 @@ class Storage:
 
     def set_selected_equipment(self, kind: str, equipment_id: int | None) -> None:
         self.set_state(self._selection_key(kind), None if equipment_id is None else str(equipment_id))
+
+    def get_layout(self) -> dict:
+        """The dashboard arrangement, cleaned of anything that no longer
+        renders. Stored here rather than in the browser so it survives a
+        reboot and follows you between devices.
+        """
+        return layout.loads(self.get_state(_LAYOUT_KEY))
+
+    def set_layout(self, value: dict) -> dict:
+        """Stores an arrangement and returns what was actually kept."""
+        cleaned = layout.clean_layout(value)
+        self.set_state(_LAYOUT_KEY, json.dumps(cleaned))
+        return cleaned
+
+    def reset_layout(self) -> dict:
+        self.set_state(_LAYOUT_KEY, None)
+        return layout.default_layout()
 
     def list_equipment(self, kind: str | None = None) -> list[dict]:
         query = (

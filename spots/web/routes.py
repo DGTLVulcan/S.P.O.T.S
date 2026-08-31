@@ -24,6 +24,7 @@ from flask import (
 )
 
 from spots import health
+from spots.layout import TILES
 from spots.camera.client import ZCamError
 from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
 from spots.equipment_specs import (
@@ -78,7 +79,36 @@ _CENTER_MARKER_BGR = (72, 73, 227)  # #e34948
 
 @bp.route("/")
 def index():
-    return render_template("index.html", target=_settings().target)
+    # Rendered from the stored arrangement rather than reordered in the
+    # browser afterwards, so the page never flashes the default layout
+    # first on a slow link.
+    return render_template(
+        "index.html",
+        target=_settings().target,
+        layout=_storage().get_layout(),
+        tiles=TILES,
+    )
+
+
+@bp.route("/api/layout")
+def api_layout():
+    return jsonify(_storage().get_layout())
+
+
+@bp.route("/api/layout", methods=["POST"])
+def api_layout_save():
+    data = request.get_json(force=True)
+    if not isinstance(data, dict) or not isinstance(data.get("columns"), list):
+        return jsonify({"error": "layout must be an object with a columns list"}), 400
+    # Stored through the same cleaning the renderer trusts, and the cleaned
+    # version is returned so the page can correct itself if anything was
+    # dropped rather than quietly disagreeing with what was saved.
+    return jsonify({"ok": True, "layout": _storage().set_layout(data)})
+
+
+@bp.route("/api/layout/reset", methods=["POST"])
+def api_layout_reset():
+    return jsonify({"ok": True, "layout": _storage().reset_layout()})
 
 
 def _stream_target_size(width, height, max_width):

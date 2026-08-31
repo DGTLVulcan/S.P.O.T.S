@@ -19,6 +19,7 @@
       <select id="equip-target" class="equipment-select" aria-label="Target" title="Target face"></select>
     </div>
     <nav class="icon-nav">
+      <button id="layout-toggle" class="icon-btn" type="button" title="Arrange cards" aria-label="Arrange cards" aria-pressed="false"><span class="icon-columns" aria-hidden="true"></span></button>
       <button id="sound-toggle" class="icon-btn" type="button" title="Shot sound" aria-label="Toggle shot sound">&#9834;</button>
       <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
       <a class="icon-btn" href="{{ url_for('spots.sessions_list') }}" title="Session history" aria-label="Session history">&#128337;</a>
@@ -28,9 +29,19 @@
     </nav>
   </header>
 
-  <main>
-    <section class="video-panel">
-      <div class="card">
+  <div class="layout-bar" id="layout-bar" hidden>
+    <span class="layout-bar-title">Arranging cards</span>
+    <span class="layout-bar-hint">Drag a card by its handle into any column.</span>
+    <span class="layout-bar-spacer"></span>
+    <button id="layout-add-column" type="button">Add column</button>
+    <button id="layout-reset" type="button">Reset layout</button>
+    <button id="layout-done" class="primary" type="button">Done</button>
+  </div>
+
+{#- Each card is a macro, so the page can be rendered in whatever order the
+    stored layout asks for without the markup existing twice. -#}
+{% macro tile_feed() %}
+      <div class="card" data-tile="feed">
         <div class="video-frame" id="video-frame">
           <img id="feed" alt="live target feed">
           <div class="badge-row">
@@ -125,20 +136,24 @@
 
         <p id="status" class="status"></p>
       </div>
+{% endmacro %}
 
-      <div class="card" id="score-card" style="display:none;">
+{% macro tile_score() %}
+      <div class="card" id="score-card" data-tile="score" style="display:none;">
         <h2>Score</h2>
         <div id="score-body"></div>
       </div>
+{% endmacro %}
 
-      <div class="card">
+{% macro tile_scope() %}
+      <div class="card" data-tile="scope">
         <h2>Scope Correction</h2>
         <div id="scope-correction"></div>
       </div>
-    </section>
+{% endmacro %}
 
-    <section class="stats-panel">
-      <div class="card">
+{% macro tile_group_stats() %}
+      <div class="card" data-tile="group-stats">
         <h2>Group Stats</h2>
         <div class="stat-grid">
           <div class="stat-tile">
@@ -166,8 +181,10 @@
           <span><span class="swatch" style="background: var(--center-marker); border-radius: 2px;"></span>Group center</span>
         </div>
       </div>
+{% endmacro %}
 
-      <div class="card">
+{% macro tile_shots() %}
+      <div class="card" data-tile="shots">
         <h2>Shots</h2>
         <div class="table-scroll">
           <table id="shot-table">
@@ -176,20 +193,43 @@
           </table>
         </div>
       </div>
+{% endmacro %}
 
-      <div class="card">
+{% macro tile_subgroups() %}
+      <div class="card" data-tile="subgroups">
         <h2>Best Subgroups</h2>
         <div class="stat-grid" id="best-subgroups"></div>
       </div>
+{% endmacro %}
+
+{% set TILE_MACROS = {
+  "feed": tile_feed,
+  "score": tile_score,
+  "scope": tile_scope,
+  "group-stats": tile_group_stats,
+  "shots": tile_shots,
+  "subgroups": tile_subgroups,
+} %}
+
+  <main class="layout" id="layout">
+    {%- for column in layout.columns %}
+    <section class="layout-column flow-{{ column.flow }}" data-weight="{{ column.weight }}" style="--column-weight: {{ column.weight }};">
+      {%- for tile in column.tiles %}
+      {{ TILE_MACROS[tile]() }}
+      {%- endfor %}
     </section>
+    {%- endfor %}
   </main>
 
   <script>
     window.SPOTS_UNIT_NAME = {{ target.unit_name | tojson }};
+    window.SPOTS_LAYOUT = {{ layout | tojson }};
+    window.SPOTS_TILES = {{ tiles | tojson }};
   </script>
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
   <script src="{{ url_for('static', filename='diagram.js') }}"></script>
   <script src="{{ url_for('static', filename='health.js') }}"></script>
+  <script src="{{ url_for('static', filename='layout.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

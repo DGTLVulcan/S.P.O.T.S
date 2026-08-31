@@ -10,6 +10,7 @@
   --gridline: #e1e0d9;
   --border: rgba(11, 11, 11, 0.10);
   --accent: #2a78d6;
+  --accent-soft: rgba(42, 120, 214, 0.10);
   --accent-ink: #ffffff;
   --good: #0ca30c;
   --warning: #fab219;
@@ -32,6 +33,7 @@
     --gridline: #2c2c2a;
     --border: rgba(255, 255, 255, 0.10);
     --accent: #3987e5;
+    --accent-soft: rgba(57, 135, 229, 0.20);
     --good: #0ca30c;
     --warning: #fab219;
     --serious: #ec835a;
@@ -51,6 +53,7 @@
   --gridline: #2c2c2a;
   --border: rgba(255, 255, 255, 0.10);
   --accent: #3987e5;
+  --accent-soft: rgba(57, 135, 229, 0.20);
   --shot-marker: #3987e5;
   --center-marker: #e66767;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 20px rgba(0, 0, 0, 0.35);
@@ -183,6 +186,7 @@ main {
 /* ---------- Cards ---------- */
 
 .card {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -199,24 +203,30 @@ main {
   letter-spacing: 0.04em;
 }
 
-/* ---------- Video panel ---------- */
+/* ---------- Layout columns ----------
+   The page is columns of cards, both filled from whatever arrangement was
+   saved (see spots/layout.py). The basis scales with the weight so a wider
+   column also wraps later, the way the original fixed pair did. */
 
-.video-panel { flex: 2 1 640px; min-width: 320px; display: flex; flex-direction: column; gap: 1rem; }
-
-/* ---------- Stats panel (Group Stats / Best Subgroups / Shots) ----------
-   Flex-wrap rather than a stacked column, so Best Subgroups appearing at
-   3 shots doesn't knock Shots down onto a row of its own. */
-
-.stats-panel {
-  flex: 3 1 900px;
+.layout-column {
+  flex: var(--column-weight, 2) 1 calc(var(--column-weight, 2) * 300px);
   min-width: 300px;
   display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Side by side when they fit, so Best Subgroups appearing at 3 shots
+   doesn't knock Shots down onto a row of its own. */
+
+.layout-column.flow-wrap {
+  flex-direction: row;
   flex-wrap: wrap;
   gap: 1.25rem;
   align-items: flex-start;
 }
 
-.stats-panel > .card {
+.layout-column.flow-wrap > .card {
   flex: 1 1 270px;
   min-width: 250px;
 }
@@ -1103,3 +1113,111 @@ input[type="range"] { accent-color: var(--accent); }
 .settings-panel > .equip-detail-head { margin-bottom: 1.1rem; }
 .settings-panel .field { margin-bottom: 0.9rem; }
 .settings-nav { cursor: pointer; }
+
+/* ---------- Arranging cards ----------
+   Rearranging is a mode you turn on, not something a stray drag can do:
+   the feed itself is a click target for placing shots, so a card only
+   becomes draggable once the handle exists. */
+
+.icon-columns {
+  display: block;
+  width: 15px;
+  height: 13px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  position: relative;
+}
+
+.icon-columns::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1.5px;
+  margin-left: -0.75px;
+  background: currentColor;
+}
+
+.icon-btn[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.layout-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 0.7rem 1.25rem 0;
+}
+
+.layout-bar-title { font-weight: 600; }
+.layout-bar-hint { color: var(--ink-muted); font-size: 0.85rem; }
+.layout-bar-spacer { flex: 1 1 auto; }
+
+.layout.editing .layout-column {
+  outline: 1px dashed var(--ink-muted);
+  outline-offset: 6px;
+  border-radius: var(--radius);
+  min-height: 90px;
+}
+
+.layout.editing .layout-column.drop-target {
+  outline-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.column-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--ink-secondary);
+}
+
+/* A full row of its own, or a column-direction flex item would stretch it
+   down the whole column. */
+.layout-column.flow-wrap > .column-strip { flex: 1 1 100%; }
+
+.column-strip .column-weight { min-width: 1.4rem; text-align: center; }
+.column-strip button { padding: 0.2rem 0.5rem; font-size: 0.8rem; }
+.column-strip-spacer { flex: 1 1 auto; }
+
+.tile-handle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0 0 0.75rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--page);
+  color: var(--ink-secondary);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: grab;
+  /* Without this a touch-drag scrolls the page instead of moving the card. */
+  touch-action: none;
+}
+
+.tile-handle:active { cursor: grabbing; }
+
+.tile-grip {
+  flex: none;
+  width: 14px;
+  height: 12px;
+  opacity: 0.55;
+  background: repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 4px);
+}
+
+.card.tile-dragging {
+  opacity: 0.55;
+  /* So elementFromPoint reports what is underneath, not the card in hand. */
+  pointer-events: none;
+}
