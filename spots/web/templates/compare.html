@@ -15,9 +15,12 @@
       <span class="subtitle">Compare Sessions</span>
     </div>
     <div class="icon-nav">
+      {% include '_range_toggle.html' %}
       <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
     </div>
   </header>
+
+  {% include '_range_banner.html' %}
 
   <main>
     <div class="equip-layout full-width">
@@ -55,6 +58,7 @@
 
   <script>window.SPOTS_PRESELECTED = {{ preselected | tojson }};</script>
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='range_status.js') }}"></script>
   <script src="{{ url_for('static', filename='menu.js') }}"></script>
   <script src="{{ url_for('static', filename='diagram.js') }}"></script>
   <script src="{{ url_for('static', filename='compare.js') }}"></script>

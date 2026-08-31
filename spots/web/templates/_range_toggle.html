@@ -1,0 +1,12 @@
+{#- The button that switches the banner, top right on every page. It stays
+    visible when the feature is off -- greyed, and saying why -- so the
+    control doesn't silently vanish. -#}
+<button id="range-toggle" type="button"
+        class="icon-btn range-toggle{% if not range_status.enabled %} is-disabled{% endif %} is-{{ range_status.state }}"
+        {% if not range_status.enabled %}disabled aria-disabled="true"
+        title="Disabled &mdash; switch the range status banner on in Settings"
+        {% else %}title="{% if range_status.state == 'hot' %}Range is hot &mdash; call a cease fire{% else %}Cease fire &mdash; make the range hot{% endif %}"
+        {% endif %}
+        aria-label="Range status" aria-pressed="{{ 'true' if range_status.state == 'cease' else 'false' }}">
+  <span class="range-toggle-dot" aria-hidden="true"></span>
+</button>

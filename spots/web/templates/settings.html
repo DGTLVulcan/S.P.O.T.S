@@ -15,9 +15,12 @@
       <span class="subtitle">Settings</span>
     </div>
     <div class="icon-nav">
+      {% include '_range_toggle.html' %}
       <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
     </div>
   </header>
+
+  {% include '_range_banner.html' %}
 
   <main class="equip-main">
     {% if saved %}<div class="banner success full-width">Settings saved.</div>{% endif %}
@@ -45,6 +48,12 @@
             <span class="equip-nav-text">
               <span class="equip-nav-name">Camera</span>
               <span class="equip-nav-sub">Source, address, stream</span>
+            </span>
+          </button>
+          <button type="button" class="equip-nav-item settings-nav" data-panel="range">
+            <span class="equip-nav-text">
+              <span class="equip-nav-name">Range status</span>
+              <span class="equip-nav-sub">The hot / cease fire banner</span>
             </span>
           </button>
         </div>
@@ -185,6 +194,30 @@
             </div>
           </div>
 
+          <div class="settings-panel" data-panel="range" hidden>
+            <div class="equip-detail-head">
+              <div class="equip-detail-titles">
+                <span class="equip-detail-kind">Configuration</span>
+                <span class="settings-title">Range status</span>
+              </div>
+            </div>
+            <div class="field checkbox-field">
+              <input type="checkbox" id="range_status_enabled" name="web.range_status_enabled"
+                     {% if settings.web.range_status_enabled %}checked{% endif %}>
+              <label for="range_status_enabled">Show the range status banner</label>
+            </div>
+            <p class="hint" style="margin: -0.4rem 0 0.9rem;">
+              A red <strong>Range Hot</strong> or green <strong>Cease Fire</strong> band across the
+              top of every page, switched with the button beside the theme toggle. The state is
+              shared, so every phone looking at S.P.O.T.S shows the same thing.
+            </p>
+            <p class="hint">
+              Switch it off if nobody is going to keep it up to date &mdash; a status that is wrong
+              is worse than none. The button stays visible either way, greyed out, so it is
+              obvious the feature exists rather than having quietly vanished.
+            </p>
+          </div>
+
           <div class="settings-panel" data-panel="camera" hidden>
             <div class="equip-detail-head">
               <div class="equip-detail-titles">
@@ -270,6 +303,7 @@
   </main>
 
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='range_status.js') }}"></script>
   <script src="{{ url_for('static', filename='menu.js') }}"></script>
   <script src="{{ url_for('static', filename='health.js') }}"></script>
   <script src="{{ url_for('static', filename='settings.js') }}"></script>

@@ -1502,3 +1502,63 @@ a.equip-nav-item { text-decoration: none; }
 /* The menu is the first thing in the bar, so the title sits beside it
    rather than being pushed around by it. */
 .appbar .menu + .brand { margin-left: 0.1rem; }
+
+/* ---------- Range status ----------
+   Red for live fire, green for a cold range, the way a range flag reads.
+   Full width and hard to miss: it is the one thing on the page that says
+   whether it is safe to be downrange. */
+
+.range-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+  /* Colours are fixed rather than themed: this one must not change
+     meaning between light and dark mode. */
+  background: #c1272d;
+}
+
+.range-banner.is-cease { background: #1a7f37; }
+
+.range-banner-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28);
+}
+
+/* The button that switches it, in the app bar. */
+.range-toggle .range-toggle-dot {
+  display: block;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  background: currentColor;
+}
+
+.range-toggle.is-hot { color: #c1272d; }
+.range-toggle.is-cease { color: #1a7f37; }
+.range-toggle:not(.is-disabled):hover {
+  background: var(--page);
+  border-color: currentColor;
+}
+
+/* Switched off in Settings: still there, plainly inert, and it says why
+   on hover rather than leaving you wondering where the button went. */
+.range-toggle.is-disabled {
+  color: var(--ink-muted);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.range-toggle.is-disabled .range-toggle-dot {
+  background: transparent;
+}

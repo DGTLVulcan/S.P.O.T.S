@@ -147,6 +147,10 @@ class WebConfig:
     # Pi's own 2.4GHz AP can't carry -- the stream then backs up in TCP and
     # arrives seconds late.
     stream_max_width: int = 960
+    # The range-hot / cease-fire banner. A range indicator that is wrong is
+    # worse than none, so it can be switched off outright rather than left
+    # showing a state nobody is keeping up to date.
+    range_status_enabled: bool = True
 
 
 def _build(config_class, raw: dict):

@@ -58,5 +58,21 @@ class MenuTests(unittest.TestCase):
         self.assertTrue(used <= listed, f"pages not reachable from the menu: {used - listed}")
 
 
+class RangeStatusTests(unittest.TestCase):
+    """A safety indicator is worthless if it is missing from a page."""
+
+    def test_every_page_shows_the_banner_and_its_button(self):
+        for name, html in pages():
+            self.assertIn("_range_banner.html", html, name)
+            self.assertIn("_range_toggle.html", html, name)
+            self.assertIn("range_status.js", html, name)
+
+    def test_the_banner_sits_between_the_bar_and_the_content(self):
+        for name, html in pages():
+            self.assertLess(html.index("</header>"), html.index("_range_banner.html"), name)
+            body = html.index("<main") if "<main" in html else len(html)
+            self.assertLess(html.index("_range_banner.html"), body, name)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,12 @@
+{#- The range-hot / cease-fire banner, on every page above the content.
+
+    Red means live fire, green means the range is cold and you may go
+    downrange -- the same way a range flag reads. Hidden entirely when the
+    feature is switched off, since a status nobody maintains is worse than
+    no status at all. -#}
+{%- if range_status.enabled %}
+<div id="range-banner" class="range-banner is-{{ range_status.state }}" role="status" aria-live="polite">
+  <span class="range-banner-dot" aria-hidden="true"></span>
+  <span class="range-banner-text">{% if range_status.state == 'hot' %}Range Hot{% else %}Cease Fire{% endif %}</span>
+</div>
+{%- endif %}

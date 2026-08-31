@@ -9,6 +9,9 @@ import time
 from spots import layout
 
 _LAYOUT_KEY = "dashboard_layout"
+_RANGE_STATE_KEY = "range_state"
+
+RANGE_STATES = ("hot", "cease")
 
 _SCHEMA = """
 -- No AUTOINCREMENT on sessions: that keyword exists precisely to stop
@@ -239,6 +242,21 @@ class Storage:
 
     def set_selected_equipment(self, kind: str, equipment_id: int | None) -> None:
         self.set_state(self._selection_key(kind), None if equipment_id is None else str(equipment_id))
+
+    def get_range_state(self) -> str:
+        """Whether the range is hot or on a cease fire.
+
+        Held server-side so every phone looking at the app agrees, and
+        defaults to hot: assuming live fire is the safe way to be wrong.
+        """
+        value = self.get_state(_RANGE_STATE_KEY, "hot")
+        return value if value in RANGE_STATES else "hot"
+
+    def set_range_state(self, state: str) -> str:
+        if state not in RANGE_STATES:
+            raise ValueError(f"range state must be one of {RANGE_STATES}")
+        self.set_state(_RANGE_STATE_KEY, state)
+        return state
 
     def get_layout(self) -> dict:
         """The dashboard arrangement, cleaned of anything that no longer

@@ -90,6 +90,41 @@ def index():
     )
 
 
+@bp.app_context_processor
+def _range_status():
+    """Both the banner and its button appear on every page, so the state
+    reaches the templates here rather than through seven render calls."""
+    try:
+        return {"range_status": {
+            "enabled": _settings().web.range_status_enabled,
+            "state": _storage().get_range_state(),
+        }}
+    except Exception:
+        # A context processor that raises takes down every page with it,
+        # and this is furniture, not something worth failing a render for.
+        return {"range_status": {"enabled": False, "state": "hot"}}
+
+
+@bp.route("/api/range_state")
+def api_range_state():
+    return jsonify({
+        "enabled": _settings().web.range_status_enabled,
+        "state": _storage().get_range_state(),
+    })
+
+
+@bp.route("/api/range_state", methods=["POST"])
+def api_range_state_set():
+    if not _settings().web.range_status_enabled:
+        return jsonify({"error": "The range status banner is switched off in Settings"}), 409
+    wanted = (request.get_json(force=True) or {}).get("state")
+    try:
+        state = _storage().set_range_state(wanted)
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+    return jsonify({"ok": True, "state": state})
+
+
 @bp.route("/api/layout")
 def api_layout():
     return jsonify(_storage().get_layout())
@@ -1181,6 +1216,8 @@ def _apply_settings_form(settings, form) -> list[str]:
     settings.camera.stream_width = stream_width
     settings.camera.stream_height = stream_height
     settings.camera.stream_bitrate = stream_bitrate
+
+    settings.web.range_status_enabled = "web.range_status_enabled" in form
 
     settings.save()
     return []

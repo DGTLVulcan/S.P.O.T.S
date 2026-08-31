@@ -21,11 +21,14 @@
       <select id="equip-target" class="equipment-select" aria-label="Target" title="Target face"></select>
     </div>
     <div class="icon-nav">
+      {% include '_range_toggle.html' %}
       <button id="layout-toggle" class="icon-btn" type="button" title="Arrange cards" aria-label="Arrange cards" aria-pressed="false"><span class="icon-columns" aria-hidden="true"></span></button>
       <button id="sound-toggle" class="icon-btn" type="button" title="Shot sound" aria-label="Toggle shot sound">&#9834;</button>
       <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
     </div>
   </header>
+
+  {% include '_range_banner.html' %}
 
   <div class="layout-bar" id="layout-bar" hidden>
     <span class="layout-bar-title">Arranging cards</span>
@@ -225,6 +228,7 @@
     window.SPOTS_TILES = {{ tiles | tojson }};
   </script>
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='range_status.js') }}"></script>
   <script src="{{ url_for('static', filename='menu.js') }}"></script>
   <script src="{{ url_for('static', filename='diagram.js') }}"></script>
   <script src="{{ url_for('static', filename='health.js') }}"></script>

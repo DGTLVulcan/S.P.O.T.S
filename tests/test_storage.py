@@ -206,6 +206,40 @@ class LegacyMigrationTests(unittest.TestCase):
             storage.close()
 
 
+class RangeStateTests(unittest.TestCase):
+    def setUp(self):
+        handle, self.path = tempfile.mkstemp(suffix=".db")
+        os.close(handle)
+        self.storage = Storage(self.path)
+
+    def tearDown(self):
+        self.storage.close()
+        os.unlink(self.path)
+
+    def test_a_fresh_install_assumes_the_range_is_hot(self):
+        # Assuming live fire is the safe way to be wrong.
+        self.assertEqual(self.storage.get_range_state(), "hot")
+
+    def test_the_state_survives_a_restart(self):
+        self.storage.set_range_state("cease")
+        self.storage.close()
+        reopened = Storage(self.path)
+        try:
+            self.assertEqual(reopened.get_range_state(), "cease")
+        finally:
+            reopened.close()
+            self.storage = Storage(self.path)
+
+    def test_only_the_two_states_are_accepted(self):
+        for bad in ("warm", "", None, "HOT", 1):
+            with self.assertRaises(ValueError):
+                self.storage.set_range_state(bad)
+
+    def test_a_corrupt_stored_value_reads_as_hot(self):
+        self.storage.set_state("range_state", "nonsense")
+        self.assertEqual(self.storage.get_range_state(), "hot")
+
+
 if __name__ == "__main__":
     unittest.main()
 
