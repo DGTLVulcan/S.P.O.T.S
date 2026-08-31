@@ -99,6 +99,14 @@
           <button id="undo">Undo Shot</button>
           <button id="new-target" class="primary" disabled>New Target</button>
         </div>
+        <div class="sim-bar" id="sim-bar">
+          <span class="sim-label">Simulated target</span>
+          <div class="segmented" role="group" aria-label="Simulated target style">
+            <button id="sim-realistic" type="button">Realistic</button>
+            <button id="sim-simple" type="button">Plain</button>
+          </div>
+          <span class="hint" id="sim-hint"></span>
+        </div>
         <p id="feed-hint" class="status">Simulated target active &mdash; click the feed to place a virtual bullet hole.</p>
 
         <!-- Tier 2: the prerequisites, in order, with their state visible. -->

@@ -13,6 +13,10 @@
   const feedZcamBtn = document.getElementById("feed-zcam");
   const badgeFeed = document.getElementById("badge-feed");
   const feedHint = document.getElementById("feed-hint");
+  const simBar = document.getElementById("sim-bar");
+  const simRealisticBtn = document.getElementById("sim-realistic");
+  const simSimpleBtn = document.getElementById("sim-simple");
+  const simHint = document.getElementById("sim-hint");
   const markCenterBtn = document.getElementById("mark-center");
   const distanceInput = document.getElementById("distance-input");
   const videoFrame = document.getElementById("video-frame");
@@ -245,6 +249,50 @@
     feedHint.textContent = isSynthetic
       ? "Simulated target active — click the feed to place a virtual bullet hole."
       : "Live feed active — click the feed to place a test shot.";
+    // The style of the fabricated target only means anything while you are
+    // looking at it.
+    if (simBar) simBar.hidden = !isSynthetic;
+  }
+
+  const SIM_HINTS = {
+    realistic: "Paper in front of a berm: holes show ground through torn paper, and the sheet moves in the wind.",
+    simple: "Flat target, black holes, no movement. The original — easier to see, easier to detect.",
+  };
+
+  function setSimMode(mode) {
+    const realistic = mode === "realistic";
+    if (simRealisticBtn) simRealisticBtn.classList.toggle("primary", realistic);
+    if (simSimpleBtn) simSimpleBtn.classList.toggle("primary", !realistic);
+    if (simHint) simHint.textContent = SIM_HINTS[mode] || "";
+  }
+
+  async function switchSimMode(mode) {
+    setSimMode(mode);
+    try {
+      const res = await fetch("/api/simulate/mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setSimMode(data.mode);
+      setStatus("Simulated target changed — the reference frame was retaken.");
+    } catch (err) {
+      setStatus(`Could not change the simulated target: ${err.message}`);
+    }
+  }
+
+  if (simRealisticBtn) simRealisticBtn.addEventListener("click", () => switchSimMode("realistic"));
+  if (simSimpleBtn) simSimpleBtn.addEventListener("click", () => switchSimMode("simple"));
+
+  async function loadSimMode() {
+    try {
+      const res = await fetch("/api/simulate/mode");
+      if (res.ok) setSimMode((await res.json()).mode);
+    } catch (err) {
+      /* the buttons still work; only the initial highlight is missing */
+    }
   }
 
   async function switchFeed(target) {
@@ -786,6 +834,7 @@
   refreshShots();
   loadZoom();
   loadFeed();
+  loadSimMode();
   loadDistance();
   loadEquipment();
   pumpFrames();

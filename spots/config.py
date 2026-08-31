@@ -74,6 +74,10 @@ class CameraConfig:
     stream_bitrate: int = 8_000_000
     # Crop+resize zoom for when the lens can't reach. 1.0 = off; the
     # centres are a fractional pan position (0-1) within the frame.
+    # Which fabricated target the synthetic source draws. "realistic" is
+    # a paper sheet in front of a berm that moves in the wind, so holes show
+    # ground through torn paper; "simple" is the flat one with black discs.
+    synthetic_mode: str = "realistic"
     digital_zoom: float = 1.0
     zoom_center_x: float = 0.5
     zoom_center_y: float = 0.5

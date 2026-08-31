@@ -138,21 +138,41 @@ class SyntheticFrameSource(FrameSource):
     """Fabricates a paper target for local development/testing without a
     real camera or Pi. Holes only appear when placed manually (e.g. a
     dashboard click via add_hole()) -- this does not spawn any on its own.
+
+    Two modes. "simple" is the original: flat rings, black discs for holes,
+    a still frame. "realistic" is the one worth trusting -- a paper sheet
+    pinned in front of a berm, so a hole is a torn edge with the ground
+    showing through rather than a black disc, and the sheet moves in the
+    wind while the ground behind it does not. Those are the two things the
+    detector actually has to cope with outdoors, and the simple mode gives
+    it neither.
     """
+
+    MODES = ("simple", "realistic")
 
     _HOLE_RADIUS_PX = 8
     # Dither patterns cycled through. They're row-offset views of one
     # oversized buffer, so this costs one frame of memory, not this many.
     _DITHER_FRAMES = 8
     _DITHER_AMPLITUDE = 3
+    # Wind. Amplitude is in pixels of sheet movement, well beyond what
+    # re-alignment can ignore, so it has to actually do its job.
+    _SWAY_PX = 6.0
+    _SWAY_DEG = 0.35
+    _SWAY_PERIOD = 47          # frames per cycle; prime, so x and y drift apart
 
-    def __init__(self, width: int = 1920, height: int = 1080, seed: int = 42):
+    def __init__(self, width: int = 1920, height: int = 1080, seed: int = 42,
+                 mode: str = "simple"):
         self._width = width
         self._height = height
         self._center = (width // 2, height // 2)
         self._target_radius = int(min(width, height) * 0.35)
         self._holes: list[tuple[int, int]] = []
         self._lock = threading.Lock()
+        self._mode = mode if mode in self.MODES else "simple"
+        self._seed = seed
+        self._frame_index = 0
+
         # Baked in once so ORB has stable features to match. Regenerating
         # it per frame would leave no consistent texture at all, which a
         # real camera's scene detail always has.
@@ -160,6 +180,15 @@ class SyntheticFrameSource(FrameSource):
         # Base with the current holes already drawn in, rebuilt only when the
         # hole list changes rather than re-drawn every single frame.
         self._composite = self._base
+
+        # Realistic mode keeps the scene in two layers: the ground, which
+        # stays put, and the paper, which sways and has holes torn in it.
+        self._backing = self._build_backing(seed)
+        self._sheet = self._build_sheet(seed)
+        self._sheet_alpha = self._build_sheet_alpha()
+        self._roi = self._sheet_roi()
+        self._realistic_composite = None
+
         # A fresh 1080p gaussian per frame cost ~68 ms, more than a Pi core
         # once the stream and detector were both pulling. Pre-generating it
         # once and cycling row-offset views costs ~2 ms.
@@ -170,6 +199,22 @@ class SyntheticFrameSource(FrameSource):
             dtype=np.int8,
         )
         self._dither_index = 0
+
+    # ---- mode ---------------------------------------------------------
+
+    @property
+    def mode(self) -> str:
+        return self._mode
+
+    def set_mode(self, mode: str) -> str:
+        if mode not in self.MODES:
+            raise ValueError(f"mode must be one of {self.MODES}")
+        with self._lock:
+            self._mode = mode
+        logger.info("Synthetic source: %s target", mode)
+        return mode
+
+    # ---- the simple scene ---------------------------------------------
 
     def _build_base_frame(self, seed: int) -> np.ndarray:
         frame = np.full((self._height, self._width, 3), 235, dtype=np.uint8)
@@ -184,6 +229,118 @@ class SyntheticFrameSource(FrameSource):
         speckle = np.random.default_rng(seed).normal(0, 6, frame.shape)
         return np.clip(frame.astype(np.int16) + speckle, 0, 255).astype(np.uint8)
 
+    # ---- the realistic scene -------------------------------------------
+
+    def _sheet_half(self) -> int:
+        return int(self._target_radius * 1.25)
+
+    def _sheet_roi(self) -> tuple[int, int, int, int]:
+        """Bounding box of the sheet plus room to sway, so only that part of
+        the frame is warped and composited each time."""
+        half = self._sheet_half() + int(self._SWAY_PX * 3) + 8
+        cx, cy = self._center
+        x0 = max(0, cx - half)
+        y0 = max(0, cy - half)
+        x1 = min(self._width, cx + half)
+        y1 = min(self._height, cy + half)
+        return x0, y0, x1, y1
+
+    def _build_backing(self, seed: int) -> np.ndarray:
+        """The ground behind the target: what shows through a hole."""
+        rng = np.random.default_rng(seed + 1)
+        # A dull earth gradient, darker low down, with coarse mottling. It
+        # matters that this is neither black nor flat -- a hole reads as a
+        # patch of ground, which is the whole point.
+        rows = np.linspace(105, 62, self._height, dtype=np.float32)[:, None]
+        base = np.repeat(rows, self._width, axis=1)
+        coarse = rng.normal(0, 26, (self._height // 24 + 1, self._width // 24 + 1))
+        coarse = cv2.resize(coarse, (self._width, self._height), interpolation=cv2.INTER_CUBIC)
+        grey = np.clip(base + coarse + rng.normal(0, 4, base.shape), 20, 190)
+        frame = np.stack([grey * 0.82, grey * 0.94, grey * 1.06], axis=-1)
+        return np.clip(frame, 0, 255).astype(np.uint8)
+
+    def _build_sheet(self, seed: int) -> np.ndarray:
+        """The printed paper face, on its own layer so it can move."""
+        frame = np.full((self._height, self._width, 3), 238, dtype=np.uint8)
+        cx, cy = self._center
+        for radius, color in [
+            (self._target_radius, (48, 46, 44)),
+            (int(self._target_radius * 0.7), (238, 238, 236)),
+            (int(self._target_radius * 0.45), (48, 46, 44)),
+            (int(self._target_radius * 0.2), (238, 238, 236)),
+        ]:
+            cv2.circle(frame, (cx, cy), radius, color, thickness=-1)
+        speckle = np.random.default_rng(seed).normal(0, 5, frame.shape)
+        return np.clip(frame.astype(np.int16) + speckle, 0, 255).astype(np.uint8)
+
+    def _build_sheet_alpha(self) -> np.ndarray:
+        """255 where paper covers the ground, 0 elsewhere -- so the sheet is
+        a sheet, with an edge, rather than a full-frame backdrop."""
+        alpha = np.zeros((self._height, self._width), dtype=np.uint8)
+        cx, cy = self._center
+        half = self._sheet_half()
+        cv2.rectangle(alpha, (cx - half, cy - half), (cx + half, cy + half), 255, -1)
+        return alpha
+
+    def _punch(self, alpha: np.ndarray, sheet: np.ndarray, x: int, y: int, rng) -> None:
+        """Tear a hole: a bruised rim on the paper, and the paper gone in the
+        middle so the ground shows through."""
+        radius = self._HOLE_RADIUS_PX
+        angles = np.linspace(0, 2 * np.pi, 14, endpoint=False)
+        jitter = rng.uniform(0.82, 1.18, angles.shape)
+        outer = np.stack([
+            x + np.cos(angles) * radius * 1.35 * jitter,
+            y + np.sin(angles) * radius * 1.35 * jitter,
+        ], axis=-1).astype(np.int32)
+        inner = np.stack([
+            x + np.cos(angles) * radius * jitter,
+            y + np.sin(angles) * radius * jitter,
+        ], axis=-1).astype(np.int32)
+        # Bullet wipe: a dark smudge on the paper around the tear.
+        cv2.fillPoly(sheet, [outer], (58, 56, 54))
+        cv2.fillPoly(alpha, [inner], 0)
+
+    def _rebuild_realistic_locked(self) -> None:
+        sheet = self._sheet.copy()
+        alpha = self._sheet_alpha.copy()
+        rng = np.random.default_rng(self._seed + 7)
+        for x, y in self._holes:
+            self._punch(alpha, sheet, x, y, rng)
+        x0, y0, x1, y1 = self._roi
+        self._realistic_composite = (sheet[y0:y1, x0:x1], alpha[y0:y1, x0:x1])
+
+    def _sway_matrix(self, index: int) -> np.ndarray:
+        phase = 2 * np.pi * index / self._SWAY_PERIOD
+        dx = np.sin(phase) * self._SWAY_PX
+        dy = np.sin(phase * 0.6 + 1.1) * self._SWAY_PX * 0.5
+        angle = np.sin(phase * 0.37) * self._SWAY_DEG
+        x0, y0, x1, y1 = self._roi
+        centre = ((x1 - x0) / 2.0, (y1 - y0) / 2.0)
+        matrix = cv2.getRotationMatrix2D(centre, angle, 1.0)
+        matrix[0, 2] += dx
+        matrix[1, 2] += dy
+        return matrix
+
+    def _realistic_frame(self, index: int) -> np.ndarray:
+        if self._realistic_composite is None:
+            self._rebuild_realistic_locked()
+        sheet_roi, alpha_roi = self._realistic_composite
+        x0, y0, x1, y1 = self._roi
+        matrix = self._sway_matrix(index)
+        size = (x1 - x0, y1 - y0)
+        # One warp of each layer, over the sheet's bounding box only: the
+        # ground does not move, so most of the frame is a straight copy.
+        moved_sheet = cv2.warpAffine(sheet_roi, matrix, size, flags=cv2.INTER_LINEAR,
+                                     borderMode=cv2.BORDER_CONSTANT)
+        moved_alpha = cv2.warpAffine(alpha_roi, matrix, size, flags=cv2.INTER_NEAREST,
+                                     borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+        frame = self._backing.copy()
+        window = frame[y0:y1, x0:x1]
+        cv2.copyTo(moved_sheet, moved_alpha, window)
+        return frame
+
+    # ---- the FrameSource contract ---------------------------------------
+
     def start(self) -> None:
         pass
 
@@ -197,6 +354,7 @@ class SyntheticFrameSource(FrameSource):
         with self._lock:
             self._holes.clear()
             self._composite = self._base
+            self._realistic_composite = None
 
     def add_hole(self, x: int, y: int) -> None:
         """Manually places a hole (e.g. from a dashboard click), so the
@@ -205,19 +363,26 @@ class SyntheticFrameSource(FrameSource):
         with self._lock:
             self._holes.append((int(x), int(y)))
             self._rebuild_composite_locked()
+            self._realistic_composite = None
         logger.info("Synthetic source: hole placed at (%d, %d)", x, y)
 
     def get_latest_frame(self) -> np.ndarray | None:
         with self._lock:
-            composite = self._composite
+            mode = self._mode
             offset = self._dither_index
             self._dither_index = (self._dither_index + 1) % self._DITHER_FRAMES
+            index = self._frame_index
+            self._frame_index += 1
+            if mode == "realistic":
+                frame = self._realistic_frame(index)
+            else:
+                frame = self._composite
 
         # Dither well below diff_threshold: enough to look live, not enough
         # to trigger contours. cv2.add saturates instead of wrapping and
         # returns a new array, so no clip pass and no mutation of the base.
         return cv2.add(
-            composite, self._dither[offset : offset + self._height], dtype=cv2.CV_8U
+            frame, self._dither[offset : offset + self._height], dtype=cv2.CV_8U
         )
 
     def stop(self) -> None:
@@ -264,6 +429,15 @@ class SwitchableFrameSource(FrameSource):
 
     def get_active(self) -> str:
         return self._active
+
+    def get_synthetic_mode(self) -> str:
+        return self._synthetic.mode
+
+    def set_synthetic_mode(self, mode: str) -> str:
+        """Reaches the synthetic source directly rather than through the
+        fall-through above, which follows whichever source is active -- the
+        target can be reconfigured while the live feed is up."""
+        return self._synthetic.set_mode(mode)
 
     def get_zcam_client(self):
         return self._zcam_client

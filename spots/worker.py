@@ -203,12 +203,9 @@ class DetectionWorker:
         if paused:
             logger.info("Cease fire: detection paused")
             return
-        snapshot = self.state.snapshot()
-        if snapshot.session_id is not None and self._detector.has_reference:
-            # Same re-baselining a resumed session gets: carry on the
-            # numbering, but measure against the target as it looks now.
-            self._pending_rearm_seq = max(
-                (shot.seq for shot in snapshot.shots), default=0) + 1
+        # Measure against the target as it looks now: it may have been
+        # patched or replaced while the range was cold.
+        self.rebaseline()
         logger.info("Range hot: detection resumed")
 
     @property
@@ -343,6 +340,31 @@ class DetectionWorker:
     def get_active_feed(self) -> str:
         get_active = getattr(self._frame_source, "get_active", None)
         return get_active() if callable(get_active) else "synthetic"
+
+    def rebaseline(self) -> None:
+        """Take the target as it looks now as the new reference, keeping the
+        shot numbering. For anything that changes every pixel without a shot
+        being fired -- coming off a cease fire, or swapping the fabricated
+        target for a different one.
+        """
+        snapshot = self.state.snapshot()
+        if snapshot.session_id is not None and self._detector.has_reference:
+            self._pending_rearm_seq = max(
+                (shot.seq for shot in snapshot.shots), default=0) + 1
+
+    def get_synthetic_mode(self) -> str:
+        getter = getattr(self._frame_source, "get_synthetic_mode", None)
+        return getter() if callable(getter) else "simple"
+
+    def set_synthetic_mode(self, mode: str) -> str:
+        setter = getattr(self._frame_source, "set_synthetic_mode", None)
+        if not callable(setter):
+            raise ValueError("This build has no synthetic source to configure")
+        result = setter(mode)
+        # A different fabricated target is a different scene, so the old
+        # reference frame would read as one enormous change.
+        self.rebaseline()
+        return result
 
     def switch_feed(self, target: str) -> None:
         """Raises on failure (e.g. camera unreachable) -- caller's problem

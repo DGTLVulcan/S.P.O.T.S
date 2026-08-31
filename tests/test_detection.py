@@ -128,5 +128,65 @@ class SyntheticSourceTests(unittest.TestCase):
         self.assertEqual(passthrough.shape, zoomed.shape)
 
 
+class SyntheticModeTests(unittest.TestCase):
+    """The realistic target is what the detector will be judged on, so it
+    has to actually behave like paper in front of a berm."""
+
+    def setUp(self):
+        from spots.camera.source import SyntheticFrameSource
+        self.Source = SyntheticFrameSource
+
+    def test_modes_are_whitelisted(self):
+        source = self.Source(320, 240)
+        with self.assertRaises(ValueError):
+            source.set_mode("photoreal")
+        self.assertEqual(source.set_mode("realistic"), "realistic")
+        self.assertEqual(source.mode, "realistic")
+
+    def test_an_unknown_mode_at_construction_falls_back(self):
+        self.assertEqual(self.Source(320, 240, mode="nonsense").mode, "simple")
+
+    def test_the_simple_target_does_not_move(self):
+        source = self.Source(320, 240, mode="simple")
+        first, second = source.get_latest_frame(), source.get_latest_frame()
+        # Only the dither differs, which is small by design.
+        self.assertLess(float(np.abs(first.astype(int) - second.astype(int)).mean()), 4)
+
+    def test_the_realistic_target_moves_in_the_wind(self):
+        source = self.Source(640, 480, mode="realistic")
+        frames = [source.get_latest_frame() for _ in range(20)]
+        spread = max(float(np.abs(frames[0].astype(int) - f.astype(int)).mean())
+                     for f in frames[1:])
+        # Sway has to be big enough that re-alignment is actually exercised.
+        self.assertGreater(spread, 4)
+
+    def test_a_realistic_hole_shows_the_ground_not_black(self):
+        source = self.Source(640, 480, mode="realistic")
+        centre = (320, 240)
+        source.add_hole(*centre)
+        frame = source.get_latest_frame()
+        patch = frame[centre[1] - 2:centre[1] + 3, centre[0] - 2:centre[0] + 3]
+        # The berm is mid-grey earth; a black disc would be far darker, and
+        # a hole that reads as "black" is what made the old target easy.
+        self.assertGreater(float(patch.mean()), 30)
+        self.assertLess(float(patch.mean()), 190)
+
+    def test_a_simple_hole_is_still_the_old_black_disc(self):
+        source = self.Source(640, 480, mode="simple")
+        centre = (320, 240)
+        source.add_hole(*centre)
+        frame = source.get_latest_frame()
+        patch = frame[centre[1] - 2:centre[1] + 3, centre[0] - 2:centre[0] + 3]
+        self.assertLess(float(patch.mean()), 30)
+
+    def test_switching_mode_does_not_lose_the_holes(self):
+        source = self.Source(640, 480, mode="simple")
+        source.add_hole(320, 240)
+        source.set_mode("realistic")
+        frame = source.get_latest_frame()
+        patch = frame[238:243, 318:323]
+        self.assertLess(float(patch.mean()), 190)
+
+
 if __name__ == "__main__":
     unittest.main()

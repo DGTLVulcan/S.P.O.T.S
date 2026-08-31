@@ -1680,3 +1680,24 @@ a.equip-nav-item { text-decoration: none; }
 }
 
 .layout-chip:hover { border-style: solid; border-color: var(--accent); color: var(--accent); }
+
+/* ---------- Simulated target style ---------- */
+
+.sim-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.sim-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.sim-bar .segmented button { padding: 0.25rem 0.7rem; font-size: 0.82rem; }
+.sim-bar .hint { flex: 1 1 14rem; min-width: 0; }

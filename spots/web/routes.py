@@ -24,6 +24,7 @@ from flask import (
 )
 
 from spots import health, ranges
+from spots.camera.source import SyntheticFrameSource
 from spots.layout import TILES
 from spots.camera.client import ZCamError
 from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
@@ -679,6 +680,12 @@ def api_distance_set():
     return jsonify({"ok": True, "distance_m": distance_m})
 
 
+@bp.route("/api/simulate/mode")
+def api_simulate_mode_get():
+    return jsonify({"mode": _worker().get_synthetic_mode(),
+                    "modes": list(SyntheticFrameSource.MODES)})
+
+
 @bp.route("/api/feed")
 def api_feed_get():
     return jsonify({"active": _worker().get_active_feed()})
@@ -699,6 +706,18 @@ def api_feed_set():
         return jsonify({"error": str(exc)}), 400
 
     return jsonify({"ok": True, "active": target})
+
+
+@bp.route("/api/simulate/mode", methods=["POST"])
+def api_simulate_mode():
+    data = request.get_json(force=True)
+    try:
+        mode = _worker().set_synthetic_mode(data.get("mode"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    _settings().camera.synthetic_mode = mode
+    _settings().save()
+    return jsonify({"ok": True, "mode": mode})
 
 
 @bp.route("/api/simulate/hole", methods=["POST"])

@@ -77,7 +77,10 @@ def _migrate_equipment_selection(settings: Settings, storage: Storage) -> None:
 
 
 def create_app(settings: Settings) -> Flask:
-    switchable = SwitchableFrameSource(SyntheticFrameSource(), _make_zcam_factory(settings))
+    switchable = SwitchableFrameSource(
+        SyntheticFrameSource(mode=settings.camera.synthetic_mode),
+        _make_zcam_factory(settings),
+    )
     if settings.camera.source == "zcam":
         # Configured default of "zcam" connects eagerly. An unreachable
         # camera must never take the app down with it, so fall back to
