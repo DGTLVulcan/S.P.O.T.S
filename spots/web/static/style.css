@@ -1286,6 +1286,8 @@ a.equip-nav-item { text-decoration: none; }
 }
 
 .map-toolbar button { padding: 0.25rem 0.6rem; }
+.map-kinds { margin-right: 0.35rem; }
+.map-kinds button { padding: 0.25rem 0.7rem; }
 .map-toolbar output { min-width: 3.4rem; text-align: center; font-size: 0.85rem; }
 .map-toolbar-hint { color: var(--ink-muted); font-size: 0.8rem; }
 
@@ -1310,6 +1312,7 @@ a.equip-nav-item { text-decoration: none; }
 
 #map-image {
   max-width: none;
+  flex: none;
   transform-origin: center center;
   /* A transform is the only thing that moves, so the browser can keep the
      decoded image and just re-composite it. */

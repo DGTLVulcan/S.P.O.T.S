@@ -85,16 +85,42 @@ class EagleParkContentTests(unittest.TestCase):
                 self.assertNotIn("Range Rules (Version", body)
                 self.assertNotIn("....", body)
 
-    def test_the_map_is_recorded_with_its_size(self):
-        map_data = self.item["map"]
-        self.assertTrue(map_data["image"].endswith(".webp"))
-        self.assertEqual((map_data["width"], map_data["height"]), (2528, 1678))
-        # The map is a processed copy, so it has to say so.
-        self.assertIn("unaltered", map_data["processing"])
+    def test_both_map_versions_are_present_and_on_disk(self):
+        views = self.item["map"]["views"]
+        self.assertEqual([v["id"] for v in views], ["scan", "vector"])
         static = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "spots", "web", "static", map_data["image"])
-        self.assertTrue(os.path.isfile(static), static)
+            "spots", "web", "static")
+        for view in views:
+            for field in ("label", "kind", "file", "width", "height", "note"):
+                self.assertTrue(view.get(field), f"{view['id']}.{field}")
+            self.assertTrue(os.path.isfile(os.path.join(static, view["file"])), view["file"])
+
+    def test_the_default_view_is_one_that_exists(self):
+        map_data = self.item["map"]
+        self.assertIn(map_data["default_view"], [v["id"] for v in map_data["views"]])
+
+    def test_each_version_says_what_it_is(self):
+        # Both are copies of a safety document, so neither may pass itself
+        # off as the original without qualification.
+        notes = {v["id"]: v["note"] for v in self.item["map"]["views"]}
+        self.assertIn("authoritative", notes["scan"])
+        self.assertIn("check anything critical against the scan", notes["vector"])
+
+    def test_the_vector_map_is_well_formed_svg_covering_the_whole_plan(self):
+        import xml.etree.ElementTree as ET
+        view = next(v for v in self.item["map"]["views"] if v["id"] == "vector")
+        static = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "spots", "web", "static", view["file"])
+        root = ET.parse(static).getroot()
+        self.assertEqual(root.tag, "{http://www.w3.org/2000/svg}svg")
+        self.assertEqual(root.get("viewBox"), f"0 0 {view['width']} {view['height']}")
+        paths = root.findall(".//{http://www.w3.org/2000/svg}path")
+        self.assertGreaterEqual(len(paths), 5)
+        # A trace with only a handful of outlines would mean the linework
+        # was dropped somewhere between the scan and the file.
+        self.assertGreater(sum(p.get("d").count("M") for p in paths), 3000)
 
     def test_it_is_a_substantial_transcription_not_a_stub(self):
         self.assertGreater(ranges.rule_count(self.item), 250)

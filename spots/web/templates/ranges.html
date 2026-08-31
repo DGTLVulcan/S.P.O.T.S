@@ -89,23 +89,40 @@
         {%- endif %}
 
         <div class="range-view" id="range-view-map">
-          {%- if range_item.map %}
+          {%- if range_item.map and range_item.map.views %}
+          {%- set views = range_item.map.views %}
+          {%- set default_view = range_item.map.default_view or views[0].id %}
           <div class="map-toolbar">
+            {%- if views | length > 1 %}
+            <div class="segmented map-kinds" role="group" aria-label="Map version">
+              {%- for view in views %}
+              <button type="button" data-map-view="{{ view.id }}"
+                      data-src="{{ url_for('static', filename=view.file) }}"
+                      data-width="{{ view.width }}" data-height="{{ view.height }}"
+                      class="{% if view.id == default_view %}primary{% endif %}">{{ view.label }}</button>
+              {%- endfor %}
+            </div>
+            {%- endif %}
             <button type="button" id="map-zoom-out" title="Zoom out" aria-label="Zoom out">&minus;</button>
             <output id="map-zoom-level">100%</output>
             <button type="button" id="map-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
             <button type="button" id="map-zoom-reset">Fit</button>
-            <span class="map-toolbar-hint">Drag to move, scroll or pinch to zoom, double-click to zoom in.</span>
+            <span class="map-toolbar-hint">Drag to move, scroll or pinch to zoom.</span>
           </div>
           <div class="map-stage" id="map-stage">
-            <img id="map-image"
-                 src="{{ url_for('static', filename=range_item.map.image) }}"
-                 width="{{ range_item.map.width }}" height="{{ range_item.map.height }}"
+            {%- for view in views if view.id == default_view %}
+            <img id="map-image" src="{{ url_for('static', filename=view.file) }}"
+                 width="{{ view.width }}" height="{{ view.height }}"
                  alt="Map of {{ range_item.name }}" draggable="false">
+            {%- endfor %}
           </div>
-          {%- if range_item.map.caption %}
-          <p class="hint">{{ range_item.map.caption }}{% if range_item.map.processing %} {{ range_item.map.processing }}{% endif %}</p>
-          {%- endif %}
+          <p class="hint" id="map-note" data-caption="{{ range_item.map.caption }}">
+            {{ range_item.map.caption }}
+            {%- for view in views if view.id == default_view %} {{ view.note }}{% endfor %}
+          </p>
+          {%- for view in views %}
+          <template data-note-for="{{ view.id }}">{{ view.note }}</template>
+          {%- endfor %}
           {%- else %}
           <p class="empty-state">No map recorded for this range.</p>
           {%- endif %}

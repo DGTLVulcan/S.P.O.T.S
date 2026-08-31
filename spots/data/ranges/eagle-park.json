@@ -14,11 +14,28 @@
  ],
  "hours_note": "Closed for some public holidays (Easter, ANZAC Day, and the Christmas and New Year period) -- check the SSAA Victoria website.",
  "map": {
-  "image": "ranges/eagle-park-map.webp",
-  "width": 2528,
-  "height": 1678,
   "caption": "Plan of ranges at Eagle Park (section 20 of the range rules).",
-  "processing": "Taken from page 20 of the source document. The plan itself is unaltered: JPEG compression artefacts were removed and it was scaled up so it stays legible when zoomed."
+  "default_view": "scan",
+  "views": [
+   {
+    "id": "scan",
+    "label": "Scan",
+    "kind": "raster",
+    "file": "ranges/eagle-park-map.webp",
+    "width": 2528,
+    "height": 1678,
+    "note": "The plan as published, straight from page 20. Unaltered apart from having its JPEG compression artefacts removed and being scaled up. This is the authoritative copy."
+   },
+   {
+    "id": "vector",
+    "label": "Vector",
+    "kind": "vector",
+    "file": "ranges/eagle-park-map.svg",
+    "width": 1264,
+    "height": 839,
+    "note": "The same plan traced to vector outlines, so it stays sharp at any zoom. Traced by machine from the scan, so it follows the drawing rather than redrawing it -- but it is a copy of a copy: check anything critical against the scan."
+   }
+  ]
  },
  "source": {
   "title": "Eagle Park Shooting Complex Range Rules",
