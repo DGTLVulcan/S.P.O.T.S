@@ -14,10 +14,11 @@
  ],
  "hours_note": "Closed for some public holidays (Easter, ANZAC Day, and the Christmas and New Year period) -- check the SSAA Victoria website.",
  "map": {
-  "image": "ranges/eagle-park-map.jpg",
-  "width": 1264,
-  "height": 839,
-  "caption": "Plan of ranges at Eagle Park (section 20 of the range rules)."
+  "image": "ranges/eagle-park-map.webp",
+  "width": 2528,
+  "height": 1678,
+  "caption": "Plan of ranges at Eagle Park (section 20 of the range rules).",
+  "processing": "Taken from page 20 of the source document. The plan itself is unaltered: JPEG compression artefacts were removed and it was scaled up so it stays legible when zoomed."
  },
  "source": {
   "title": "Eagle Park Shooting Complex Range Rules",

@@ -87,8 +87,10 @@ class EagleParkContentTests(unittest.TestCase):
 
     def test_the_map_is_recorded_with_its_size(self):
         map_data = self.item["map"]
-        self.assertTrue(map_data["image"].endswith(".jpg"))
-        self.assertEqual((map_data["width"], map_data["height"]), (1264, 839))
+        self.assertTrue(map_data["image"].endswith(".webp"))
+        self.assertEqual((map_data["width"], map_data["height"]), (2528, 1678))
+        # The map is a processed copy, so it has to say so.
+        self.assertIn("unaltered", map_data["processing"])
         static = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "spots", "web", "static", map_data["image"])
