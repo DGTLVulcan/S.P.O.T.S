@@ -1,15 +1,12 @@
 """What's worth recording about a rifle, a scope and a batch of ammo.
 
-The three kinds deliberately do NOT share a field list -- barrel twist means
-nothing to a box of ammo, and a bullet's ballistic coefficient means nothing
-to a scope. This module is the single definition of those fields: the
-equipment page builds its forms from it, and the API validates against it,
-so neither can drift from the other.
+The kinds deliberately don't share a field list -- barrel twist means
+nothing to a box of ammo. This is the single definition of those fields:
+the forms are built from it and the API validates against it, so the two
+can't drift.
 
-Everything except the scope's click value is documentation -- recorded so a
-session's history says what it was actually shot with. Click value is the
-exception: it feeds the turret maths in Scope Correction, so it lives in its
-own column rather than the free-form specs blob.
+All of it is documentation except the scope's click value, which feeds the
+turret maths and so gets its own column rather than the specs blob.
 """
 from __future__ import annotations
 
@@ -237,10 +234,9 @@ def clean_rings(raw) -> tuple[list, list[str]]:
 def score_shot(distance_from_centre: float, rings: list | None) -> float | None:
     """Points for a shot that landed `distance_from_centre` from the middle.
 
-    A shot counts for the first ring whose radius it falls within, so the
-    smallest (highest-scoring) ring wins. Outside every ring scores zero;
-    with no rings defined there is nothing to score against and the result
-    is None rather than 0, so "unscored" is distinguishable from "a miss".
+    The first ring it falls within wins, so the smallest scores. Outside
+    every ring is 0; with no rings defined it's None, so "unscored" stays
+    distinguishable from "a miss".
     """
     if not rings:
         return None
@@ -370,11 +366,9 @@ def normalise_calibre(text: str | None) -> str:
 def calibres_match(left: str | None, right: str | None) -> bool:
     """Whether two chamberings can be used together.
 
-    An unrecorded calibre matches anything: the app can't prove a mismatch
-    it has no data for, and refusing to pair kit just because a field is
-    blank would be worse than letting it through. Otherwise one being a
-    prefix of the other counts, so ".308 Win" and ".308 Winchester" agree
-    while ".308" and ".300 Win Mag" don't.
+    An unrecorded calibre matches anything, since a blank field is no
+    proof of a mismatch. Otherwise a prefix counts, so ".308 Win" and
+    ".308 Winchester" agree while ".308" and ".300 Win Mag" don't.
     """
     a, b = normalise_calibre(left), normalise_calibre(right)
     if not a or not b:

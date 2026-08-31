@@ -136,10 +136,8 @@ class Storage:
             self._conn.execute("ALTER TABLE shots ADD COLUMN snapshot_path TEXT")
         if "is_test" not in shot_columns:
             self._conn.execute("ALTER TABLE shots ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0")
-        # Excluded shots stay on the target and in history but are left out
-        # of the group maths -- a called flyer shouldn't have to be deleted
-        # (and lose its snapshot and place in the string) to stop skewing
-        # the group size.
+        # Excluded shots stay on the target and in history but leave the
+        # group maths, so a called flyer needn't be deleted to be ignored.
         if "excluded" not in shot_columns:
             self._conn.execute("ALTER TABLE shots ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0")
 
@@ -154,19 +152,16 @@ class Storage:
             self._conn.execute("ALTER TABLE sessions ADD COLUMN distance_m REAL")
         if "name" not in session_columns:
             self._conn.execute("ALTER TABLE sessions ADD COLUMN name TEXT")
-        # Calibration is stored per session so a restart (or a Pi reboot
-        # mid-string) can restore the scale and target-centre origin rather
-        # than making the user re-calibrate and orphaning the shots already
-        # recorded against it.
+        # Per session, so a restart mid-string can restore the scale and
+        # origin instead of orphaning the shots already recorded.
         for column in ("calib_units_per_px", "calib_origin_x", "calib_origin_y"):
             if column not in session_columns:
                 self._conn.execute(f"ALTER TABLE sessions ADD COLUMN {column} REAL")
         for column in ("rifle", "scope", "ammo"):
             if column not in session_columns:
                 self._conn.execute(f"ALTER TABLE sessions ADD COLUMN {column} TEXT")
-        # The full spec set of the kit used, snapshotted at New Target, so a
-        # comparison can group by charge weight or bullet even after that
-        # ammo has been edited or deleted. Names alone weren't enough.
+        # Full specs of the kit, snapshotted at New Target, so comparisons
+        # can group by charge weight or bullet after it's been edited.
         if "equipment_snapshot" not in session_columns:
             self._conn.execute("ALTER TABLE sessions ADD COLUMN equipment_snapshot TEXT")
         # Conditions the string was shot in -- all optional, since you often
@@ -333,12 +328,9 @@ class Storage:
     def _next_free_session_id_locked(self) -> int:
         """Smallest positive integer not currently used by a session.
 
-        Deleting sessions frees their numbers for reuse, so the ids track how
-        many sessions you actually have rather than how many you have ever
-        created -- clear the history and the next session is #1 again. The
-        candidate set is every existing id + 1 plus 1 itself, which always
-        contains the answer: either a gap left by a deletion, or one past
-        the highest in use.
+        Deleted sessions free their numbers, so ids track how many you have
+        rather than how many you've ever made. Every existing id + 1, plus 1
+        itself, always contains the answer.
         """
         row = self._conn.execute(
             """SELECT MIN(candidate) FROM (
@@ -480,11 +472,8 @@ class Storage:
     ) -> None:
         """Re-writes several shots' real-world units in ONE transaction.
 
-        Recalibrating or marking the target center re-derives units for every
-        shot in the session; doing that a row at a time meant a separate
-        commit (and so a separate fsync) per shot, which on a Pi's SD card
-        turned a 30-shot session into a visibly slow "Mark Center". One
-        commit for the batch keeps it instant.
+        Recalibrating re-derives units for every shot, and a commit (and
+        fsync) each made "Mark Center" visibly slow on a Pi's SD card.
         """
         if not rows:
             return
@@ -603,10 +592,8 @@ class Storage:
     def latest_session_id(self) -> int | None:
         """Most recently CREATED session, by timestamp rather than by id.
 
-        Ids get reused once a session is deleted, so the highest id is no
-        longer necessarily the newest session -- a reused low number can be
-        the freshest one. Startup resume depends on this, and picking by
-        MAX(id) would restore an older session instead.
+        Ids are reused after a delete, so the highest is not necessarily
+        the newest -- MAX(id) would resume the wrong session at startup.
         """
         with self._lock:
             row = self._conn.execute(
@@ -617,10 +604,9 @@ class Storage:
     def backup_to(self, destination_path: str) -> None:
         """Writes a consistent copy of the database to `destination_path`.
 
-        Uses SQLite's own backup API rather than copying the file: the app
-        keeps writing while this runs (the detector commits shots on its own
-        thread), and a plain file copy of a live database can catch a
-        half-written page and produce a backup that won't open.
+        Uses SQLite's backup API, not a file copy: the detector keeps
+        committing while this runs, and a copy can catch a half-written
+        page and produce a backup that won't open.
         """
         with self._lock:
             target = sqlite3.connect(destination_path)

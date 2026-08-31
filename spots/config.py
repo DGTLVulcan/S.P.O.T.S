@@ -14,10 +14,8 @@ _DEFAULT_CONFIG_PATH = "config.yaml"
 _EXAMPLE_CONFIG_PATH = "config.example.yaml"
 _DEFAULT_ENV_PATH = ".env"
 
-# Environment overrides, applied on top of the YAML. The point is local
-# development: run against the synthetic camera on a laptop without editing
-# (and accidentally committing, or shipping to the Pi) a config.yaml that
-# the field install needs pointed at the real camera.
+# Overrides applied on top of the YAML, so a laptop can run the synthetic
+# camera without editing the config.yaml the field install depends on.
 #   env var -> (section, field, parser)
 _ENV_OVERRIDES: dict[str, tuple[str, str, type]] = {
     "SPOTS_CAMERA_SOURCE": ("camera", "source", str),
@@ -36,11 +34,9 @@ _ENV_OVERRIDES: dict[str, tuple[str, str, type]] = {
 def load_dotenv(path: str = _DEFAULT_ENV_PATH) -> dict[str, str]:
     """Reads KEY=VALUE lines from a .env file into os.environ.
 
-    Deliberately hand-rolled rather than pulling in python-dotenv: it is a
-    dozen lines, and the Pi install has one fewer package to fetch over a
-    field connection. A variable already set in the real environment always
-    wins, so `SPOTS_CAMERA_SOURCE=synthetic python S.P.O.T.S.py` beats the
-    file. Returns what it applied; missing file is not an error.
+    Hand-rolled rather than python-dotenv, to keep one more package off the
+    Pi. The real environment always wins over the file. Returns what it
+    applied; a missing file is not an error.
     """
     applied: dict[str, str] = {}
     try:
@@ -70,17 +66,14 @@ def load_dotenv(path: str = _DEFAULT_ENV_PATH) -> dict[str, str]:
 @dataclass
 class CameraConfig:
     source: str = "synthetic"  # "zcam" or "synthetic"
-    # Empty string = auto-discover on the Ethernet link (see
-    # spots/camera/discovery.py) -- the normal field setup, since the Pi
-    # hands the camera its DHCP lease and its address isn't fixed. Set this
-    # explicitly only if you want to skip discovery and pin a known IP.
+    # Blank = discover it on the Ethernet link (camera/discovery.py), which
+    # is the field setup: the Pi hands out the lease, so the IP isn't fixed.
     ip: str = ""
     stream_width: int = 1920
     stream_height: int = 1080
     stream_bitrate: int = 8_000_000
-    # Software crop+resize zoom, for when the lens can't get physically
-    # close enough to fill the frame with the target. 1.0 = no zoom.
-    # center_x/center_y are fractional pan position (0-1) within the frame.
+    # Crop+resize zoom for when the lens can't reach. 1.0 = off; the
+    # centres are a fractional pan position (0-1) within the frame.
     digital_zoom: float = 1.0
     zoom_center_x: float = 0.5
     zoom_center_y: float = 0.5
@@ -90,14 +83,10 @@ class CameraConfig:
 class TargetConfig:
     width_units: float = 59.0
     unit_name: str = "cm"
-    # Distance to target in meters, for converting group size to MOA. 0
-    # means "not set" -- MOA is simply omitted from stats until this is.
-    # Captured per-session at New Target time (like unit_name), so changing
-    # it later doesn't retroactively alter a past session's MOA figures.
+    # Metres, for MOA. 0 = unset, and MOA is omitted until it isn't.
+    # Captured per session, so changing it can't rewrite past figures.
     distance_m: float = 0.0
-    # "Best N-shot subgroup" sizes to report (tightest N shots by extreme
-    # spread, out of however many have been fired). Skipped for a given N
-    # until at least N shots exist.
+    # Which "best N-shot subgroup" sizes to report, once N shots exist.
     best_subgroup_sizes: list[int] = field(default_factory=lambda: [3, 5])
     # Exhaustive subgroup search is combinatorial (n choose k); above this
     # many shots in the session it's skipped rather than eating Pi CPU.
@@ -107,27 +96,20 @@ class TargetConfig:
 @dataclass
 class DetectionConfig:
     sample_fps: float = 3.0
-    # A hole on a dark printed ring can differ from that ring by far less
-    # than on a light one (e.g. hole=10 vs a dark ring=40 is a diff of just
-    # 30, vs 200+ against a light ring) -- kept low enough to catch that,
-    # relying on min/max hole area + circularity + the 2-frame debounce
-    # below to reject noise rather than a high threshold. Raise this if
-    # outdoor lighting flicker causes false positives; lower it if holes on
-    # dark rings still aren't registering.
+    # Low, because a hole on a dark ring differs from it by far less than
+    # one on white paper. Noise is rejected by area, circularity and the
+    # debounce below rather than by a high threshold here.
     diff_threshold: int = 20
-    # Size a hole from the bullet diameter and the calibrated scale rather
-    # than from these fixed pixel figures, which only ever suit one framing.
-    # Falls back to them whenever it can't be worked out -- before
-    # calibration, or with no bullet diameter recorded on the ammo.
+    # Size holes from bullet diameter + calibrated scale; the fixed pixel
+    # figures below only ever suit one framing, and are the fallback.
     auto_hole_area: bool = True
     min_hole_area_px: int = 20
     max_hole_area_px: int = 400
     min_circularity: float = 0.5
     min_shot_spacing_px: int = 12
     debounce_frames: int = 2
-    # Re-align each incoming frame onto the reference's coordinates via ORB
-    # feature matching + homography before diffing, so wind/shockwave sway
-    # of the physical target doesn't get misread as shots or blur real ones.
+    # Warp each frame onto the reference before diffing, so a target
+    # swaying in the wind isn't read as a wall of new holes.
     realignment_enabled: bool = True
     realignment_method: str = "orb"  # "orb" or "sift"
     realignment_min_matches: int = 15
@@ -137,10 +119,8 @@ class DetectionConfig:
 class EquipmentConfig:
     """Which rifle/scope/ammo is currently selected in the dashboard header.
 
-    Only the ids live here; the equipment itself is in the database, where it
-    can be added to and edited. The selected scope supplies the turret click
-    value used for scope correction, so different scopes carry different
-    values instead of one global setting.
+    Only ids live here; the equipment itself is in the database. The
+    selected scope supplies the turret click value used for corrections.
     """
     rifle_id: int | None = None
     scope_id: int | None = None
@@ -157,22 +137,15 @@ class StorageConfig:
 class WebConfig:
     host: str = "0.0.0.0"
     port: int = 8080
-    # MJPEG dashboard stream. Every streamed frame costs an overlay draw plus
-    # a full JPEG encode, per connected viewer -- on a Pi that's the single
-    # biggest steady CPU cost, and it's independent of the detection sample
-    # rate (shots are still detected at detection.sample_fps no matter what
-    # this is set to). 10 fps still looks live on a phone; raise it for a
-    # smoother picture if you have CPU headroom.
+    # Dashboard stream. Each frame costs an overlay draw plus a JPEG encode
+    # per viewer -- the biggest steady CPU cost on a Pi. Detection is
+    # unaffected; it runs at detection.sample_fps regardless.
     stream_fps: float = 10.0
     stream_quality: int = 80
-    # Downscale the streamed picture to at most this many pixels wide (0 =
-    # send it at native resolution). Detection is NOT affected -- it always
-    # runs on the full-resolution frame; this only changes what gets pushed
-    # to the browser. A full 1080p stream measured ~18 Mbit/s, which a Pi
-    # running its own 2.4GHz access point cannot sustain: the stream backs
-    # up in TCP and the picture arrives seconds late (looking like new shots
-    # "don't appear until you refresh"). 960px is plenty on a phone and cuts
-    # that by roughly 4x.
+    # Cap the streamed picture's width (0 = native). Detection still uses
+    # the full-resolution frame. Native 1080p measured ~18 Mbit/s, which the
+    # Pi's own 2.4GHz AP can't carry -- the stream then backs up in TCP and
+    # arrives seconds late.
     stream_max_width: int = 960
 
 
@@ -180,10 +153,8 @@ def _build(config_class, raw: dict):
     """Builds a config dataclass from YAML, ignoring keys it doesn't declare.
 
     Without this, removing a setting would break every existing install:
-    config.yaml still holds the old key, and the dataclass constructor would
-    raise TypeError on an unexpected keyword, so the app wouldn't start at
-    all after an update. Unknown keys are simply dropped -- they disappear
-    from the file the next time settings are saved.
+    the old key is still in their config.yaml, and the constructor would
+    raise TypeError on it. Dropped keys disappear at the next save.
     """
     if not isinstance(raw, dict):
         return config_class()
@@ -225,10 +196,8 @@ class Settings:
         return settings
 
     def _apply_env_overrides(self) -> None:
-        # Remembers what the file said so save() can put it back -- otherwise
-        # a dev override would be written into config.yaml the first time
-        # anything is saved from the Settings page, quietly turning a local
-        # convenience into the committed configuration.
+        # Remember the file's own value so save() can put it back, rather
+        # than writing a dev override into config.yaml permanently.
         self._overridden_from_file = {}
         for env_key, (section, field_name, parser) in _ENV_OVERRIDES.items():
             raw_value = os.environ.get(env_key)
@@ -246,9 +215,8 @@ class Settings:
         """Persists to config.yaml (never config.example.yaml, regardless of
         which file was loaded from) so settings changes survive a restart.
 
-        Values that came from the environment are written back as whatever
-        the file originally held, so running with a .env never rewrites the
-        config with development settings.
+        Environment values are written back as whatever the file held, so
+        a .env never rewrites the config with development settings.
         """
         chosen = path or _DEFAULT_CONFIG_PATH
         overridden = getattr(self, "_overridden_from_file", {})

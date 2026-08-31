@@ -22,9 +22,8 @@ from spots.vision.groups import _UNIT_TO_METERS, GroupStats, compute_group_stats
 
 logger = logging.getLogger(__name__)
 
-# New Target refuses to start a session until the distance is set above
-# this -- catches an unset/forgotten distance before shots get recorded
-# against it, rather than silently defaulting to "no MOA."
+# New Target won't start below this, so a forgotten distance is caught
+# before shots are recorded against it rather than after.
 _MIN_DISTANCE_M = 10.0
 
 
@@ -173,14 +172,11 @@ class DetectionWorker:
         self.state = SessionState()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
-        # Set by resume_last_session() when a restored session still needs a
-        # reference frame; the worker loop arms the detector as soon as one
-        # is available, since at startup the camera may not have produced a
-        # frame yet.
+        # Set when a resumed session still needs a reference frame; the
+        # loop arms the detector once the camera has produced one.
         self._pending_rearm_seq: int | None = None
-        # Bullet diameter of the selected ammo, in mm. With this and the
-        # calibrated scale the expected hole size can be worked out, instead
-        # of relying on pixel figures that only suit one framing.
+        # Selected ammo's bullet diameter in mm; with the calibrated scale
+        # it gives the expected hole size in pixels.
         self._bullet_diameter_mm: float | None = None
 
     def start(self) -> None:
@@ -196,12 +192,10 @@ class DetectionWorker:
         """Expected hole size in the CURRENT view, from the bullet diameter
         and the calibrated scale.
 
-        Returns None whenever it can't be worked out -- auto-sizing off, no
-        calibration yet, no diameter recorded, or a unit with no fixed
-        conversion to metres -- and the configured pixel figures are used
-        instead. The window is generous either side of the expected area:
-        holes tear larger than the bullet, and two touching holes merge into
-        one blob that must still pass.
+        None whenever it can't be worked out (auto-sizing off, no
+        calibration, no diameter, an unconvertible unit) and the configured
+        pixel figures are used instead. The window is generous: holes tear
+        larger than the bullet, and two touching ones merge into a blob.
         """
         if not self._detection_config.auto_hole_area or not self._bullet_diameter_mm:
             return None
@@ -232,10 +226,8 @@ class DetectionWorker:
             if frame is None:
                 continue
             if self._pending_rearm_seq is not None:
-                # Re-baseline a resumed session against the target as it
-                # looks now. Existing holes become part of the reference, so
-                # only genuinely new impacts register from here -- the same
-                # trick burn-in uses for tight groups.
+                # Re-baseline onto the target as it looks now, so the
+                # existing holes don't all re-register as fresh impacts.
                 self._detector.reset(frame, next_seq=self._pending_rearm_seq)
                 logger.info(
                     "Resumed session armed; detection continues from shot #%d",
@@ -278,12 +270,11 @@ class DetectionWorker:
     def _save_snapshot(
         self, session_id: int, seq: int, marker_x: float, marker_y: float, frame_bgr: np.ndarray
     ) -> str | None:
-        """Save a marked JPEG of the frame at commit time, so a false-positive
-        detection can be visually confirmed later from session history.
-        marker_x/marker_y must already be in frame_bgr's own coordinate space
-        (i.e. re-alignment-corrected, not the detector's anchor space).
-        Returns a path relative to the snapshot directory, or None on failure
-        (never blocks shot recording -- the DB row is the source of truth).
+        """Save a marked JPEG at commit time, so a false positive can be
+        confirmed later from history. marker_x/marker_y must be in
+        frame_bgr's own space, not the detector's anchor space. Returns a
+        path relative to the snapshot dir, or None -- never blocking the
+        shot record, which is the source of truth.
         """
         try:
             session_dir = os.path.join(self._snapshot_dir, str(session_id))
@@ -347,10 +338,8 @@ class DetectionWorker:
                 f"Distance to target must be greater than {_MIN_DISTANCE_M} m before "
                 "starting a new target"
             )
-        # Dev/test-only hook: SyntheticFrameSource clears its fabricated holes
-        # here, before the reference frame is captured, so the reference is
-        # truly clean -- mirroring a real target being physically replaced
-        # before the reference photo is taken. No-op for a real camera.
+        # Synthetic source only: clear fabricated holes before the
+        # reference is taken, mirroring a fresh paper target.
         reset_target = getattr(self._frame_source, "reset_target", None)
         if callable(reset_target):
             reset_target()
@@ -383,12 +372,10 @@ class DetectionWorker:
     def resume_last_session(self) -> bool:
         """Restores the most recent session after a restart or Pi reboot.
 
-        Shots, calibration and distance all live in SQLite already, but the
-        in-memory state started empty on every launch, so a power blip
-        mid-string left the dashboard blank and the calibration gone even
-        though the data was on disk. Detection resumes into the *same*
-        session (see _pending_rearm_seq) rather than forcing a New Target,
-        which would have started a new one and split the string in two.
+        The data was always in SQLite, but in-memory state started empty,
+        so a power blip mid-string left the dashboard blank anyway.
+        Detection resumes into the same session rather than forcing a New
+        Target, which would split the string in two.
         """
         session_id = self._storage.latest_session_id()
         if session_id is None:
@@ -475,15 +462,11 @@ class DetectionWorker:
         return ok
 
     def add_test_shot(self, x_px: float, y_px: float) -> bool:
-        """Manually records a shot at a clicked point on the live feed, for
-        exercising calibration/stats/MOA without needing a real impact.
-        Bypasses the detector entirely (there's nothing to diff against on
-        real footage the way a synthetic hole can be drawn in) -- x_px/y_px
-        are taken directly in the frame's own coordinate space, the same
-        convention as a Calibrate or Mark Center click, not the detector's
-        internal anchor space. Tagged is_test so it's never mistaken for a
-        genuine detected impact when reviewing a session later.
-        Returns False if there's no active session to record it against.
+        """Records a shot at a clicked point, for exercising calibration and
+        stats without a real impact. Bypasses the detector, so x_px/y_px are
+        in the frame's own space (as with a Calibrate click), not anchor
+        space. Tagged is_test so history can't confuse it for a real impact.
+        False if there's no active session.
         """
         state = self.state.snapshot()
         if state.session_id is None:
@@ -537,11 +520,9 @@ class DetectionWorker:
         state = self.state.snapshot()
         if not state.shots:
             return
-        # Only pop the detector's own committed-shot bookkeeping when the
-        # last shot actually came from it -- a test shot never touched that
-        # state (it borrows a seq number but bypasses detection entirely),
-        # so popping it here would incorrectly discard the last REAL
-        # detection instead of the test shot actually being undone.
+        # Only pop the detector's bookkeeping if the last shot came from
+        # it -- a test shot never touched that state, so popping here would
+        # discard the last real detection instead.
         if not state.shots[-1].is_test:
             self._detector.undo_last()
         if state.session_id is not None:
@@ -561,13 +542,10 @@ class DetectionWorker:
         return True
 
     def delete_shot(self, seq: int) -> bool:
-        """Removes an arbitrary shot by sequence number, not just the last
-        one. Deleting the last shot delegates to undo_last() so the
-        detector's own bookkeeping (used for the *next* undo's chronological
-        assumption) stays correct; removing an earlier shot doesn't need to
-        touch it -- that bookkeeping never mattered for anything except "was
-        the most recent commit a real one," which a mid-list removal doesn't
-        change. Returns False if no shot with that seq exists.
+        """Removes any shot by sequence number. The last one delegates to
+        undo_last() to keep the detector's bookkeeping correct; an earlier
+        one can't change what that tracks ("was the most recent commit
+        real"), so it's left alone. False if no such seq exists.
         """
         state = self.state.snapshot()
         if not state.shots:

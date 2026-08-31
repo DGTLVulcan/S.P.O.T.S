@@ -1,10 +1,8 @@
 """Pi health readings for the dashboard.
 
-Everything here is best-effort and read straight from /proc and /sys rather
-than pulling in psutil: on a field device the point is to notice a full SD
-card or a throttling CPU before it ruins a session, and any reading that
-isn't available (running off-Pi, a kernel without that sysfs node) is
-reported as None rather than raising.
+Read straight from /proc and /sys rather than via psutil. The point is to
+notice a full SD card or a throttling CPU before it ruins a session, so
+anything unavailable is reported as None rather than raising.
 """
 from __future__ import annotations
 
@@ -42,11 +40,10 @@ def cpu_temperature_c() -> float | None:
 def throttled_flags() -> dict | None:
     """Raspberry Pi under-voltage / throttling state.
 
-    The bits are documented by the firmware: 0 under-voltage now, 1 arm
-    frequency capped now, 2 throttled now, 3 soft temp limit now, and bits
-    16-19 are the same conditions "since boot". A cheap USB supply showing
-    up as under-voltage is a classic cause of a Pi behaving oddly in the
-    field, and it is otherwise invisible.
+    Firmware bits: 0 under-voltage, 1 frequency capped, 2 throttled, 3
+    soft temp limit, and 16-19 the same "since boot". A cheap supply showing
+    as under-voltage explains a lot of odd Pi behaviour, and is invisible
+    otherwise.
     """
     raw = _read_first_line("/sys/devices/platform/soc/soc:firmware/get_throttled")
     if raw is None:
