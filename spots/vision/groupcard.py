@@ -1,11 +1,8 @@
 """Renders a shot group as a shareable PNG.
 
 Drawn server-side with OpenCV rather than screenshotting the browser: the
-same picture comes out whichever device asked for it, it works for a past
-session nobody has open, and OpenCV is already a dependency.
-
-Deliberately plain -- a target diagram, the numbers, and what it was shot
-with. It is meant to be legible on a phone and printable, not decorative.
+same picture whichever device asked, and it works for a session nobody has
+open. Deliberately plain -- meant to be legible on a phone and printable.
 """
 from __future__ import annotations
 

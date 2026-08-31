@@ -1,10 +1,8 @@
 """Frame sources for the detection worker.
 
-FrameSource is the seam between "where video comes from" and everything
+FrameSource is the seam between where video comes from and everything
 downstream. RtspFrameSource pulls the real Z CAM feed; SyntheticFrameSource
-fabricates a paper target (holes placed manually via add_hole(), e.g. from a
-dashboard click) so the detection pipeline and dashboard can be
-developed/tested without any hardware.
+fabricates a paper target so the rest can be developed without hardware.
 """
 from __future__ import annotations
 
@@ -30,11 +28,9 @@ class FrameSource(abc.ABC):
     def get_latest_frame(self) -> np.ndarray | None:
         """Returns the most recent BGR frame, or None if none is available yet.
 
-        Implementations MUST return an array the caller owns outright, never
-        a view of an internal buffer that a later frame will overwrite.
-        Callers rely on this to draw overlays in place without copying first
-        (see the MJPEG stream), so handing back shared memory would let one
-        consumer's annotations bleed into another's frame.
+        Implementations MUST return an array the caller owns outright, not
+        a view of a buffer a later frame overwrites: callers draw overlays
+        straight into it, so shared memory would bleed between consumers.
         """
 
 
@@ -88,15 +84,11 @@ class RtspFrameSource(FrameSource):
 class ZoomFrameSource(FrameSource):
     """Wraps another FrameSource with software (crop + resize) zoom.
 
-    For a fixed camera whose lens can't get physically close enough to fill
-    the frame with the target, this crops around a pan center and rescales
-    back to the original frame size -- so everything downstream (detection,
-    calibration, display) keeps operating in the same pixel dimensions and
-    doesn't need to know zoom exists. At level 1.0 this is a pure passthrough.
+    Crops around a pan centre and rescales to the original frame size, so
+    nothing downstream needs to know zoom exists. 1.0 is a passthrough.
 
-    Changing zoom/pan while a session is active invalidates the current
-    reference frame and calibration the same way physically moving the
-    camera would -- callers should prompt for New Target + re-calibration.
+    Changing zoom or pan mid-session invalidates the reference frame and
+    calibration exactly as moving the camera would.
     """
 
     def __init__(self, inner: FrameSource, level: float = 1.0, center_x: float = 0.5, center_y: float = 0.5):
@@ -106,11 +98,9 @@ class ZoomFrameSource(FrameSource):
         self._center_y = min(max(center_y, 0.0), 1.0)
 
     def __getattr__(self, name):
-        # Falls through to the wrapped source for anything this wrapper
-        # doesn't itself define -- e.g. SyntheticFrameSource.reset_target(),
-        # a dev/test-only hook that DetectionWorker calls via getattr(). Only
-        # invoked when normal attribute lookup misses, so it never shadows
-        # the methods defined below.
+        # Falls through to the wrapped source for anything not defined
+        # here, e.g. SyntheticFrameSource.reset_target(). Only runs when
+        # normal lookup misses, so it never shadows the methods below.
         return getattr(self._inner, name)
 
     def set_zoom(self, level: float, center_x: float, center_y: float) -> None:
@@ -151,9 +141,8 @@ class SyntheticFrameSource(FrameSource):
     """
 
     _HOLE_RADIUS_PX = 8
-    # Number of distinct pre-generated dither patterns cycled through. They
-    # come from overlapping row-offset *views* of one oversized buffer, so
-    # this costs one frame of memory rather than _DITHER_FRAMES of it.
+    # Dither patterns cycled through. They're row-offset views of one
+    # oversized buffer, so this costs one frame of memory, not this many.
     _DITHER_FRAMES = 8
     _DITHER_AMPLITUDE = 3
 
@@ -164,19 +153,16 @@ class SyntheticFrameSource(FrameSource):
         self._target_radius = int(min(width, height) * 0.35)
         self._holes: list[tuple[int, int]] = []
         self._lock = threading.Lock()
-        # A fixed speckle texture baked in once, so ORB has stable features
-        # to match frame-to-frame. Fresh per-frame noise (as this used to
-        # add) erases any consistent texture entirely -- a real camera's
-        # scene detail stays put; only a much smaller sensor-noise dither
-        # actually varies frame to frame.
+        # Baked in once so ORB has stable features to match. Regenerating
+        # it per frame would leave no consistent texture at all, which a
+        # real camera's scene detail always has.
         self._base = self._build_base_frame(seed)
         # Base with the current holes already drawn in, rebuilt only when the
         # hole list changes rather than re-drawn every single frame.
         self._composite = self._base
-        # Generating a fresh full-resolution gaussian per frame cost ~68 ms
-        # at 1080p -- with the MJPEG stream and the detector both pulling
-        # frames that alone was more than a Pi core. Pre-generate the noise
-        # once as int8 and cycle row-offset views of it instead (~2 ms).
+        # A fresh 1080p gaussian per frame cost ~68 ms, more than a Pi core
+        # once the stream and detector were both pulling. Pre-generating it
+        # once and cycling row-offset views costs ~2 ms.
         self._dither = np.random.default_rng(seed).integers(
             -self._DITHER_AMPLITUDE,
             self._DITHER_AMPLITUDE + 1,
@@ -227,11 +213,9 @@ class SyntheticFrameSource(FrameSource):
             offset = self._dither_index
             self._dither_index = (self._dither_index + 1) % self._DITHER_FRAMES
 
-        # Small dither over the fixed base -- well below diff_threshold, so
-        # it doesn't trigger false contours, but enough to look like a live
-        # feed rather than a static image. cv2.add saturates at 0/255 rather
-        # than wrapping, so no separate clip pass is needed, and it returns a
-        # new array so `composite` itself is never mutated.
+        # Dither well below diff_threshold: enough to look live, not enough
+        # to trigger contours. cv2.add saturates instead of wrapping and
+        # returns a new array, so no clip pass and no mutation of the base.
         return cv2.add(
             composite, self._dither[offset : offset + self._height], dtype=cv2.CV_8U
         )
@@ -244,14 +228,12 @@ class SwitchableFrameSource(FrameSource):
     """Live-toggles between the synthetic test target and a real camera
     without restarting the app.
 
-    The Z CAM connection is made lazily, on first switch to "zcam" -- so a
-    synthetic-only dev setup with no camera configured/reachable never
-    attempts one at startup. Once connected it's kept alive so toggling back
-    and forth afterward is instant, not a fresh reconnect each time.
+    The Z CAM connects lazily on the first switch to it, so a dev setup
+    with no camera never tries at startup, and is then kept alive so
+    toggling back and forth is instant.
 
-    Switching feeds changes every pixel in the frame, exactly like swapping
-    cameras or moving one would -- it invalidates the current reference
-    frame and calibration; callers should prompt for New Target + re-calibration.
+    Switching feeds changes every pixel, so it invalidates the reference
+    frame and calibration.
     """
 
     def __init__(self, synthetic: SyntheticFrameSource, zcam_factory):
@@ -263,18 +245,16 @@ class SwitchableFrameSource(FrameSource):
         self._lock = threading.Lock()
 
     def __getattr__(self, name):
-        # Falls through to whichever source is CURRENTLY ACTIVE for anything
-        # not defined here -- e.g. SyntheticFrameSource.reset_target()/
-        # add_hole(), which should only ever apply while synthetic is active.
+        # Falls through to whichever source is active, so synthetic-only
+        # hooks like add_hole() can't reach a real camera.
         source = self._zcam_source if self._active == "zcam" else self._synthetic
         if source is None:
             raise AttributeError(name)
         return getattr(source, name)
 
     def start(self) -> None:
-        # The synthetic source has no background work (start()/stop() are
-        # no-ops), so switching to it is always instant. The Z CAM source is
-        # started separately, in switch_to(), the moment it's first connected.
+        # Synthetic has no background work, so switching to it is instant.
+        # The Z CAM source is started in switch_to() on first connect.
         self._synthetic.start()
 
     def stop(self) -> None:

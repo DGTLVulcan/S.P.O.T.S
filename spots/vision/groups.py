@@ -25,9 +25,8 @@ def compute_group_stats(points: list[tuple[float, float]], unit_name: str) -> Gr
     radii = [math.hypot(x - cx, y - cy) for x, y in points]
     mean_radius = statistics.fmean(radii)
     std_dev = statistics.pstdev(radii) if len(points) > 1 else 0.0
-    # Indexed double loop rather than max(... for combinations(points, 2)):
-    # same value, but without materializing a tuple pair per comparison --
-    # this is O(n^2) and sits on the shot-add path, so the constant matters.
+    # Indexed loop rather than combinations(): same value without a tuple
+    # per comparison, and this is O(n^2) on the shot-add path.
     extreme_spread = 0.0
     for i in range(len(points)):
         xi, yi = points[i]
@@ -47,9 +46,8 @@ def compute_group_stats(points: list[tuple[float, float]], unit_name: str) -> Gr
     )
 
 
-# Only units we know a fixed conversion for -- an arbitrary custom
-# unit_name (anything else the user typed in Settings) can't be converted
-# to meters, so MOA is simply omitted rather than guessed at.
+# Only units with a fixed conversion. A custom unit_name can't be turned
+# into metres, so MOA is omitted rather than guessed.
 _UNIT_TO_METERS = {
     "mm": 0.001,
     "cm": 0.01,
@@ -97,11 +95,9 @@ def scope_correction(
 ) -> dict | None:
     """Turret adjustment that would move the group onto the point of aim.
 
-    `center` is the group's centre relative to the marked target centre, in
-    `unit_name`, with +x right and +y up (Calibration.to_units' convention).
-    The dial goes the opposite way to the error: a group printing high and
-    right needs DOWN and LEFT. Returns None when the angle can't be worked
-    out (no distance, or a unit with no fixed conversion to meters).
+    `center` is the group centre relative to the marked point of aim, +x
+    right and +y up. The dial goes the opposite way to the error: high and
+    right needs DOWN and LEFT. None if the angle can't be worked out.
     """
     if click_value <= 0:
         return None
@@ -127,25 +123,19 @@ def best_subgroup(points: list[tuple[float, float]], n: int, unit_name: str) -> 
     """Tightest N-shot subset by extreme spread, out of however many shots
     exist -- the standard "best N-shot group" precision-shooting metric.
 
-    Exact (it still finds the true optimum), but searched via depth-first
-    branch and bound over a precomputed distance matrix rather than scoring
-    every n-choose-k subset. The naive version built full GroupStats for
-    each of C(30,5)=142,506 subsets on every dashboard poll, which measured
-    at ~3.6 s per call on a dev box (far worse on a Pi) and pegged the
-    server. Pruning any partial subset that already spans at least the best
-    diameter found so far collapses that to a few milliseconds, since most
-    branches blow the bound within their first two or three points.
+    Still exact, but by depth-first branch and bound over a precomputed
+    distance matrix rather than scoring every subset. Building GroupStats
+    for all C(30,5)=142,506 measured ~3.6 s per dashboard poll; pruning any
+    partial subset that already spans the best diameter found makes it a few
+    milliseconds, since most branches blow the bound in two or three points.
 
-    Callers should still cap the input size (see
-    TargetConfig.best_subgroup_max_shots): the worst case is combinatorial,
-    the pruning just makes real shot groups cheap.
+    Callers should still cap the input (TargetConfig.best_subgroup_max_shots)
+    -- the worst case is combinatorial, pruning just makes real groups cheap.
 
-    Exact ties are common (the diameter is set by one widest pair, which
-    many different subsets share), and which of several equally-tight
-    subsets gets reported may differ from the exhaustive version's -- both
-    are optimal, and the reported extreme spread is identical either way.
-    Only the tied subgroup's secondary figures (its own center/mean radius/
-    std dev) can vary between two such answers.
+    Ties are common, since the diameter comes from one widest pair that many
+    subsets share, so which optimal subset is reported can differ from the
+    exhaustive version's. The extreme spread is identical either way; only
+    the tied subgroup's own centre/mean radius/std dev can vary.
     """
     count = len(points)
     if n < 1 or count < n:
@@ -155,9 +145,8 @@ def best_subgroup(points: list[tuple[float, float]], n: int, unit_name: str) -> 
         # kept the first one (a tie never beat the incumbent). Match that.
         return compute_group_stats([points[0]], unit_name)
 
-    # Spatially adjacent points get adjacent indices, so the first branches
-    # explored are already tight ones. That drives the bound down early,
-    # which is what makes the pruning below bite.
+    # Adjacent indices end up spatially adjacent, so the first branches
+    # explored are tight ones -- that's what makes the pruning below bite.
     ordered = sorted(points)
 
     distance = [[0.0] * count for _ in range(count)]

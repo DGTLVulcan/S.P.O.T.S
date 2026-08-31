@@ -1,9 +1,6 @@
-"""Curated subset of the Z CAM's ~150 /ctrl/set keys that are actually
-useful for a fixed, unattended range camera -- exposure/color/image, not the
-PTZ, audio, genlock, tally, or recording-format keys meant for cinematography.
-
-Keys and query syntax confirmed against imaginevision/Z-Camera-Doc's
-E2/protocol/http/api.js (the reference client implementation), not guessed.
+"""The subset of the Z CAM's ~150 /ctrl/set keys worth having on a fixed
+range camera: exposure, colour and image, not the cinematography ones.
+Keys confirmed against imaginevision/Z-Camera-Doc's api.js, not guessed.
 """
 from __future__ import annotations
 

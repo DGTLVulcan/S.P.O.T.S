@@ -7,31 +7,21 @@ Pipeline per sampled frame:
      sampled frames before committing it (rejects wind-flutter / shadow
      flicker false positives on an outdoor range)
 
-The reference frame is not static: once a shot commits, its hole is painted
-into the reference so later diffs measure only what's newly changed. Without
-this, a committed hole keeps showing up as a diff against the *original*
-clean target forever, so a second shot landing near/overlapping it merges
-into one blob in the contour pass, and the merged area keeps growing past
-`max_hole_area_px` as more shots land in the same spot -- tight groups stop
-registering after the first shot or two. Burning in each commit keeps every
-diff incremental so tight/overlapping groups are detected shot by shot.
+Burn-in: a committed hole is painted into the reference, so later diffs
+only measure what's newly changed. Otherwise it keeps diffing against the
+original clean target, a second shot beside it merges into one blob, and the
+merged area outgrows `max_hole_area_px` -- tight groups stop registering
+after a shot or two.
 
-There is deliberately no "reject candidates near an already-committed shot"
-filter: real tight groups can be only a few pixels apart in frame space, and
-such a filter would block exactly the case this is meant to handle. Burn-in
-alone prevents the same physical hole from being re-flagged, since it no
-longer shows up as a diff once painted into the reference.
+There is deliberately no "reject candidates near a committed shot" filter:
+real tight groups can be a few pixels apart, so it would block the very case
+burn-in exists to handle.
 
-Re-alignment (wind / shockwave sway): a target on a stand can physically
-shift between frames -- from wind, or from the shockwave of a nearby impact.
-A naive pixel diff would read that shift as a wall of "new holes" (or blur
-real ones out of the debounce window). Before diffing, each frame is matched
-against the anchor frame (the untouched clean-target image captured at
-`reset()`) via ORB/SIFT feature matching + a RANSAC homography, and warped
-into the anchor's coordinate space. Matching is always against the fixed
-anchor rather than a drifting "last frame," so alignment error doesn't
-accumulate over a session. If too few feature matches are found (e.g. a
-low-texture scene), the frame is skipped rather than risking a bad warp.
+Re-alignment: a target on a stand sways in wind, and a naive diff reads that
+as a wall of new holes. Each frame is matched against the anchor (the clean
+image captured at `reset()`) by ORB/SIFT + RANSAC homography and warped into
+its space. Always the fixed anchor, never the last frame, so error can't
+accumulate; too few matches skips the frame rather than risk a bad warp.
 """
 from __future__ import annotations
 
@@ -91,14 +81,10 @@ def invert_homography(homography: np.ndarray | None) -> np.ndarray | None:
 
 def _preprocess(frame_bgr: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
-    # CLAHE (local contrast normalization) before differencing: a hole on a
-    # dark printed ring can differ from that ring by less than diff_threshold
-    # in raw intensity (e.g. hole=10 vs a dark ring=40 is only a diff of 30),
-    # while the same hole against a light ring differs by 200+ -- so a single
-    # global threshold either misses dark-ring holes or is too sensitive to
-    # noise everywhere else. CLAHE equalizes contrast within local tiles, so
-    # a hole reads as a strong local change regardless of the ring shade
-    # underneath it, without needing a fragile per-target threshold tune.
+    # Local contrast normalisation before differencing: a hole on a dark
+    # ring may differ from it by only ~30, against 200+ on white paper, so
+    # one global threshold can't serve both. CLAHE makes a hole read as a
+    # strong local change whatever shade it sits on.
     gray = _CLAHE.apply(gray)
     return cv2.GaussianBlur(gray, _BLUR_KERNEL, 0)
 
@@ -119,9 +105,8 @@ class ShotDetector:
         self._pending: list[_PendingCandidate] = []
         self._next_seq = 1
 
-        # Re-alignment state. `_anchor` and its features are fixed for the
-        # life of the target (set once in reset()) so alignment is always
-        # measured from the same clean baseline rather than a drifting one.
+        # The anchor is fixed for the life of the target, so alignment
+        # error can't accumulate the way it would against a drifting frame.
         self._anchor: np.ndarray | None = None
         self._anchor_kp = None
         self._anchor_desc = None
@@ -154,10 +139,8 @@ class ShotDetector:
     def reset(self, frame_bgr: np.ndarray, next_seq: int = 1) -> None:
         """Arms detection against `frame_bgr` as the new clean reference.
 
-        `next_seq` continues an existing session's numbering instead of
-        restarting at 1 -- used when resuming a session after a restart,
-        where the target (holes and all) is re-baselined but the shots
-        already recorded must keep their sequence numbers.
+        `next_seq` continues an existing session's numbering, for a resume
+        where the target is re-baselined but its shots keep their numbers.
         """
         self._reference = _preprocess(frame_bgr)
         self._anchor = self._reference.copy()
@@ -242,15 +225,12 @@ class ShotDetector:
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         if area_range is not None:
-            # Worked out from the calibrated scale, which was measured in the
-            # current (already zoomed) view -- so it must NOT be scaled by
-            # zoom again here, or the zoom would be counted twice.
+            # Already in current-view pixels (the calibration behind it was
+            # measured zoomed), so must not be scaled by zoom again.
             min_area, max_area = area_range
         else:
-            # Digital zoom crops+upscales, so a hole's pixel footprint grows
-            # with the SQUARE of zoom level -- the configured thresholds are
-            # for 1x and need the same scaling, or a zoomed-in hole reads as
-            # "too big".
+            # A hole's footprint grows with the square of the zoom level,
+            # and the configured figures are for 1x.
             area_scale = zoom_level**2
             min_area = cfg.min_hole_area_px * area_scale
             max_area = cfg.max_hole_area_px * area_scale

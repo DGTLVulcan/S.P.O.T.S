@@ -1,9 +1,8 @@
 """HTTP control client for a Z CAM E2-series camera.
 
-Grounded in the official protocol doc: imaginevision/Z-Camera-Doc,
-E2/protocol/http/http.md. Only the handful of endpoints this project needs
-are wrapped here (session control + stream configuration + a reachability
-check) -- not a full API client.
+Wraps only the endpoints this project needs -- session control, stream
+configuration, a reachability check -- per imaginevision/Z-Camera-Doc's
+E2/protocol/http/http.md.
 """
 from __future__ import annotations
 
@@ -26,11 +25,8 @@ class ZCamError(RuntimeError):
 class ZCamClient:
     """Controls a Z CAM E2-series camera over its HTTP API.
 
-    Usage:
-        client = ZCamClient(ip, width, height, bitrate)
-        client.connect()   # verifies reachability, occupies a control session
-        ...
-        client.close()     # releases the session
+    connect() verifies reachability and occupies a control session;
+    close() releases it.
     """
 
     def __init__(self, ip: str, stream_width: int, stream_height: int, stream_bitrate: int):

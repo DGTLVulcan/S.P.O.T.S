@@ -1,12 +1,8 @@
 """Automatic discovery of the Z CAM's IP address on the Pi's Ethernet link.
 
-Field setup: the Z CAM always plugs into the Pi's Ethernet port, and (per
-scripts/setup-network.sh) the Pi itself hands out DHCP on that link, so the
-camera's address isn't fixed in advance and can change across power cycles.
-Rather than depend on any particular DHCP server's lease-file format, this
-just probes the Ethernet interface's subnet directly for whatever answers
-like a Z CAM -- works regardless of which DHCP server (or a static IP)
-actually put the camera on that address.
+The Pi hands out DHCP on that link, so the camera's address isn't fixed
+in advance. Rather than parse anyone's lease file, this probes the
+interface's subnet for whatever answers like a Z CAM.
 """
 from __future__ import annotations
 
@@ -61,10 +57,8 @@ def _iface_ipv4_network(iface: str) -> ipaddress.IPv4Network | None:
 def discover_zcam_ip(configured_ip: str | None, eth_iface: str = "eth0") -> str | None:
     """Finds the Z CAM's IP address.
 
-    Tries `configured_ip` first if given (fast path -- also the only thing
-    that works when run off the Pi, e.g. local dev), then falls back to
-    probing every host on `eth_iface`'s subnet in parallel. Returns None if
-    nothing answers like a camera.
+    Tries `configured_ip` first (the only thing that works off the Pi),
+    then probes `eth_iface`'s subnet in parallel. None if nothing answers.
     """
     if configured_ip and _probe(configured_ip):
         return configured_ip

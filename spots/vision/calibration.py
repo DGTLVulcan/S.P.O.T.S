@@ -1,10 +1,9 @@
 """Pixel <-> real-world coordinate conversion.
 
-MVP calibration is a manual two-point measurement: the user marks two points
-on the target whose real-world distance they know (e.g. the target's printed
-width) via the dashboard, and everything downstream converts pixel offsets
-to real-world units using that scale. This is robust to outdoor lighting
-since it's a one-time manual step, unlike auto-detecting fiducial markers.
+A manual two-point measurement: mark two points whose real-world distance
+you know, and everything downstream converts pixel offsets with that scale.
+Being a one-time manual step, it doesn't care about outdoor lighting the way
+auto-detected fiducials would.
 """
 from __future__ import annotations
 
