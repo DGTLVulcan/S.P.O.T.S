@@ -23,7 +23,7 @@ from flask import (
     url_for,
 )
 
-from spots import health
+from spots import health, ranges
 from spots.layout import TILES
 from spots.camera.client import ZCamError
 from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
@@ -1184,6 +1184,38 @@ def _apply_settings_form(settings, form) -> list[str]:
 
     settings.save()
     return []
+
+
+@bp.route("/ranges")
+@bp.route("/ranges/<range_id>")
+def ranges_page(range_id=None):
+    """A range's map and its rules.
+
+    Ranges are built in rather than editable: the rules are a safety
+    document, so they come from the range's own published copy or not at
+    all. Named range_item in the template because Jinja already has range().
+    """
+    if range_id is not None and ranges.get_range(range_id) is None:
+        abort(404)
+    chosen = ranges.get_range(range_id) or ranges.get_range(ranges.default_range_id())
+    return render_template(
+        "ranges.html",
+        ranges=ranges.list_ranges(),
+        range_item=chosen,
+    )
+
+
+@bp.route("/api/ranges")
+def api_ranges():
+    return jsonify(ranges.list_ranges())
+
+
+@bp.route("/api/ranges/<range_id>")
+def api_range(range_id):
+    item = ranges.get_range(range_id)
+    if item is None:
+        return jsonify({"error": f"No range {range_id!r}"}), 404
+    return jsonify(item)
 
 
 @bp.route("/equipment")

@@ -1221,3 +1221,189 @@ input[type="range"] { accent-color: var(--accent); }
   /* So elementFromPoint reports what is underneath, not the card in hand. */
   pointer-events: none;
 }
+
+/* ---------- Ranges page ----------
+   Reuses the equipment page's sidebar; the detail side is a map you can
+   move around in, and the range's rules. */
+
+a.equip-nav-item { text-decoration: none; }
+
+/* Map pin, drawn rather than set: a glyph here would depend on the Pi
+   browser having that emoji, which is how the last icon ended up a box. */
+.icon-pin {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid currentColor;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  margin-top: -2px;
+}
+
+.range-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.range-name { margin: 0; font-size: 1.05rem; }
+.range-where { margin: 0.2rem 0 0; color: var(--ink-secondary); font-size: 0.85rem; }
+.range-tabs { flex: none; }
+
+.range-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.range-fact .label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 0.2rem;
+}
+
+.range-fact .value-small { font-size: 0.85rem; }
+
+.range-view { margin-top: 1rem; }
+
+/* ---------- Range map ---------- */
+
+.map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.map-toolbar button { padding: 0.25rem 0.6rem; }
+.map-toolbar output { min-width: 3.4rem; text-align: center; font-size: 0.85rem; }
+.map-toolbar-hint { color: var(--ink-muted); font-size: 0.8rem; }
+
+.map-stage {
+  position: relative;
+  height: min(68vh, 640px);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* The plan is drawn in black on white, so it stays on white in either
+     theme rather than being inverted into something unreadable. */
+  background: #ffffff;
+  cursor: grab;
+  /* The page must not scroll or pinch-zoom while the map is being moved. */
+  touch-action: none;
+}
+
+.map-stage.dragging { cursor: grabbing; }
+
+#map-image {
+  max-width: none;
+  transform-origin: center center;
+  /* A transform is the only thing that moves, so the browser can keep the
+     decoded image and just re-composite it. */
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ---------- Range rules ---------- */
+
+.rule-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
+  padding-bottom: 0.9rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.rule-index a {
+  font-size: 0.78rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--ink-secondary);
+  text-decoration: none;
+}
+
+.rule-index a:hover { border-color: var(--accent); color: var(--accent); }
+
+.rule-section { padding: 0.9rem 0; border-bottom: 1px solid var(--border); }
+.rule-section:last-of-type { border-bottom: none; }
+
+.rule-section h3 {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-secondary);
+}
+
+.rule-section-number { color: var(--accent); }
+
+.rule-heading {
+  margin: 0.9rem 0 0.4rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  color: var(--ink-secondary);
+}
+
+.rule {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+/* Sub-rules (4.3.1, 4.3.1.1) step in, so the nesting the document uses is
+   still visible without repeating the whole number in the text. */
+.rule[data-depth="2"] { margin-left: 1.4rem; }
+.rule[data-depth="3"] { margin-left: 2.8rem; }
+.rule[data-depth="4"] { margin-left: 4.2rem; }
+
+.rule-number {
+  flex: none;
+  min-width: 3.2rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.rule-text { flex: 1 1 auto; }
+
+.rule-para { margin: 0 0 0.6rem; font-size: 0.88rem; line-height: 1.55; }
+
+.rule-list { margin: 0.1rem 0 0.7rem 4rem; padding-left: 1rem; }
+.rule-list li { font-size: 0.88rem; line-height: 1.5; margin-bottom: 0.2rem; }
+
+.range-source {
+  margin-top: 1.2rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--page);
+  color: var(--ink-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 700px) {
+  .rule { display: block; }
+  .rule-number { display: inline; margin-right: 0.4rem; }
+  .rule-list { margin-left: 1rem; }
+  .rule[data-depth="2"] { margin-left: 0.8rem; }
+  .rule[data-depth="3"] { margin-left: 1.6rem; }
+  .rule[data-depth="4"] { margin-left: 2.4rem; }
+}

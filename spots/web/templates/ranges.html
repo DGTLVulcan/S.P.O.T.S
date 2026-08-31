@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S.P.O.T.S - Ranges</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="appbar">
+    <div class="brand">
+      <h1>S.P.O.T.S</h1>
+      <span class="subtitle">Ranges</span>
+    </div>
+    <nav class="icon-nav">
+      <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
+      <a class="icon-btn" href="{{ url_for('spots.sessions_list') }}" title="Session history" aria-label="Session history">&#128337;</a>
+      <a class="icon-btn" href="{{ url_for('spots.compare_page') }}" title="Compare sessions" aria-label="Compare sessions">&#128202;</a>
+      <a class="icon-btn" href="{{ url_for('spots.equipment_page') }}" title="Equipment" aria-label="Equipment">&#128295;</a>
+      <a class="icon-btn" href="{{ url_for('spots.settings_page') }}" title="Settings" aria-label="Settings">&#9881;</a>
+      <a class="icon-btn" href="{{ url_for('spots.index') }}" title="Back to live view" aria-label="Back to live view">&#8962;</a>
+    </nav>
+  </header>
+
+  <main class="equip-main">
+    <div class="equip-layout">
+      <aside class="equip-sidebar card">
+        <div class="equip-nav-group">
+          <div class="equip-nav-head">
+            <span class="equip-nav-title">Ranges</span>
+            <span class="equip-nav-count">{{ ranges | length }}</span>
+          </div>
+          {%- for item in ranges %}
+          <a class="equip-nav-item{% if range_item and item.id == range_item.id %} is-open{% endif %}"
+             href="{{ url_for('spots.ranges_page', range_id=item.id) }}">
+            <span class="equip-nav-text">
+              <span class="equip-nav-name">{{ item.short_name }}</span>
+              {%- if item.operator %}<span class="equip-nav-sub">{{ item.operator }}</span>{% endif %}
+            </span>
+          </a>
+          {%- else %}
+          <p class="equip-nav-empty">None built in</p>
+          {%- endfor %}
+        </div>
+      </aside>
+
+      <section class="equip-detail card">
+        {%- if not range_item %}
+        <p class="empty-state">No ranges are built into this install yet.</p>
+        {%- else %}
+        <div class="range-head">
+          <div>
+            <h2 class="range-name">{{ range_item.name }}</h2>
+            <p class="range-where">
+              {{ range_item.address }}{% if range_item.operator %} &middot; {{ range_item.operator }}{% endif %}
+            </p>
+          </div>
+          <div class="segmented range-tabs" role="group" aria-label="View">
+            <button type="button" class="primary" data-view="map">Map</button>
+            <button type="button" data-view="rules">Rules</button>
+          </div>
+        </div>
+
+        <div class="range-facts">
+          {%- if range_item.hours %}
+          <div class="range-fact">
+            <div class="label">Open</div>
+            {%- for line in range_item.hours %}
+            <div class="value-small">{{ line }}</div>
+            {%- endfor %}
+          </div>
+          {%- endif %}
+          {%- if range_item.phone or range_item.email %}
+          <div class="range-fact">
+            <div class="label">Contact</div>
+            {%- if range_item.phone %}<div class="value-small">{{ range_item.phone }}</div>{% endif %}
+            {%- if range_item.email %}<div class="value-small">{{ range_item.email }}</div>{% endif %}
+          </div>
+          {%- endif %}
+          {%- if range_item.source %}
+          <div class="range-fact">
+            <div class="label">Rules version</div>
+            <div class="value-small">{{ range_item.source.version }} &middot; {{ range_item.source.date }}</div>
+          </div>
+          {%- endif %}
+        </div>
+        {%- if range_item.hours_note %}
+        <p class="hint">{{ range_item.hours_note }}</p>
+        {%- endif %}
+
+        <div class="range-view" id="range-view-map">
+          {%- if range_item.map %}
+          <div class="map-toolbar">
+            <button type="button" id="map-zoom-out" title="Zoom out" aria-label="Zoom out">&minus;</button>
+            <output id="map-zoom-level">100%</output>
+            <button type="button" id="map-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+            <button type="button" id="map-zoom-reset">Fit</button>
+            <span class="map-toolbar-hint">Drag to move, scroll or pinch to zoom, double-click to zoom in.</span>
+          </div>
+          <div class="map-stage" id="map-stage">
+            <img id="map-image"
+                 src="{{ url_for('static', filename=range_item.map.image) }}"
+                 width="{{ range_item.map.width }}" height="{{ range_item.map.height }}"
+                 alt="Map of {{ range_item.name }}" draggable="false">
+          </div>
+          {%- if range_item.map.caption %}
+          <p class="hint">{{ range_item.map.caption }}</p>
+          {%- endif %}
+          {%- else %}
+          <p class="empty-state">No map recorded for this range.</p>
+          {%- endif %}
+        </div>
+
+        <div class="range-view" id="range-view-rules" hidden>
+          <nav class="rule-index">
+            {%- for section in range_item.sections %}
+            <a href="#section-{{ loop.index0 }}">{% if section.number %}{{ section.number }}. {% endif %}{{ section.title }}</a>
+            {%- endfor %}
+          </nav>
+
+          {%- for section in range_item.sections %}
+          <section class="rule-section" id="section-{{ loop.index0 }}">
+            <h3>{% if section.number %}<span class="rule-section-number">{{ section.number }}.</span> {% endif %}{{ section.title }}</h3>
+            {%- for block in section.blocks %}
+              {%- if block.kind == 'rule' %}
+            <div class="rule" data-depth="{{ block.depth or 1 }}">
+              <span class="rule-number">{{ block.number }}</span>
+              <span class="rule-text">{{ block.text }}</span>
+            </div>
+              {%- elif block.kind == 'heading' %}
+            <h4 class="rule-heading">{{ block.text }}</h4>
+              {%- elif block.kind == 'list' %}
+            <ul class="rule-list">
+              {%- for entry in block['items'] %}
+              <li>{{ entry }}</li>
+              {%- endfor %}
+            </ul>
+              {%- else %}
+            <p class="rule-para">{{ block.text }}</p>
+              {%- endif %}
+            {%- endfor %}
+          </section>
+          {%- endfor %}
+
+          {%- if range_item.source %}
+          <p class="range-source">
+            Transcribed from <strong>{{ range_item.source.title }}</strong>,
+            version {{ range_item.source.version }}, {{ range_item.source.date }},
+            published by {{ range_item.source.publisher }}.
+            {%- if range_item.source.url %}
+            <a href="{{ range_item.source.url }}" rel="noreferrer">Original document</a>.
+            {%- endif %}
+            The range's own published rules and the on-duty Range Officer are the
+            authority &mdash; check this copy is still the current version.
+          </p>
+          {%- endif %}
+        </div>
+        {%- endif %}
+      </section>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='ranges.js') }}"></script>
+</body>
+</html>

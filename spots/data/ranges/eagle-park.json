@@ -1,0 +1,2438 @@
+{
+ "id": "eagle-park",
+ "name": "Eagle Park Shooting Complex",
+ "short_name": "Eagle Park",
+ "operator": "SSAA Victoria",
+ "address": "165 Gifkins Road, Little River, Victoria 3211",
+ "phone": "03 5283 1575",
+ "email": "eaglepark@ssaavic.com.au",
+ "hours": [
+  "Friday 9.00am - 5.00pm",
+  "Saturday 9.00am - 5.00pm",
+  "Sunday 9.00am - 5.00pm",
+  "Monday 9.00am - 5.00pm"
+ ],
+ "hours_note": "Closed for some public holidays (Easter, ANZAC Day, and the Christmas and New Year period) -- check the SSAA Victoria website.",
+ "map": {
+  "image": "ranges/eagle-park-map.jpg",
+  "width": 1264,
+  "height": 839,
+  "caption": "Plan of ranges at Eagle Park (section 20 of the range rules)."
+ },
+ "source": {
+  "title": "Eagle Park Shooting Complex Range Rules",
+  "version": "5.6",
+  "date": "18 January 2024",
+  "publisher": "SSAA Victoria",
+  "url": "https://ssaavic.com.au/wp-content/uploads/2024/01/EP-Range-Rules-SSAA-Jan-2024-Version-5.6.pdf"
+ },
+ "sections": [
+  {
+   "number": null,
+   "title": "Before you shoot",
+   "blocks": [
+    {
+     "kind": "para",
+     "text": "To ensure safety of all users of the range, everyone must observe the strictest safety precautions at all times."
+    },
+    {
+     "kind": "para",
+     "text": "To achieve this end:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "THE RANGE OFFICER MUST BE OBEYED AT ALL TIMES."
+     ]
+    },
+    {
+     "kind": "list",
+     "items": [
+      "The following Range Rules must be observed and applied at all times:"
+     ]
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Any person breaking the rules governing the Eagle Park Range may be held personally liable for any damage or injury to person or property which may result there from and may be subject to disciplinary action by the Sporting Shooters Association of Australia (Victoria)."
+     ]
+    },
+    {
+     "kind": "para",
+     "text": "The rules in this document are for your safety."
+    },
+    {
+     "kind": "para",
+     "text": "Please observe them and make sure that everyone adheres to them."
+    },
+    {
+     "kind": "para",
+     "text": "Discuss any problems you may have with the Range Manager, Chief Range Officer or on-duty Range Officer. The Range Manager may vary these rules to accommodate special circumstances provided such variations do not compromise safety or range integrity."
+    },
+    {
+     "kind": "para",
+     "text": "No shooting may be conducted on a SSAA Victoria Range unless a currently qualified Range Officer (per section 7) is present and has given the appropriate command to commence firing."
+    },
+    {
+     "kind": "para",
+     "text": "Range discipline requires the full involvement and co-operation of every person on the range."
+    }
+   ]
+  },
+  {
+   "number": "1",
+   "title": "GOVERNANCE AND REGULATORY ORGANISATIONS",
+   "blocks": [
+    {
+     "kind": "para",
+     "text": "The following rules must be observed at all times unless the SSAA Victoria or Range Manager notifies of changes to rules under certain conditions that may arise."
+    },
+    {
+     "kind": "rule",
+     "number": "1.1",
+     "depth": 1,
+     "text": "SSAA VICTORIA RANGE ENQUIRIES AND ADMINISTRATION:"
+    },
+    {
+     "kind": "para",
+     "text": "The Eagle Park Range at Little River is managed by the Facilities Manager employed by SSAA Victoria. The daily operations of the range are overseen by the Assistant Range Manager who is based at the range during operating times."
+    },
+    {
+     "kind": "para",
+     "text": "Range address: 165 Gifkins Road Little River, Victoria 3211"
+    },
+    {
+     "kind": "para",
+     "text": "Operating hours: Friday -9.00am – 5.00pm Saturday -9.00am – 5.00pm Sunday -9.00am – 5.00pm Monday -9.00am – 5.00pm"
+    },
+    {
+     "kind": "para",
+     "text": "Refer to SSAA Victoria website for range closures for the following public holidays: Easter ANZAC Day Christmas and New Year holiday period."
+    },
+    {
+     "kind": "para",
+     "text": "Phone: 03 5283 1575 Email: eaglepark@ssaavic.com.au"
+    },
+    {
+     "kind": "para",
+     "text": "SSAA Victoria Offices: Unit 3 / 26 Ellingworth Parade Box Hill, Victoria 3128 Phone: 03 8892 2777 Email: stateoffice@ssaavic.com.au"
+    },
+    {
+     "kind": "rule",
+     "number": "1.2",
+     "depth": 1,
+     "text": "VICTORIA POLICE - LICENSING AND REGULATION DIVISION"
+    },
+    {
+     "kind": "para",
+     "text": "These Range Rules have been compiled in consultation with the Victoria Police – Licensing and Regulation Divisions (LRD) to ensure that all sections of the Eagle Park Range comply with all Victoria Police regulations and standards."
+    },
+    {
+     "kind": "para",
+     "text": "Rules for each range are determined by the regulations stipulated in the Victorian Police Range Standards. These standards are controlled and enforced by LRD. Any modifications to the ranges or alternate uses must be approved by LRD through the SSAA Victoria offices."
+    },
+    {
+     "kind": "para",
+     "text": "See attachment B for LRD range approval."
+    },
+    {
+     "kind": "rule",
+     "number": "1.3",
+     "depth": 1,
+     "text": "RANGE OPERATIONS"
+    },
+    {
+     "kind": "para",
+     "text": "The purpose of these Range Rules is to provide direction on the safe operation of the ranges. They do not cover the day-to-day or ‘housekeeping’ operations of ranges, including matters such as, but not limited to, gate fees, camping, site access, range developments, etc. The day-to-day operations of the range are managed by SSAA Victoria’s Facilities Manager and overseen by the Eagle Park Assistant Range Manager."
+    },
+    {
+     "kind": "para",
+     "text": "In any case, all matters regarding range operations should be directed to the Eagle Park Assistant Range Manager in the first instance."
+    },
+    {
+     "kind": "para",
+     "text": "The charter of the SSAA Victoria Range Rules Reference Committee (RRRC) is to consult with State Office, as and when required, on range policy and ‘firing line’ matters, to ensure that any policy or rule introduced, amended or repealed does not have unintended consequences for the affected clubs. The day-to-day operations of SSAA Victoria ranges do not fall within the charter of the RRRC."
+    }
+   ]
+  },
+  {
+   "number": "2",
+   "title": "GENERAL RANGE RULES",
+   "blocks": [
+    {
+     "kind": "para",
+     "text": "(TO BE READ IN CONJUNCTION WITH RULES SPECIFIC TO EACH RANGE)"
+    },
+    {
+     "kind": "rule",
+     "number": "2.1",
+     "depth": 1,
+     "text": "Only legally owned firearms may be used on the premises. Users must ensure that all firearms used on the range are in a serviceable condition. Range Officers have the authority to stop the use of any firearm they believe is not safe."
+    },
+    {
+     "kind": "rule",
+     "number": "2.2",
+     "depth": 1,
+     "text": "The Range Manager or personnel delegated by the Range Manager have the discretion to limit/restrict the use of firearms."
+    },
+    {
+     "kind": "rule",
+     "number": "2.3",
+     "depth": 1,
+     "text": "No person may proceed onto a range until their name is recorded on the daily attendance sheet or had their membership card scanned at either the Range Office or by arrangement with sub-club(s)."
+    },
+    {
+     "kind": "rule",
+     "number": "2.4",
+     "depth": 1,
+     "text": "By recording their name in the range register, members and public visitors certify that they are not “Prohibited Persons” under the Firearms Act."
+    },
+    {
+     "kind": "rule",
+     "number": "2.5",
+     "depth": 1,
+     "text": "Enclosed footwear must be worn on the range. Thongs and sandals are not permitted on the firing line. Excessively open neck tops are not permitted on the firing line (including singlets)."
+    },
+    {
+     "kind": "rule",
+     "number": "2.6",
+     "depth": 1,
+     "text": "Ranges 1-18, Big Game Rifle Club and Sporting Clays ranges are accessible only to members of the SSAA Victoria Eagle Park sub-clubs, visitors attending SSAA Victoria group events and visitors who have obtained express permission from the Range Office or Range Manager."
+    },
+    {
+     "kind": "rule",
+     "number": "2.7",
+     "depth": 1,
+     "text": "Scheduled activities have priority on ranges usage."
+    },
+    {
+     "kind": "rule",
+     "number": "2.8",
+     "depth": 1,
+     "text": "All safety or Range Rule violations must be reported to the Range Officer."
+    },
+    {
+     "kind": "rule",
+     "number": "2.9",
+     "depth": 1,
+     "text": "Unlicensed shooters may only shoot under instruction of a licensed shooter."
+    },
+    {
+     "kind": "rule",
+     "number": "2.10",
+     "depth": 1,
+     "text": "A ‘Notification of Receiving Instruction” form MUST be filled in before an unlicensed person commences shooting (pistol only)."
+    },
+    {
+     "kind": "rule",
+     "number": "2.11",
+     "depth": 1,
+     "text": "No Black Powder events or practice on a day of TOTAL FIRE BAN are to be held."
+    },
+    {
+     "kind": "rule",
+     "number": "2.12",
+     "depth": 1,
+     "text": "A red flag must be flown when the range is open and removed at the close of the range each day."
+    },
+    {
+     "kind": "rule",
+     "number": "2.13",
+     "depth": 1,
+     "text": "Sub-clubs are responsible for the actions of their members during their allocated times on each range."
+    },
+    {
+     "kind": "rule",
+     "number": "2.14",
+     "depth": 1,
+     "text": "Currently qualified SSAA Victoria or equivalent Range Officers must be present on each range that is booked by the sub-club and/or external users."
+    },
+    {
+     "kind": "rule",
+     "number": "2.15",
+     "depth": 1,
+     "text": "Riding in the back of utes, trailers or on rear steps of vehicles is prohibited. All occupants of the vehicle must be seated and wearing seat belts whilst traversing the range."
+    },
+    {
+     "kind": "rule",
+     "number": "2.16",
+     "depth": 1,
+     "text": "ATV’s (quad bikes and golf carts) may only be used on the ranges and not driven on the road between ranges without permission of the Range Manager. Drivers of ATV’s without roll cages and/or seatbelts must wear an appropriate safety helmet."
+    },
+    {
+     "kind": "rule",
+     "number": "2.17",
+     "depth": 1,
+     "text": "On completion of a shoot, all empty shells and targets are to be removed and disposed of in the appropriate receptacles."
+    },
+    {
+     "kind": "rule",
+     "number": "2.18",
+     "depth": 1,
+     "text": "Inappropriate or antisocial behaviour will not be tolerated, and the offending person(s) will be asked to leave the range."
+    },
+    {
+     "kind": "rule",
+     "number": "2.19",
+     "depth": 1,
+     "text": "If a firearm is found on the range and is not in the immediate control of a licenced shooter the following procedure must be followed:"
+    },
+    {
+     "kind": "rule",
+     "number": "2.19.1",
+     "depth": 2,
+     "text": "Firearm is not to be handled unless it is not in a safe position."
+    },
+    {
+     "kind": "rule",
+     "number": "2.19.2",
+     "depth": 2,
+     "text": "Identify the owner of the firearm."
+    },
+    {
+     "kind": "rule",
+     "number": "2.19.3",
+     "depth": 2,
+     "text": "If the owner is on the range, have the firearm removed from the range by the owner or place in a position, according to the range rules so under the control of the licenced shooter."
+    },
+    {
+     "kind": "rule",
+     "number": "2.19.4",
+     "depth": 2,
+     "text": "If the owner is not on the range but is known, contact the owner to arrange appropriate collection. Firearm to be appropriately secured by the Range Manger until collected."
+    },
+    {
+     "kind": "rule",
+     "number": "2.19.5",
+     "depth": 2,
+     "text": "If the owner cannot be determined, Victoria Police to be contacted and asked to collect firearm. If firearm cannot be collected, instructions from the Victoria Police are to be followed as to the transportation of the firearm to a secure location. Do not handle the firearm unless instructed to do so by Victoria Police."
+    },
+    {
+     "kind": "rule",
+     "number": "2.20",
+     "depth": 1,
+     "text": "Carbine kits are prohibited on all ranges."
+    }
+   ]
+  },
+  {
+   "number": "3",
+   "title": "HANDLING FIREARMS",
+   "blocks": [
+    {
+     "kind": "rule",
+     "number": "3.1",
+     "depth": 1,
+     "text": "Firearms to be loaded ONLY on the firing line."
+    },
+    {
+     "kind": "rule",
+     "number": "3.2",
+     "depth": 1,
+     "text": "Always point the firearm in a safe direction – down range if at the firing line, vertically upright, holstered or broken, pointing at the ground for shotguns and double barrel rifles (unless stated in range specific rules) whilst in transit around the range. Sweeping/flagging is not permitted."
+    },
+    {
+     "kind": "rule",
+     "number": "3.3",
+     "depth": 1,
+     "text": "No shooter is to occupy a place at the firing line, or handle firearms in the range area, before they have attended the Range Office or sub-club if applicable."
+    },
+    {
+     "kind": "rule",
+     "number": "3.4",
+     "depth": 1,
+     "text": "No person under the age of 12 may handle a firearm. Persons between 12 and 18 years are required to have parental or guardian’s permission to shoot on the range and must be under the direct supervision of an adult licensed shooter, on-duty Range Officer or on-duty appointed training officer for specific youth training scheme activities."
+    },
+    {
+     "kind": "rule",
+     "number": "3.5",
+     "depth": 1,
+     "text": "No person is to load a firearm until one of the following commands is given - \"commence fire”, “range open\", “load and make ready” or similar has been given and will then do so only when in a safe position at the firing line and about to fire."
+    },
+    {
+     "kind": "rule",
+     "number": "3.6",
+     "depth": 1,
+     "text": "Whilst loading and when loaded, the firearm must be kept pointed at the stop butt, down range or a safe direction as dictated by the on-duty Range Officer."
+    },
+    {
+     "kind": "rule",
+     "number": "3.7",
+     "depth": 1,
+     "text": "No firearm is to be loaded or discharged unless it is held in such a position that there is a physical barrier (stop butt, baffle, etc.) preventing any accidental shot escaping from the range."
+    },
+    {
+     "kind": "rule",
+     "number": "3.8",
+     "depth": 1,
+     "text": "No persons are permitted to shoot at anything other than authorised targets."
+    },
+    {
+     "kind": "rule",
+     "number": "3.9",
+     "depth": 1,
+     "text": "Shooting at any wildlife is not permitted and any breaches will be reported."
+    },
+    {
+     "kind": "rule",
+     "number": "3.10",
+     "depth": 1,
+     "text": "No firing shall be conducted that directs fire at rocks, side walls, berms or baffles except for 16.14 to 16.16"
+    },
+    {
+     "kind": "rule",
+     "number": "3.11",
+     "depth": 1,
+     "text": "Firearms are not permitted in the café without the express permission of the Range Manager and only then under exceptional circumstances."
+    },
+    {
+     "kind": "rule",
+     "number": "3.12",
+     "depth": 1,
+     "text": "Longarms in clubhouses must have a visible EMPTY CHAMBER INDICATOR (flag) inserted at all times with magazine removed when out of a bag or case unless in vertical storage rack with action open and detachable magazines removed. Handguns may be holstered and unloaded (with magazines removed/cylinders empty)."
+    },
+    {
+     "kind": "rule",
+     "number": "3.13",
+     "depth": 1,
+     "text": "Sub-clubs must designate a safe handling area within the clubhouse. Firearms to be handled in a direction pointing away from the other personnel within the clubhouse."
+    },
+    {
+     "kind": "rule",
+     "number": "3.14",
+     "depth": 1,
+     "text": "It is the responsibility of owners of firearm(s) to ensure that they secure their firearms at all times. Unattended firearms or those not under the control of a licensed shooter will be removed from the location as per 2.19."
+    },
+    {
+     "kind": "rule",
+     "number": "3.15",
+     "depth": 1,
+     "text": "Unlicensed persons are not permitted to remove live ammunition from the firing line and range."
+    },
+    {
+     "kind": "rule",
+     "number": "3.16",
+     "depth": 1,
+     "text": "No person, other than a Range Officer may handle any firearm belonging to another shooter without the express permission of that shooter."
+    },
+    {
+     "kind": "rule",
+     "number": "3.17",
+     "depth": 1,
+     "text": "Black Powder:"
+    },
+    {
+     "kind": "rule",
+     "number": "3.17.1",
+     "depth": 2,
+     "text": "Must be factory-made sporting black powder or an approved replica thereof."
+    },
+    {
+     "kind": "rule",
+     "number": "3.17.2",
+     "depth": 2,
+     "text": "A separate powder measure or holder will be used to carry the powder charge from container to the muzzle of the gun. Powder flasks or horns cannot be used to charge a firearm directly. Powder flasks cannot be kept on the same bench as the firearm unless competitions rules allow otherwise."
+    }
+   ]
+  },
+  {
+   "number": "4",
+   "title": "CEASE FIRE",
+   "blocks": [
+    {
+     "kind": "rule",
+     "number": "4.1",
+     "depth": 1,
+     "text": "On the order \"Cease fire, unload, open all actions, remove all detachable magazines\" or similar commands from the on-duty RO, shooting must stop, and all firearms made safe as in rule 4.3. The shooter must move back from the firing line and stand behind the yellow control lines on the floor or at an appropriate distance from the firing line as deemed by the RO."
+    },
+    {
+     "kind": "rule",
+     "number": "4.2",
+     "depth": 1,
+     "text": "No shooter, without RO permission, is to approach or handle a firearm at the firing line, in racks or carts during a \"cease fire\" period. All shooters are to remain behind the yellow control lines or area identified by the RO until the “commence fire”, “range open” or similar instruction is given by the on-duty RO."
+    },
+    {
+     "kind": "rule",
+     "number": "4.3",
+     "depth": 1,
+     "text": "During cease fires and other shooting breaks, longarms and handguns on benches and the ground at the firing line must be unloaded, actions open and have a visible EMPTY CHAMBER INDICATOR (flag) inserted. Detachable magazines are to be removed. (Floor plates must be opened). Handguns may be holstered or secured in a lockable container with magazines removed or cylinders empty."
+    },
+    {
+     "kind": "rule",
+     "number": "4.3.1",
+     "depth": 2,
+     "text": "For black powder firearms the following must also be adhered to:"
+    },
+    {
+     "kind": "rule",
+     "number": "4.3.1.1",
+     "depth": 3,
+     "text": "Percussion"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Nipples free of percussion caps",
+      "Hammer in half cock position"
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "4.3.1.2",
+     "depth": 3,
+     "text": "Flintlock"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Frizzen in the open position",
+      "Pan visibly empty of powder",
+      "Hammer in half cock position"
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "4.3.1.3",
+     "depth": 3,
+     "text": "If the firearm is not clear"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "firearm is to be placed in a vertical position in a suitable stand,",
+      "the hammer to be in the half-cock position,",
+      "the priming components removed (percussion cap/priming powder),",
+      "and the Range Officer notified of the firearm condition."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "4.3.2",
+     "depth": 2,
+     "text": "For handguns used on main range 1, the following must be adhered to:"
+    },
+    {
+     "kind": "rule",
+     "number": "4.3.2.1",
+     "depth": 3,
+     "text": "During cease fires all handguns must be locked in safe storage on the range after being cleared by an on-duty RO."
+    },
+    {
+     "kind": "rule",
+     "number": "4.3.2.2",
+     "depth": 3,
+     "text": "Handguns may not be secured or handled by unlicensed persons."
+    },
+    {
+     "kind": "rule",
+     "number": "4.3.2.3",
+     "depth": 3,
+     "text": "All magazines must be emptied."
+    },
+    {
+     "kind": "rule",
+     "number": "4.3.2.4",
+     "depth": 3,
+     "text": "No magazine may be worn on belts, empty or not, during a cease fire"
+    },
+    {
+     "kind": "rule",
+     "number": "4.4",
+     "depth": 1,
+     "text": "If emergency \"cease fire\", \"cease fire\", \"cease fire\" is called, all shooting stops immediately, firearms unloaded and made safe as per 4.3."
+    },
+    {
+     "kind": "rule",
+     "number": "4.5",
+     "depth": 1,
+     "text": "Common ceasefire must be called between:"
+    },
+    {
+     "kind": "rule",
+     "number": "4.5.1",
+     "depth": 2,
+     "text": "Main Range 1 and Main Range 2 when any person (in a vehicle or not) is going beyond 300 metres on either range."
+    },
+    {
+     "kind": "rule",
+     "number": "4.5.2",
+     "depth": 2,
+     "text": "Main Range 2 and Training Range when any person (in a vehicle or not) is going beyond 300 metres on either range."
+    },
+    {
+     "kind": "rule",
+     "number": "4.5.3",
+     "depth": 2,
+     "text": "Training Range and 5-Stand when any person on the Training Range goes beyond 100 metres."
+    }
+   ]
+  },
+  {
+   "number": "5",
+   "title": "SMOKING, ALCOHOL AND DRUGS",
+   "blocks": [
+    {
+     "kind": "rule",
+     "number": "5.1",
+     "depth": 1,
+     "text": "Alcohol and Drugs: It is SSAA Victoria policy that no shooter who is under the influence of alcohol and/or drugs will be permitted to shoot at the range. Shooters who appear to the on-duty Range Officer to be thus affected will not be permitted on the range."
+    },
+    {
+     "kind": "rule",
+     "number": "5.2",
+     "depth": 1,
+     "text": "No alcohol may be sold or distributed on the range without the appropriate Liquor Licence and prior approval of the Range Manager"
+    },
+    {
+     "kind": "rule",
+     "number": "5.3",
+     "depth": 1,
+     "text": "No alcohol is permitted to be consumed whilst the range is open for shooting outside of approved areas by the Range Manager."
+    },
+    {
+     "kind": "rule",
+     "number": "5.4",
+     "depth": 1,
+     "text": "Smoking is not permitted on or forward of the firing line. Refer to the Range Officer if you require assistance."
+    }
+   ]
+  },
+  {
+   "number": "6",
+   "title": "SHOOTING ALONE OR OUTSIDE SUB CLUB BOOKINGS",
+   "blocks": [
+    {
+     "kind": "rule",
+     "number": "6.1",
+     "depth": 1,
+     "text": "SSAA members may use ranges outside of sub-club booked times under the following conditions:"
+    },
+    {
+     "kind": "rule",
+     "number": "6.1.1",
+     "depth": 2,
+     "text": "The member must seek permission from the Range Manager or Range Office to use the range."
+    },
+    {
+     "kind": "rule",
+     "number": "6.1.2",
+     "depth": 2,
+     "text": "If the member is on the range with no other shooters, (alone) they must have a current SSAA Victoria Range Officers accreditation (section 7.8) plus endorsement from their Eagle Park sub-club or by approval of the Range Manager."
+    },
+    {
+     "kind": "rule",
+     "number": "6.1.3",
+     "depth": 2,
+     "text": "If a shooter is instructing an unlicensed shooter(s), the licensed shooter must have a current SSAA Victoria Range Officer accreditation (section 7.8) plus endorsement from their Eagle Park sub-club or by approval of the Range Manager."
+    },
+    {
+     "kind": "rule",
+     "number": "6.1.4",
+     "depth": 2,
+     "text": "If there are two or more licensed shooters on a range, at least one shooter must be a Range Officer and not be shooting at the same time. The individual that is nominated as Range Officer must be a currently qualified SSAA Victoria Range Officer (section 7.8) plus endorsement from their Eagle Park sub-club or by approval of the Range Manager."
+    }
+   ]
+  },
+  {
+   "number": "7",
+   "title": "RANGE OFFICERS (RO)",
+   "blocks": [
+    {
+     "kind": "rule",
+     "number": "7.1",
+     "depth": 1,
+     "text": "Range officers must carry their Range Officer Accreditation with them at all times when on-duty as a RO. They must produce their accreditation(s) on request by the Range Manager or senior SSAA Victoria Range Officer on-duty at the range."
+    },
+    {
+     "kind": "rule",
+     "number": "7.2",
+     "depth": 1,
+     "text": "The Range Officer:"
+    },
+    {
+     "kind": "rule",
+     "number": "7.2.1",
+     "depth": 2,
+     "text": "Has absolute authority in respect to safety issues both on and behind the firing line."
+    },
+    {
+     "kind": "rule",
+     "number": "7.2.2",
+     "depth": 2,
+     "text": "Has the authority to caution shooters who he/she believes are acting in an unsafe manner."
+    },
+    {
+     "kind": "rule",
+     "number": "7.2.3",
+     "depth": 2,
+     "text": "May order individuals from the range if he/she believes it is necessary to do so in order to ensure the safety of other range users or spectators."
+    },
+    {
+     "kind": "rule",
+     "number": "7.3",
+     "depth": 1,
+     "text": "The ROs’ decisions in these matters of safety are to be obeyed immediately and without argument."
+    },
+    {
+     "kind": "rule",
+     "number": "7.4",
+     "depth": 1,
+     "text": "The on-duty RO, by law, is permitted to handle any firearm that is being used on the range regardless of firearms licenses that maybe held by the RO."
+    },
+    {
+     "kind": "rule",
+     "number": "7.5",
+     "depth": 1,
+     "text": "No person shall refuse to obey the instruction of the RO or interfere in any way with the RO in the execution of his/her duties. Any dispute between range users and an RO is to be resolved as per the procedures below and is not to be the subject of debate at the range. The aggrieved party is to obey the ROs instruction in the first instance and follow up any complaint later."
+    },
+    {
+     "kind": "rule",
+     "number": "7.6",
+     "depth": 1,
+     "text": "All disputes between the RO and others are to be referred to the Range Manager."
+    },
+    {
+     "kind": "rule",
+     "number": "7.7",
+     "depth": 1,
+     "text": "SSAA Victoria may take disciplinary action against any members or visitors, who disobey, argue with, or interfere with the on-duty RO."
+    },
+    {
+     "kind": "rule",
+     "number": "7.8",
+     "depth": 1,
+     "text": "SSAA Victoria recognises the following RO qualifications as substitutes for SSAA Victoria RO accreditations: VAPA, IPSC, SSAA Single Action. For organised security or law enforcement training, SSAA Victoria recognises security trainer licenses and government departmental qualifications."
+    }
+   ]
+  },
+  {
+   "number": "8",
+   "title": "EYE AND EAR PROTECTION",
+   "blocks": [
+    {
+     "kind": "rule",
+     "number": "8.1",
+     "depth": 1,
+     "text": "Ear protection (ear plugs or earmuffs) is mandatory on all ranges. It is recommended that ear protection of minimum standard class five (5) be worn by all shooters."
+    },
+    {
+     "kind": "rule",
+     "number": "8.2",
+     "depth": 1,
+     "text": "Eye protection is recommended for any person using a firearm."
+    },
+    {
+     "kind": "rule",
+     "number": "8.3",
+     "depth": 1,
+     "text": "Eye protection is mandatory for all juniors (under 18 years old)."
+    },
+    {
+     "kind": "rule",
+     "number": "8.4",
+     "depth": 1,
+     "text": "Ear and eye protection must be worn by spectators on the firing line and immediate area behind the firing line of a range in accordance to rules 8.1-8.3."
+    }
+   ]
+  },
+  {
+   "number": "9",
+   "title": "HOLSTERS",
+   "blocks": [
+    {
+     "kind": "rule",
+     "number": "9.1",
+     "depth": 1,
+     "text": "Only HOLSTER QUALIFIED MEMBERS may draw and fire loaded firearms from the holster (with the on-duty RO’s permission) unless under the direct supervision of a trainer. Proof of such qualification must be produced if required by the Range Officer."
+    },
+    {
+     "kind": "rule",
+     "number": "9.2",
+     "depth": 1,
+     "text": "Firearms may be loaded and holstered during the course of a competition. At all other times firearms must be unloaded and cleared before being holstered."
+    },
+    {
+     "kind": "rule",
+     "number": "9.3",
+     "depth": 1,
+     "text": "Firearms must not be withdrawn from the holster unless on the firing line or in a safe handling or staging area."
+    },
+    {
+     "kind": "rule",
+     "number": "9.4",
+     "depth": 1,
+     "text": "Holstered firearms are permitted to be worn on the public walkways of the range but must be cleared and visibly ‘safe’ (magazines removed in semi-automatics) when moving between ranges."
+    }
+   ]
+  },
+  {
+   "number": "10",
+   "title": "SAFE HANDLING AREAS",
+   "blocks": [
+    {
+     "kind": "rule",
+     "number": "10.1",
+     "depth": 1,
+     "text": "No ammunition is to be handled in a designated safe handling area."
+    },
+    {
+     "kind": "rule",
+     "number": "10.2",
+     "depth": 1,
+     "text": "Other than the firing line, designated safe areas are the only area in which firearms are to be handled unless approved by the Range Manager and the relevant sub-club in consultation."
+    },
+    {
+     "kind": "rule",
+     "number": "10.3",
+     "depth": 1,
+     "text": "Firearms must be cleared prior to being moved to the safe handling area."
+    }
+   ]
+  },
+  {
+   "number": "11",
+   "title": "MALFUNCTIONS",
+   "blocks": [
+    {
+     "kind": "rule",
+     "number": "11.1",
+     "depth": 1,
+     "text": "Malfunctions of firearms must be immediately reported to the on-duty RO."
+    },
+    {
+     "kind": "rule",
+     "number": "11.2",
+     "depth": 1,
+     "text": "For stuck live rounds refer to the SSAA Victoria Policy – Attachment A"
+    }
+   ]
+  },
+  {
+   "number": "12",
+   "title": "TARGETS",
+   "blocks": [
+    {
+     "kind": "rule",
+     "number": "12.1",
+     "depth": 1,
+     "text": "Only approved targets are to be used on the range (the Range Manager must approve the use of a non-standard target)."
+    },
+    {
+     "kind": "rule",
+     "number": "12.2",
+     "depth": 1,
+     "text": "All targets are to be mounted directly in front of the shooter and all firing is to be conducted from an approved firing point at 90 degrees to the firing line, except where allowed under discipline-specific competition rules."
+    },
+    {
+     "kind": "rule",
+     "number": "12.3",
+     "depth": 1,
+     "text": "Excessively high or low shots that are outside the ‘cone of fire’ along with cross-range firing are not permitted."
+    },
+    {
+     "kind": "rule",
+     "number": "12.4",
+     "depth": 1,
+     "text": "Steel and polymer targets may be used at Eagle Park. Refer to rules for each range for specifications."
+    },
+    {
+     "kind": "rule",
+     "number": "12.5",
+     "depth": 1,
+     "text": "Use of tennis, golf and polymer balls or similar items are prohibited."
+    }
+   ]
+  },
+  {
+   "number": "13",
+   "title": "EMERGENCY PROCEDURES",
+   "blocks": [
+    {
+     "kind": "para",
+     "text": "In the event of a serious accident/incident, the RO is to immediately take action to prevent any further incident; close the range and clear all firearms on the firing line as soon as practical to do so. The RO or range attendant is to ensure that First Aid is administered where appropriate."
+    },
+    {
+     "kind": "para",
+     "text": "If the accident requires urgent medical, police or CFA intervention, the range attendant is to contact the emergency services as soon as possible. He/she may delegate this task to another person if required."
+    },
+    {
+     "kind": "para",
+     "text": "The contact number for urgent emergency services and assistance is 000."
+    },
+    {
+     "kind": "para",
+     "text": "The following SSAA Victoria staff members must be called if any emergency service is contacted. These calls are to be made after 000 has been contacted."
+    },
+    {
+     "kind": "para",
+     "text": "SSAA Victoria Assistant Range Manager - 0428 611 405 SSAA Victoria Facilities Manager - 0407 657 028"
+    },
+    {
+     "kind": "para",
+     "text": "The RO is to take the names and addresses of those involved in, or those who witnessed any accident/incident in order to meet the reporting requirements. It is particularly important if the accident involves the misuse or accidental use of a firearm."
+    },
+    {
+     "kind": "para",
+     "text": "The range is to be closed until the emergency services have cleared the area and controlled the situation. It is to remain closed until declared safe by the appropriate authorities."
+    },
+    {
+     "kind": "heading",
+     "text": "13.1 ACCIDENT/INCIDENT REPORTING"
+    },
+    {
+     "kind": "para",
+     "text": "Range Officers are responsible for the reporting of any incidents on the range involving personal injury or property damage. In accordance with SSAA Victoria policy, such reports are to be compiled on the proforma sheets available at the Range Office. The completed sheets are to be handed to the range office to be submitted to State Office."
+    }
+   ]
+  },
+  {
+   "number": "14",
+   "title": "SPECIFIC RULES FOR MAIN RANGE 1",
+   "blocks": [
+    {
+     "kind": "heading",
+     "text": "RANGE OFFICER POLICY"
+    },
+    {
+     "kind": "para",
+     "text": "All shooting on Main Range 1 must be under the control of a currently qualified SSAA Victoria Range Officer (RO)"
+    },
+    {
+     "kind": "rule",
+     "number": "14.1",
+     "depth": 1,
+     "text": "All shooters must report to the on-duty RO on arrival, after registering at the office."
+    },
+    {
+     "kind": "rule",
+     "number": "14.2",
+     "depth": 1,
+     "text": "The on-duty Range Officer must be immediately identifiable to persons on the range by means of a Range Officer’s jacket or similar."
+    },
+    {
+     "kind": "rule",
+     "number": "14.3",
+     "depth": 1,
+     "text": "All RO commands and instructions in accordance with the Eagle Park Range Rules must be obeyed."
+    },
+    {
+     "kind": "rule",
+     "number": "14.4",
+     "depth": 1,
+     "text": "Under range certification, shooting is permitted up to a distance of 500m for the following firearms;"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Centrefire, rimfire, air and black powder rifles",
+      "Shotgun in designated areas and as directed by the RO",
+      "Handguns in designated areas and as directed by the RO"
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "14.5",
+     "depth": 1,
+     "text": "Firearm(s) must remain in vehicles until instruction by the RO to bring them onto the range."
+    },
+    {
+     "kind": "rule",
+     "number": "14.6",
+     "depth": 1,
+     "text": "Firearms moving to or from vehicles to or from the range must be carried in one of the following ways:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "i) in a bag, case or cart,",
+      "ii) with muzzle pointing upwards, action open or removed, and magazine removed or floor plates open where applicable",
+      "iii) broken with muzzle pointing upwards for shotguns and double barrel rifles. Empty chamber indicators (flags) are not required whilst firearms are in transit between a vehicle, and the range."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "14.7",
+     "depth": 1,
+     "text": "All cases and bags containing firearms that are brought onto the range at the direction of the RO, must be placed on or under the allocated bench and opened, with the firearm pointing down range at all times in accordance with 14.8. In the event of cases/bags containing firearms with muzzles pointing in opposite directions, the firearm being handled must always be pointing down range and the case/bag be rotated so that the remaining firearm(s) are pointing down range before removing them from the case/bag."
+    },
+    {
+     "kind": "rule",
+     "number": "14.8",
+     "depth": 1,
+     "text": "Firearms are not permitted on the range until it is declared open by the on-duty Range Officer. Firearms brought onto the range during a cease fire is to be immediately placed on the ground and not left unattended"
+    },
+    {
+     "kind": "rule",
+     "number": "14.9",
+     "depth": 1,
+     "text": "When firearms are not actually in use, including firearms in bags or case, action must be open, unloaded with all detachable magazines removed or floor plates open where applicable and empty chamber indicator (flag) inserted. Unloaded magazines may be left on the firing line adjacent to the firearm."
+    },
+    {
+     "kind": "rule",
+     "number": "14.10",
+     "depth": 1,
+     "text": "On the order \"cease fire\", shooting must stop, and all firearms made safe as per rule 4. The shooter must move back from the firing line and stand behind the yellow control lines on the floor. Once all firearms have been cleared, on instruction from the on-duty RO, shooters may cross the yellow line to enter the range."
+    },
+    {
+     "kind": "rule",
+     "number": "14.11",
+     "depth": 1,
+     "text": "Common cease fires must be called in accordance with rule 4.5."
+    },
+    {
+     "kind": "rule",
+     "number": "14.12",
+     "depth": 1,
+     "text": "Handling of firearms that is on a bench/mat is prohibited during a cease fire."
+    },
+    {
+     "kind": "rule",
+     "number": "14.13",
+     "depth": 1,
+     "text": "Under no circumstances may any shooter fire at anything on the range other than an approved target placed directly down range at 90 degrees to the firing line. Shooting diagonally across the range is considered a breach of safety."
+    },
+    {
+     "kind": "rule",
+     "number": "14.14",
+     "depth": 1,
+     "text": "Use of flipper or tumbling targets are prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "14.15",
+     "depth": 1,
+     "text": "Shooting at target frames, frame supports, or range fixtures is prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "14.16",
+     "depth": 1,
+     "text": "Target frames must be constructed of timber, aluminium, mild steel angle or RHS up to 1.6mm thickness or mild steel rod up to 10mm diameter. Hardened rod is not permitted. No flat facing steel surfaces should face the shooters that are greater than 1.6mm thickness unless covered by timber or similar. Star pickets are prohibited unless surfaces are covered by timber or similar that are facing the shooter."
+    },
+    {
+     "kind": "rule",
+     "number": "14.17",
+     "depth": 1,
+     "text": "Steel targets must be flat steel plate without any pitting or distortion. The following minimum thickness and grades of steel need to be used in the construction of targets:"
+    },
+    {
+     "kind": "para",
+     "text": "Rimfire targets - minimum thickness of 3mm and a minimum hardness of 360 Brinell (Bisalloy 400). Centrefire targets - minimum thickness of 8mm and a minimum hardness of 360 Brinell (Bisalloy 400)."
+    },
+    {
+     "kind": "rule",
+     "number": "14.18",
+     "depth": 1,
+     "text": "Approved steel targets and swinging polymer targets may be used at the following minimum distances from the firing line and with the following firearm types:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Air Rifles – min. 25m",
+      "Rimfire rifles – min. 50m",
+      "Centrefire rifles – min. 200m",
+      "Handguns – not permitted."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "14.19",
+     "depth": 1,
+     "text": "Spring mount polymer targets are prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "14.20",
+     "depth": 1,
+     "text": "Clay targets to be placed at 25m or greater."
+    },
+    {
+     "kind": "rule",
+     "number": "14.21",
+     "depth": 1,
+     "text": "High-visibility upper body clothing must be worn to move beyond 100m forward of the firing line."
+    },
+    {
+     "kind": "rule",
+     "number": "14.22",
+     "depth": 1,
+     "text": "With approval of the RO, shooters may access the range by vehicle during a “cease fire” to place, check or collect targets. A safety cone must be placed on bench before driving onto the range and removed upon return."
+    },
+    {
+     "kind": "rule",
+     "number": "14.23",
+     "depth": 1,
+     "text": "All shooting shall be from behind the fixed red firing line, under cover and on the concrete hardstand unless approved by the Range Manager."
+    },
+    {
+     "kind": "rule",
+     "number": "14.24",
+     "depth": 1,
+     "text": "Shooting of shotguns on the range must only be directed at static targets unless using the designated clay throwing area."
+    },
+    {
+     "kind": "rule",
+     "number": "14.25",
+     "depth": 1,
+     "text": "Manual throwing of clays is prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "14.26",
+     "depth": 1,
+     "text": "At the completion of a shoot, all empty shells and targets are to be removed and disposed of in the appropriate receptacles."
+    },
+    {
+     "kind": "rule",
+     "number": "14.27",
+     "depth": 1,
+     "text": "The placement of targets past 300m must be approved by the on-duty RO."
+    },
+    {
+     "kind": "rule",
+     "number": "14.28",
+     "depth": 1,
+     "text": "For handguns the following must be adhered to:"
+    },
+    {
+     "kind": "rule",
+     "number": "14.28.1",
+     "depth": 2,
+     "text": "Handguns to be fired from the allocated bench or from standing next to the bench."
+    },
+    {
+     "kind": "rule",
+     "number": "14.28.2",
+     "depth": 2,
+     "text": "NO DRAWING and FIRING from a holster."
+    },
+    {
+     "kind": "rule",
+     "number": "14.28.3",
+     "depth": 2,
+     "text": "During cease fires all handguns must be locked in safe storage on the range after being cleared by an on-duty RO."
+    },
+    {
+     "kind": "rule",
+     "number": "14.28.4",
+     "depth": 2,
+     "text": "Handguns may not be secured or handled by unlicensed persons."
+    },
+    {
+     "kind": "rule",
+     "number": "14.28.5",
+     "depth": 2,
+     "text": "All magazines must be emptied during a cease fire."
+    },
+    {
+     "kind": "rule",
+     "number": "14.28.6",
+     "depth": 2,
+     "text": "No magazine may be worn on belts, empty or not, during a cease fire"
+    }
+   ]
+  },
+  {
+   "number": "15",
+   "title": "SPECIFIC RULES FOR MAIN RANGE 2",
+   "blocks": [
+    {
+     "kind": "heading",
+     "text": "RANGE OFFICER POLICY"
+    },
+    {
+     "kind": "para",
+     "text": "All shooting on Main Range 2 must be under the control of a currently qualified SSAA Victoria Range Officer (RO) or recognised RO as per 7.8."
+    },
+    {
+     "kind": "rule",
+     "number": "15.1",
+     "depth": 1,
+     "text": "All shooters must report to the on-duty RO on arrival, after registering at the office."
+    },
+    {
+     "kind": "rule",
+     "number": "15.2",
+     "depth": 1,
+     "text": "The on-duty Range Officer must be immediately identifiable to persons on the range, preferably by a Range Officer’s jacket or similar."
+    },
+    {
+     "kind": "rule",
+     "number": "15.3",
+     "depth": 1,
+     "text": "All RO commands and instructions in accordance with the Eagle Park Range Rules must be obeyed."
+    },
+    {
+     "kind": "rule",
+     "number": "15.4",
+     "depth": 1,
+     "text": "Under range certification, shooting is permitted up to a distance of 500m for the following firearms;"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Centrefire, rimfire, air and black powder rifles",
+      "Shotgun in designated areas and as directed by the RO",
+      "Handgun in competition or official purposes only as approved by the Range Manager"
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "15.5",
+     "depth": 1,
+     "text": "Firearm(s) must remain in vehicles until instruction by the RO to bring them onto the range."
+    },
+    {
+     "kind": "rule",
+     "number": "15.6",
+     "depth": 1,
+     "text": "Firearms moving to or from vehicles to or from the range must be carried in one of the following ways:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "i) in a bag, case or cart,",
+      "ii) with muzzle pointing upwards, action open or removed, and magazine removed or floor plates open where applicable",
+      "iii) holstered, or",
+      "iv) broken with muzzle pointing up for shotguns and double barrel rifles. Empty chamber indicators (flags) are not required whilst firearm is in transit between a vehicle, the range."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "15.7",
+     "depth": 1,
+     "text": "All cases and bags containing firearms that are brought onto the range at the direction of the RO, must be placed at the firing line and opened, with the firearm pointing down range at all times in accordance with 15.7."
+    },
+    {
+     "kind": "rule",
+     "number": "15.8",
+     "depth": 1,
+     "text": "When firearms are not actually in use, including firearms in bags or case, on benches, the ground or vertically stored in racks, the action must be open, unloaded with all detachable magazines removed or floor plates open where applicable and empty chamber indicator (flag) inserted. Unloaded magazines may be left on the firing line adjacent to the firearm."
+    },
+    {
+     "kind": "rule",
+     "number": "15.9",
+     "depth": 1,
+     "text": "Racks used to store firearms must be forward of the yellow line."
+    },
+    {
+     "kind": "rule",
+     "number": "15.10",
+     "depth": 1,
+     "text": "On the order \"cease fire\", shooting must stop, and all firearms made safe as per rule 4. The shooter must move back from the firing line and stand behind the yellow control lines on the floor. Once all firearms have been cleared, on instruction from the on-duty RO, shooters may cross the yellow line to enter the range."
+    },
+    {
+     "kind": "rule",
+     "number": "15.11",
+     "depth": 1,
+     "text": "Common cease fires must be called in accordance with rule 4.5."
+    },
+    {
+     "kind": "rule",
+     "number": "15.12",
+     "depth": 1,
+     "text": "Handling of firearms that is on a bench/mat/rack is prohibited during a cease fire."
+    },
+    {
+     "kind": "rule",
+     "number": "15.13",
+     "depth": 1,
+     "text": "All racks must be placed forward of the yellow line. Firearms in racks must have an empty chamber indicator (flag) inserted and all magazines removed."
+    },
+    {
+     "kind": "rule",
+     "number": "15.14",
+     "depth": 1,
+     "text": "Under no circumstances may any shooter fire at anything on the range other than an approved target placed directly down range at 90 degrees to the firing line. Shooting diagonally across the range is considered a breach of safety."
+    },
+    {
+     "kind": "rule",
+     "number": "15.15",
+     "depth": 1,
+     "text": "Use of flipper or tumbling targets are prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "15.16",
+     "depth": 1,
+     "text": "Shooting at target frames, frame supports, or range fixtures is prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "15.17",
+     "depth": 1,
+     "text": "Target frames must be constructed of timber, aluminium, mild steel angle or RHS up to 1.6mm thickness or mild steel rod up to 10mm diameter. Hardened rod and rebar is not permitted. No flat facing steel surfaces should face the shooters that are greater than 1.6mm thickness unless covered by timber or similar. Star pickets are prohibited unless surfaces are covered by timber or similar that are facing the shooter."
+    },
+    {
+     "kind": "rule",
+     "number": "15.18",
+     "depth": 1,
+     "text": "Steel target must be flat steel plate without any pitting or distortion. The following minimum thickness and grades of steel need to be used in the construction of targets: Rimfire targets - minimum thickness of 3mm and a minimum hardness of 360 Brinell (Bisalloy 400). Centrefire targets - minimum thickness of 8mm and a minimum hardness of 360 Brinell (Bisalloy 400)."
+    },
+    {
+     "kind": "rule",
+     "number": "15.19",
+     "depth": 1,
+     "text": "Approved steel targets and swinging polymer targets may be used at the following minimum distances from the firing line and with the following firearm types:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Air Rifles – min. 25m",
+      "Rimfire rifles – min. 50m",
+      "Centrefire rifles – min. 200m",
+      "Handguns – not permitted."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "15.20",
+     "depth": 1,
+     "text": "Spring mount polymer targets are prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "15.21",
+     "depth": 1,
+     "text": "Approved sub-club steel targets and target positioning are allowed according to competition rules."
+    },
+    {
+     "kind": "rule",
+     "number": "15.22",
+     "depth": 1,
+     "text": "High-visibility upper body clothing must be worn to move beyond 100m forward of the firing line."
+    },
+    {
+     "kind": "rule",
+     "number": "15.23",
+     "depth": 1,
+     "text": "With approval of the RO, shooters may access the range by vehicle during a “cease fire” to place, check or collect targets. A safety cone must be placed on the bench before driving onto the range and removed upon return."
+    },
+    {
+     "kind": "rule",
+     "number": "15.24",
+     "depth": 1,
+     "text": "All shooting shall be from behind the fixed red firing line, under cover and on the concrete hardstand, unless approved by the Range Manager."
+    },
+    {
+     "kind": "rule",
+     "number": "15.25",
+     "depth": 1,
+     "text": "Shooting of shotguns on the range must be directed at only static targets unless using the designated clay throwing area."
+    },
+    {
+     "kind": "rule",
+     "number": "15.26",
+     "depth": 1,
+     "text": "At the completion of a shoot, all empty shells and targets are to be removed and disposed of in the appropriate receptacles."
+    },
+    {
+     "kind": "rule",
+     "number": "15.27",
+     "depth": 1,
+     "text": "Placement of targets beyond 300m must be approved by the on-duty RO."
+    }
+   ]
+  },
+  {
+   "number": "16",
+   "title": "SPECIFIC RULES FOR RANGES 1-18, Big Game and Game range",
+   "blocks": [
+    {
+     "kind": "heading",
+     "text": "RANGE OFFICER POLICY"
+    },
+    {
+     "kind": "para",
+     "text": "All shooting on ranges 1-18, Big Game and Game Ranges must be under the control of a currently qualified SSAA Victoria Range Officer (RO) or recognised RO as per 7.8."
+    },
+    {
+     "kind": "rule",
+     "number": "16.1",
+     "depth": 1,
+     "text": "All shooters must report to the on-duty RO on arrival, after registering at the office or sub-club if applicable."
+    },
+    {
+     "kind": "rule",
+     "number": "16.2",
+     "depth": 1,
+     "text": "All RO commands in accordance with the Eagle Park Range Rules must be obeyed."
+    },
+    {
+     "kind": "rule",
+     "number": "16.3",
+     "depth": 1,
+     "text": "Firearms moving to or from vehicles to or from the range or clubhouse must be carried in one of the following ways:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "i) in a bag, case or cart,",
+      "ii) with muzzle pointing upwards, action open or removed, and detachable magazine removed.",
+      "iii) holstered, or",
+      "iv) broken with muzzle pointing down for shotguns and double barrel rifles. Empty chamber indicators (flags) are not required whilst firearm is in transit between a vehicle, the range and/or clubhouse."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "16.4",
+     "depth": 1,
+     "text": "Firearms cannot be brought onto a range or handled during a cease fire."
+    },
+    {
+     "kind": "rule",
+     "number": "16.5",
+     "depth": 1,
+     "text": "Bagged/cased firearms brought onto the range are only to be removed from bags/cases in a designated safe area"
+    },
+    {
+     "kind": "rule",
+     "number": "16.6",
+     "depth": 1,
+     "text": "Once a longarm is removed from a bag/case under rule 16.5, it may be transferred unloaded to a rack or cart, with action open or removed, and magazine removed or floor plates open where applicable."
+    },
+    {
+     "kind": "rule",
+     "number": "16.7",
+     "depth": 1,
+     "text": "Empty chamber indicators (flags) are to be used in clubhouses and in accordance with rule 4.3. Firearms vertically stored in racks or carts do not require an empty chamber indicator (flag) inserted but do require actions to be open or removed, and detachable magazines removed. Shotguns and double barrel rifles may be closed in racks once cleared by a RO. During live fire, no firearms are to be handled whilst shooters are forward of the rear-most firing point, as determined by the RO, except for movement of firearms as per rule 16.3 and 16.5. No other handling of firearms is permitted."
+    },
+    {
+     "kind": "rule",
+     "number": "16.8",
+     "depth": 1,
+     "text": "Under range certification, shooting is permitted for the following firearms;"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Longarm - ranges 1-4 (maximum calibre .308 and all pistol calibres),",
+      "ranges 5-7 (maximum calibre .308 and all pistol calibres for IPSC competitions only),",
+      "ranges 8, 9 and Big Game Rifle Club (unrestricted),",
+      "ranges 10-18 (centrefire rifles of pistol calibres only).",
+      "Rimfire - all ranges",
+      "Black powder - all ranges",
+      "Shotgun - all ranges",
+      "Handguns - all ranges"
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "16.9",
+     "depth": 1,
+     "text": "Any shooting at target frames, frame supports, and range fixtures is prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "16.10",
+     "depth": 1,
+     "text": "Targets may not be placed beyond the maximum distance of the range certification indicated by red markers on the side of the range."
+    },
+    {
+     "kind": "rule",
+     "number": "16.11",
+     "depth": 1,
+     "text": "Approved sub-club steel targets are allowed according to competition rules."
+    },
+    {
+     "kind": "rule",
+     "number": "16.12",
+     "depth": 1,
+     "text": "No firing shall be conducted that directs fire at rocks, trees, other structures, or objects on the range."
+    },
+    {
+     "kind": "rule",
+     "number": "16.13",
+     "depth": 1,
+     "text": "Except for ranges 1, 4, 5, 6, 7 and 8, under no circumstances may any shooter fire at anything on the range other than an approved target placed directly down range, in line with stop butt. Shooting diagonally across the Range into side walls or berms is prohibited and constitutes a breach of safety."
+    },
+    {
+     "kind": "rule",
+     "number": "16.14",
+     "depth": 1,
+     "text": "180-degree arc of fire is permitted on ranges 5 -7 with targets being no higher than 2 metres from the range floor."
+    },
+    {
+     "kind": "rule",
+     "number": "16.15",
+     "depth": 1,
+     "text": "90-degree arc of fire towards to left side wall is permitted on range 1 with targets being no higher than 2 metres from the range floor."
+    },
+    {
+     "kind": "rule",
+     "number": "16.16",
+     "depth": 1,
+     "text": "On ranges 4 and 8, shooting is permitted into the side wall/berm that are adjacent to ranges 5 and 7 respectively. A 90-degree arc of fire is permitted on these ranges towards these side walls/berms. When targets are placed in line with a side wall, they are to be no higher than 2 metres from the range floor."
+    },
+    {
+     "kind": "rule",
+     "number": "16.17",
+     "depth": 1,
+     "text": "All shooting shall be from the firing line as determined by the RO."
+    },
+    {
+     "kind": "rule",
+     "number": "16.18",
+     "depth": 1,
+     "text": "On completion of a shoot, all empty shells and targets are to be removed and disposed of in the appropriate containers."
+    },
+    {
+     "kind": "rule",
+     "number": "16.19",
+     "depth": 1,
+     "text": "If shooting is conducted behind pink marker posts on Range 7, a common cease fires must be organised with Range 8."
+    },
+    {
+     "kind": "rule",
+     "number": "16.20",
+     "depth": 1,
+     "text": "If Range 9 is in use, common cease fire must be organised with range 8 if shooters are beyond 150m on Range 8."
+    }
+   ]
+  },
+  {
+   "number": "17",
+   "title": "SPECIFIC RULES FOR 5-STAND",
+   "blocks": [
+    {
+     "kind": "heading",
+     "text": "RANGE OFFICER POLICY"
+    },
+    {
+     "kind": "para",
+     "text": "All shooting on range – 5-Stand must be under the control of a currently qualified SSAA Victoria Range Officer (RO) or recognised RO as per 7.8."
+    },
+    {
+     "kind": "rule",
+     "number": "17.1",
+     "depth": 1,
+     "text": "All shooters must report to the on-duty RO on arrival, after registering at the office."
+    },
+    {
+     "kind": "rule",
+     "number": "17.2",
+     "depth": 1,
+     "text": "The on-duty Range Officer must be immediately identifiable to persons on the range by means of a Range Officer’s jacket or similar."
+    },
+    {
+     "kind": "rule",
+     "number": "17.3",
+     "depth": 1,
+     "text": "All RO commands in accordance with the Eagle Park Range Rules must be obeyed."
+    },
+    {
+     "kind": "rule",
+     "number": "17.4",
+     "depth": 1,
+     "text": "Firearms must remain in vehicles until instruction by the on-duty RO to bring them onto the range, unloaded and action open."
+    },
+    {
+     "kind": "rule",
+     "number": "17.5",
+     "depth": 1,
+     "text": "Shotguns moving to or from vehicles to or from the range must be carried broken with muzzle pointing up. Empty chamber indicators (flags) are not required whilst firearm is in transit between a vehicle, the range and/or clubhouse."
+    },
+    {
+     "kind": "rule",
+     "number": "17.6",
+     "depth": 1,
+     "text": "Firearms cannot be brought onto a range or handled during a cease fire."
+    },
+    {
+     "kind": "rule",
+     "number": "17.7",
+     "depth": 1,
+     "text": "Under range certification, shooting is permitted for the following firearms;"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Shotgun using size 7 shot and above."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "17.8",
+     "depth": 1,
+     "text": "No firing shall be conducted that directs fire at rocks, trees, or other structures on the range."
+    },
+    {
+     "kind": "rule",
+     "number": "17.9",
+     "depth": 1,
+     "text": "All Shooting shall be from the firing line as determined by the RO."
+    },
+    {
+     "kind": "rule",
+     "number": "17.10",
+     "depth": 1,
+     "text": "Common cease fires must be called in accordance with rule 4.5."
+    },
+    {
+     "kind": "rule",
+     "number": "17.11",
+     "depth": 1,
+     "text": "Shotguns are not to be closed or practice undertaken unless at the direction of the on-duty RO."
+    },
+    {
+     "kind": "rule",
+     "number": "17.12",
+     "depth": 1,
+     "text": "Shotguns may only be loaded on the firing line."
+    },
+    {
+     "kind": "rule",
+     "number": "17.13",
+     "depth": 1,
+     "text": "Shotguns must remain broken, unloaded, and pointed in a safe direction at all times when moving around the range."
+    },
+    {
+     "kind": "rule",
+     "number": "17.14",
+     "depth": 1,
+     "text": "Shotguns in racks must be broken and have empty chamber indicators (flags) inserted."
+    },
+    {
+     "kind": "rule",
+     "number": "17.15",
+     "depth": 1,
+     "text": "On completion of a shoot, all empty shells and targets are to be removed and disposed of in appropriate containers."
+    },
+    {
+     "kind": "rule",
+     "number": "17.16",
+     "depth": 1,
+     "text": "Use of steel targets on the range is prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "17.17",
+     "depth": 1,
+     "text": "Use of steel shot is prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "17.18",
+     "depth": 1,
+     "text": "A maximum of 2 rounds may be loaded into a shotgun at a time."
+    }
+   ]
+  },
+  {
+   "number": "18",
+   "title": "SPECIFIC RULES FOR SPORTING CLAYS",
+   "blocks": [
+    {
+     "kind": "heading",
+     "text": "RANGE OFFICER POLICY"
+    },
+    {
+     "kind": "para",
+     "text": "All shooting on Sporting Clays must be under the control of a currently qualified SSAA Victoria Range Officer (RO) or recognised RO as per 7.8."
+    },
+    {
+     "kind": "rule",
+     "number": "18.1",
+     "depth": 1,
+     "text": "All shooters must report to the on-duty RO on arrival, after registering at the office."
+    },
+    {
+     "kind": "rule",
+     "number": "18.2",
+     "depth": 1,
+     "text": "All RO commands in accordance with the Eagle Park Range Rules must be obeyed."
+    },
+    {
+     "kind": "rule",
+     "number": "18.3",
+     "depth": 1,
+     "text": "Firearms must remain in vehicles until instruction by the on-duty RO to bring them onto the range, unloaded and action open,"
+    },
+    {
+     "kind": "rule",
+     "number": "18.4",
+     "depth": 1,
+     "text": "Under range certification, shooting is permitted for the following firearms;"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Shotgun using size 7 shot and above."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "18.5",
+     "depth": 1,
+     "text": "No firing shall be conducted that directs fire at rocks, trees, or other structures on the range."
+    },
+    {
+     "kind": "rule",
+     "number": "18.6",
+     "depth": 1,
+     "text": "All Shooting shall be from the firing line as determined by the RO."
+    },
+    {
+     "kind": "rule",
+     "number": "18.7",
+     "depth": 1,
+     "text": "Shotguns are not to be closed or practice undertaken unless at the direction of the on-duty RO."
+    },
+    {
+     "kind": "rule",
+     "number": "18.8",
+     "depth": 1,
+     "text": "Shotguns may only be loaded on the firing line."
+    },
+    {
+     "kind": "rule",
+     "number": "18.9",
+     "depth": 1,
+     "text": "Shotguns must remain broken, unloaded and pointed in a safe direction at all times when moving around the range."
+    },
+    {
+     "kind": "rule",
+     "number": "18.10",
+     "depth": 1,
+     "text": "On completion of a shoot, all empty shells and targets are to be removed and disposed of in appropriate containers."
+    },
+    {
+     "kind": "rule",
+     "number": "18.11",
+     "depth": 1,
+     "text": "Use of steel targets on the range is prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "18.12",
+     "depth": 1,
+     "text": "Use of steel shot is prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "18.13",
+     "depth": 1,
+     "text": "A maximum of 2 rounds may be loaded into a shotgun at a time."
+    }
+   ]
+  },
+  {
+   "number": "19",
+   "title": "SPECIFIC RULES FOR TRAINING RANGE",
+   "blocks": [
+    {
+     "kind": "heading",
+     "text": "RANGE OFFICER POLICY"
+    },
+    {
+     "kind": "para",
+     "text": "All shooting on Training Range must be under the control of a currently qualified SSAA Victoria Range Officer (RO)"
+    },
+    {
+     "kind": "rule",
+     "number": "19.1",
+     "depth": 1,
+     "text": "All shooters must report to the on-duty RO or course presenter on arrival, after registering at the office or Training Centre."
+    },
+    {
+     "kind": "rule",
+     "number": "19.2",
+     "depth": 1,
+     "text": "The on-duty Range Officer and/or course presenter must be immediately identifiable to persons on the range by means of an official jacket or similar."
+    },
+    {
+     "kind": "rule",
+     "number": "19.3",
+     "depth": 1,
+     "text": "All RO commands and instructions in accordance with the Eagle Park Range Rules must be obeyed."
+    },
+    {
+     "kind": "rule",
+     "number": "19.4",
+     "depth": 1,
+     "text": "Under range certification, shooting is permitted up to a distance of 500m for the following firearms;"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Centrefire, rimfire, air and black powder rifles",
+      "Shotgun in designated areas and as directed by the RO",
+      "Handguns in designated areas and as directed by the RO"
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "19.5",
+     "depth": 1,
+     "text": "Personal firearm(s) must remain in vehicles until instruction by the RO to bring them onto the range."
+    },
+    {
+     "kind": "rule",
+     "number": "19.6",
+     "depth": 1,
+     "text": "Firearms moving to or from vehicles to or from the range must be carried in one of the following ways:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "i) in a bag, case or cart,",
+      "ii) with muzzle pointing upwards, action open or removed, and magazine removed or floor plates open where applicable",
+      "iii) broken with muzzle pointing upwards for shotguns and double barrel rifles. Empty chamber indicators (flags) are not required whilst firearm is in transit between a vehicle, the range."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "19.7",
+     "depth": 1,
+     "text": "All cases and bags containing firearms that are brought onto the range at the direction of the RO, must be placed on or under the allocated bench and opened, with the firearm pointing down range at all times in accordance with 19.8."
+    },
+    {
+     "kind": "rule",
+     "number": "19.8",
+     "depth": 1,
+     "text": "When firearms are not actually in use, including firearms in bags or case, action must be open, unloaded with all detachable magazines removed or floor plates open where applicable and empty chamber indicator (flag) inserted. Unloaded magazines may be left on the firing line adjacent to the firearm."
+    },
+    {
+     "kind": "rule",
+     "number": "19.9",
+     "depth": 1,
+     "text": "Racks used to store firearms must be forward of the yellow line."
+    },
+    {
+     "kind": "rule",
+     "number": "19.10",
+     "depth": 1,
+     "text": "On the order \"cease fire\", shooting must stop, and all firearms made safe as per rule 4. The shooter must move back from the firing line and stand behind the yellow control lines on the floor. Once all firearms have been cleared, on instruction from the on-duty RO, shooters may cross the yellow line to enter the range."
+    },
+    {
+     "kind": "rule",
+     "number": "19.11",
+     "depth": 1,
+     "text": "Common cease fires must be called in accordance with rule 4.5."
+    },
+    {
+     "kind": "rule",
+     "number": "19.12",
+     "depth": 1,
+     "text": "Handling of firearms that is on a bench/mat is prohibited during a cease fire."
+    },
+    {
+     "kind": "rule",
+     "number": "19.13",
+     "depth": 1,
+     "text": "Under no circumstances may any shooter fire at anything on the range other than an approved target placed directly down range at 90 degrees to the firing line. Shooting diagonally across the range is considered a breach of safety."
+    },
+    {
+     "kind": "rule",
+     "number": "19.14",
+     "depth": 1,
+     "text": "Use of flipper or tumbling targets are prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "19.15",
+     "depth": 1,
+     "text": "Shooting at target frames, frame supports, or range fixtures is prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "19.16",
+     "depth": 1,
+     "text": "Target frames must be constructed of timber, aluminium, mild steel angle or RHS up to 1.6mm thickness or mild steel rod up to 10mm diameter. Hardened rod is not permitted. No flat facing steel surfaces should face the shooter that are greater than 1.6mm thickness unless covered by timber or similar. Star pickets are prohibited unless surfaces are covered by timber or similar that are facing the shooter."
+    },
+    {
+     "kind": "rule",
+     "number": "19.17",
+     "depth": 1,
+     "text": "Steel targets must be flat steel plate without any pitting or distortion. The following minimum thickness and grades of steel need to be used in the construction of targets: Rimfire targets - minimum thickness of 3mm and a minimum hardness of 360 Brinell (Bisalloy 400). Centrefire targets - minimum thickness of 8mm and a minimum hardness of 360 Brinell (Bisalloy 400)."
+    },
+    {
+     "kind": "rule",
+     "number": "19.18",
+     "depth": 1,
+     "text": "Approved steel targets and swinging polymer targets may be used at the following minimum distances from the firing line and with the following firearm types:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Air Rifles – min. 25m",
+      "Rimfire rifles – min. 50m",
+      "Centrefire rifles – min. 200m",
+      "Handguns – min. 10m"
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "19.19",
+     "depth": 1,
+     "text": "Spring mount polymer targets are prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "19.20",
+     "depth": 1,
+     "text": "Approved sub-club steel targets and target positioning are allowed according to competition rules."
+    },
+    {
+     "kind": "rule",
+     "number": "19.21",
+     "depth": 1,
+     "text": "Approved steel targets for law enforcement or security training are allowed in accordance with official training procedures."
+    },
+    {
+     "kind": "rule",
+     "number": "19.22",
+     "depth": 1,
+     "text": "High-visibility upper body clothing must be worn to move beyond 100m forward of the firing line."
+    },
+    {
+     "kind": "rule",
+     "number": "19.23",
+     "depth": 1,
+     "text": "All shooting shall be from behind the fixed red firing line, under cover and on the concrete hardstand unless approved by the Range Manager."
+    },
+    {
+     "kind": "rule",
+     "number": "19.24",
+     "depth": 1,
+     "text": "Shooting of shotguns on the range must only be directed at static targets unless using the designated clay thrower."
+    },
+    {
+     "kind": "rule",
+     "number": "19.25",
+     "depth": 1,
+     "text": "Manual throwing of clays is prohibited."
+    },
+    {
+     "kind": "rule",
+     "number": "19.26",
+     "depth": 1,
+     "text": "At the completion of a shoot, all empty shells and targets are to be removed and disposed of in the appropriate receptacles."
+    },
+    {
+     "kind": "rule",
+     "number": "19.27",
+     "depth": 1,
+     "text": "The placement of targets past 300m must be approved by the on-duty RO or course presenter."
+    },
+    {
+     "kind": "rule",
+     "number": "19.28",
+     "depth": 1,
+     "text": "For handguns the following must be adhered to:"
+    },
+    {
+     "kind": "rule",
+     "number": "19.28.1",
+     "depth": 2,
+     "text": "Handguns to be fired from the allocated bench or from standing next to the bench."
+    },
+    {
+     "kind": "rule",
+     "number": "19.28.2",
+     "depth": 2,
+     "text": "During cease fires all handguns must be holstered or placed on a bench."
+    },
+    {
+     "kind": "rule",
+     "number": "19.28.3",
+     "depth": 2,
+     "text": "All magazines must be emptied during a cease fire."
+    }
+   ]
+  },
+  {
+   "number": "Attachment A",
+   "title": "Stuck Live Round Policy",
+   "blocks": [
+    {
+     "kind": "para",
+     "text": "In 1995 the SSAA National Conference established a policy as follows."
+    },
+    {
+     "kind": "para",
+     "text": "“In the event of a shooter experiencing a jammed live round (stuck live case), the firearm is to be made safe by the removal of the bolt if applicable, or by some other method if the firearm is not a bolt action. The Range Officer is to ensure that the firearm is immediately removed to a safe place. Where applicable the bolt is to be taken out of the firearm while the stuck case is in the chamber. It is recommended that the firearm be taken to the nearest gunsmith as soon as possible. Under no circumstances is the removal of the case to be attempted or undertaken on Range property."
+    },
+    {
+     "kind": "para",
+     "text": "This policy is to be adhered to at all SSAA (Victoria) Ranges."
+    }
+   ]
+  },
+  {
+   "number": "Attachment B",
+   "title": "Range Approvals",
+   "blocks": [
+    {
+     "kind": "heading",
+     "text": "LICENSING &REGULATIONS DIVISION"
+    },
+    {
+     "kind": "para",
+     "text": "This is to certify that the shooting range operated by"
+    },
+    {
+     "kind": "para",
+     "text": "SSAA (Vic)"
+    },
+    {
+     "kind": "para",
+     "text": "and situated at"
+    },
+    {
+     "kind": "para",
+     "text": "Gifkins Road, Little River"
+    },
+    {
+     "kind": "para",
+     "text": "is approved under the provisions of Section 179 of the Firearms Act 1996 as an approved shooting range subject to the conditions detailed in the attached schedule"
+    },
+    {
+     "kind": "para",
+     "text": "dated this day"
+    },
+    {
+     "kind": "para",
+     "text": "18 January 2019"
+    },
+    {
+     "kind": "para",
+     "text": "Andrew Armstrong Senior Sergeant27927"
+    },
+    {
+     "kind": "para",
+     "text": "Range Approval Number EP-2019-1"
+    },
+    {
+     "kind": "para",
+     "text": "Schedule for approval of shooting range"
+    },
+    {
+     "kind": "para",
+     "text": "Club/organisation name SSAA (Vic) - Eagle Park Location Gifkins Road, Little River"
+    },
+    {
+     "kind": "para",
+     "text": "General Conditions"
+    },
+    {
+     "kind": "rule",
+     "number": "1",
+     "depth": 1,
+     "text": "All shooting activities on the shooting range must be covered by a current public liability insurance policy."
+    },
+    {
+     "kind": "rule",
+     "number": "2",
+     "depth": 1,
+     "text": "The shooting range must be maintained in a condition so as to comply with the requirements listed in the “Firearms Ranges - Standards for Approval” manual."
+    },
+    {
+     "kind": "rule",
+     "number": "3",
+     "depth": 1,
+     "text": "The shooting range will comply with all conditions imposed by the responsible Local Government Authority (if applicable)"
+    },
+    {
+     "kind": "rule",
+     "number": "4",
+     "depth": 1,
+     "text": "No alterations or extensions shall be made to the shooting range without the prior approval of the Chief Commissioner."
+    },
+    {
+     "kind": "rule",
+     "number": "5",
+     "depth": 1,
+     "text": "This shooting range approval may be revoked or the conditions of the approval varied by the Chief Commissioner."
+    },
+    {
+     "kind": "rule",
+     "number": "6",
+     "depth": 1,
+     "text": "Range Safety Orders must be visibly displayed in a prominent place for all persons at the shooting range to see."
+    },
+    {
+     "kind": "rule",
+     "number": "7",
+     "depth": 1,
+     "text": "This Range Approval Certificate or a copy thereof must be visibly displayed in a prominent place for all persons at the shooting range to see."
+    },
+    {
+     "kind": "para",
+     "text": "Special Conditions (if applicable)"
+    },
+    {
+     "kind": "rule",
+     "number": "1",
+     "depth": 1,
+     "text": "The SSAA Eagle Park “Main Firing Line” Range 1 is approved for:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using handguns, shotguns, centrefire rifles, rimfire rifles, and black powder firearms , and",
+      "Law Enforcement Training using handguns, shotguns, centrefire rifles and rimfire rifles."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "2",
+     "depth": 1,
+     "text": "The SSAA Eagle Park “Main Firing Line” Range 2 is approved for:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "300 - 500 metre shooting is only to be conducted from either Bench rest or Prone Positions. Prone position must be from effective baffled shooting bays immediately located next to Bench Rests. Shooting offhand will be permitted for SSAA (Victoria) discipline specific competitions.",
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using handguns, shotguns, centrefire rifles, rimfire rifles, and black powder firearms , and",
+      "Law Enforcement Training using handguns, shotguns, centrefire rifles and rimfire rifles."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "3",
+     "depth": 1,
+     "text": "The SSAA Eagle Park 25 Metre Ranges Numbers 1,2 & 3 are approved for:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using handguns, shotguns, centrefire rifles and rimfire rifles and black powder firearms, and",
+      "Law Enforcement Training using handguns, shotguns, centrefire rifles and rimfire rifles."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "4",
+     "depth": 1,
+     "text": "The SSAA Eagle Park 50 Metre Range Number 4 is approved for:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using handguns, shotguns, centrefire rifles , black powder firearms and rimfire rifles, centre fire rifles in accordance with IPSC activity and"
+     ]
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Law Enforcement Training using handguns, shotguns, centrefire rifles and rimfire rifles."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "5",
+     "depth": 1,
+     "text": "The SSAA Eagle Park 50 Metre Ranges Numbers 5, 6 & 7 are approved for:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using handguns, shotguns, centrefire rifles of pistol calibre , and rimfire rifles and black powder firearms,",
+      "Sports target shooting in accordance with IPSC Rifle competition calibres up to and including .308 calibre, and",
+      "Law Enforcement Training using handguns, shotguns, and rimfire rifles."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "6",
+     "depth": 1,
+     "text": "The SSAA Eagle Park 200 Metre Range number 8 is approved for:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using handguns, shotguns, centrefire rifles , rimfire rifles, and black powder firearms , and",
+      "Law Enforcement Training using handguns, shotguns, centrefire rifles and rimfire rifles.",
+      "Security Industry Training."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "7",
+     "depth": 1,
+     "text": "The SSAA Eagle Park 100 Metre Range Number 9 is approved for:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using handguns, shotguns, centrefire rifles, rimfire rifles and black powder firearms and",
+      "Law Enforcement Training using handguns, shotguns, centrefire rifles and rimfire rifles.",
+      "Security Industry Training"
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "8",
+     "depth": 1,
+     "text": "The SSAA Eagle Park 25 Metre Ranges Numbers 10, 11, 12 & 13 are approved for:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using handguns, shotguns, centrefire rifles of pistol calibres only, rimfire rifles and black powder firearms.",
+      "Law Enforcement Training using handguns, shotguns, and rimfire rifles."
+     ]
+    },
+    {
+     "kind": "rule",
+     "number": "9",
+     "depth": 1,
+     "text": "The SSAA Eagle Park 20 Metre Ranges Numbers 14, 15, 16, 17 & 18 are approved for:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using handguns, shotguns, centrefire rifles of pistol calibres only, rimfire rifles and black powder firearms.",
+      "Law Enforcement Training using handguns, shotguns, and rimfire rifles. 10. The SSAA Eagle Park Big Game Club 100 Metre Range is approved for:",
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using handguns, shotguns, centrefire rifles rimfire rifles and black powder firearms and",
+      "Law Enforcement Training using handguns, shotguns, centrefire rifles and rimfire rifles.",
+      "Security Industry Training. Updated 6 September 2022 – (See new approval below) 11. The SSAA Eagle Park Simulated Clay Target Ground is approved for sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using shotguns. 12. The SSAA Eagle Park Skeet Field is approved for sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using shotguns. 13. The SSAA Eagle Park Down the Line Ground is approved for sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using shotguns. 14. The SSAA Eagle Park “Main Firing Line” ranges and Ranges Numbers 2, 3, 4, 5, 6 & 7 are approved for ballistic workshop demonstrations and terminal effectiveness testing by Firearms Manufacturers. 15. The SSAA Eagle Park range complex is approved for Australian Defence Force firearms training conducted in accordance with the requirements of Australian Army Land Warfare Procedures – General LWP- G7-3-1 and Australian Defence Force Range Orders (LAND) Chapter 18 - Special Forces 16. All shooting undertaken on the ranges must be undertaken in strict compliance with the Range Rules and regulations of SSAA (Victoria)."
+     ]
+    },
+    {
+     "kind": "para",
+     "text": "17. The SSAA Eagle Park 5 Stand Clay Target Range is approved for Clay target shooting in accordance with the rules and regulations of Sporting Clays Australia and/or SSAA (Victoria). 18. Any previous approval for this range is replaced by the approval number EP 2019-1 dated 18 January 2019."
+    },
+    {
+     "kind": "para",
+     "text": "NOTE: Failure to comply with any condition of the shooting range approval may result in the revocation of the approval"
+    },
+    {
+     "kind": "heading",
+     "text": "LICENSING & REGULATION DIVISION"
+    },
+    {
+     "kind": "para",
+     "text": "This is to certify that the shooting range operated by"
+    },
+    {
+     "kind": "para",
+     "text": "S.S.A.A. (Vic) Big Game Club"
+    },
+    {
+     "kind": "para",
+     "text": "at"
+    },
+    {
+     "kind": "para",
+     "text": "Gifkins Road, Little River"
+    },
+    {
+     "kind": "para",
+     "text": "is approved under the provisions of Section 179 of the Firearms Act 1996 as an approved shooting range subject to the conditions detailed in the attached schedule"
+    },
+    {
+     "kind": "para",
+     "text": "dated"
+    },
+    {
+     "kind": "para",
+     "text": "6 September 2022"
+    },
+    {
+     "kind": "para",
+     "text": "Andrew Armstrong Acting Inspector 27927"
+    },
+    {
+     "kind": "para",
+     "text": "Range Approval Number SSAABGC2022-01"
+    },
+    {
+     "kind": "para",
+     "text": "Schedule for approval of shooting range"
+    },
+    {
+     "kind": "para",
+     "text": "Club/organisation name S.S.A.A. (Vic) – Big Game Club Location Gifkins Road, Little River"
+    },
+    {
+     "kind": "para",
+     "text": "General Conditions"
+    },
+    {
+     "kind": "rule",
+     "number": "8",
+     "depth": 1,
+     "text": "All shooting activities on the shooting range must be covered by a current public liability insurance policy."
+    },
+    {
+     "kind": "rule",
+     "number": "9",
+     "depth": 1,
+     "text": "The shooting range must be maintained in a condition so as to comply with the requirements listed in the “Firearms Ranges - Standards for Approval” manual."
+    },
+    {
+     "kind": "rule",
+     "number": "10",
+     "depth": 1,
+     "text": "The shooting range will comply with all conditions imposed by the responsible Local Government Authority (if applicable)"
+    },
+    {
+     "kind": "rule",
+     "number": "11",
+     "depth": 1,
+     "text": "No alterations or extensions shall be made to the shooting range without the prior approval of the Chief Commissioner."
+    },
+    {
+     "kind": "rule",
+     "number": "12",
+     "depth": 1,
+     "text": "This shooting range approval may be revoked or the conditions of the approval varied by the Chief Commissioner."
+    },
+    {
+     "kind": "rule",
+     "number": "13",
+     "depth": 1,
+     "text": "Range Safety Orders must be visibly displayed in a prominent place for all persons at the shooting range to see."
+    },
+    {
+     "kind": "rule",
+     "number": "14",
+     "depth": 1,
+     "text": "This Range Approval Certificate or a copy thereof must be visibly displayed in a prominent place for all persons at the shooting range to see."
+    },
+    {
+     "kind": "para",
+     "text": "Special Conditions (if applicable)"
+    },
+    {
+     "kind": "para",
+     "text": "19. The SSAA Eagle Park Big Game Club 100 Metre Range is approved for:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Vi ctoria) using handguns, shotguns, centrefire rifles rimfire rifles and black powder firearms and",
+      "Law Enforcement Training using handguns, shotguns, centrefire rifles and rimfire rifles.",
+      "Security Industry Training. 20. The SSAA Eagle Park Big Game Club Simulated Game Range is approved for:",
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Vi ctoria) using handguns, shotguns, centrefire rifles rimfire rifles and black powder firearms and",
+      "Law Enforcement Training using handguns, shotguns, centrefire rifles and rimfire rifles.",
+      "Security Industry Training."
+     ]
+    },
+    {
+     "kind": "para",
+     "text": "21. All shooting on the ranges is to be conducted in line with the S.S.A.A. and Big Game Club Range Safety orders and conditions. 22. Any previous approval for this range is replaced by approval number SSAABGC2022-01 dated 6 September 2022."
+    },
+    {
+     "kind": "para",
+     "text": "NOTE: Failure to comply with any condition of the shooting range approval may result in the revocation of the approval"
+    },
+    {
+     "kind": "heading",
+     "text": "LICENSING & REGULATION DIVISION"
+    },
+    {
+     "kind": "para",
+     "text": "This is to certify that the shooting range operated by"
+    },
+    {
+     "kind": "para",
+     "text": "S.S.A.A. (Vic) Training Range"
+    },
+    {
+     "kind": "para",
+     "text": "at"
+    },
+    {
+     "kind": "para",
+     "text": "Gifkins Road, Little River"
+    },
+    {
+     "kind": "para",
+     "text": "is approved under the provisions of Section 179 of the Firearms Act 1996 as an approved shooting range subject to the conditions detailed in the attached schedule"
+    },
+    {
+     "kind": "para",
+     "text": "dated"
+    },
+    {
+     "kind": "para",
+     "text": "22nd November 2022"
+    },
+    {
+     "kind": "para",
+     "text": "Andrew Armstrong Acting Inspector 27927"
+    },
+    {
+     "kind": "para",
+     "text": "Range Approval Number SSAATR2022-01.1"
+    },
+    {
+     "kind": "para",
+     "text": "Schedule for approval of shooting range"
+    },
+    {
+     "kind": "para",
+     "text": "Club/organisation name S.S.A.A. (Vic) – Training Range Location Gifkins Road, Little River"
+    },
+    {
+     "kind": "para",
+     "text": "General Conditions"
+    },
+    {
+     "kind": "rule",
+     "number": "15",
+     "depth": 1,
+     "text": "All shooting activities on the shooting range must be covered by a current public liability insurance policy."
+    },
+    {
+     "kind": "rule",
+     "number": "16",
+     "depth": 1,
+     "text": "The shooting range must be maintained in a condition so as to comply with the requirements listed in the “Firearms Ranges - Standards for Approval” manual."
+    },
+    {
+     "kind": "rule",
+     "number": "17",
+     "depth": 1,
+     "text": "The shooting range will comply with all conditions imposed by the responsible Local Government Authority (if applicable)"
+    },
+    {
+     "kind": "rule",
+     "number": "18",
+     "depth": 1,
+     "text": "No alterations or extensions shall be made to the shooting range without the prior approval of the Chief Commissioner."
+    },
+    {
+     "kind": "rule",
+     "number": "19",
+     "depth": 1,
+     "text": "This shooting range approval may be revoked or the conditions of the approval varied by the Chief Commissioner."
+    },
+    {
+     "kind": "rule",
+     "number": "20",
+     "depth": 1,
+     "text": "Range Safety Orders must be visibly displayed in a prominent place for all persons at the shooting range to see."
+    },
+    {
+     "kind": "rule",
+     "number": "21",
+     "depth": 1,
+     "text": "This Range Approval Certificate or a copy thereof must be visibly displayed in a prominent place for all persons at the shooting range to see."
+    },
+    {
+     "kind": "para",
+     "text": "Special Conditions (if applicable)"
+    },
+    {
+     "kind": "para",
+     "text": "23. The SSAA Eagle Park “Training” Range 1 is approved for:"
+    },
+    {
+     "kind": "list",
+     "items": [
+      "Sport target shooting in accordance with the rules and regulations of SSAA (Victoria) using shotgun, rifle and handguns.",
+      "The range is approved for Law Enforcement and Security Industry training activities 24. Any previous approval for this range is replaced by the approval number SSAATR2022-01.1 dated 22 November 2022."
+     ]
+    },
+    {
+     "kind": "para",
+     "text": "NOTE: Failure to comply with any condition of the shooting range approval may result in the revocation of the approval"
+    }
+   ]
+  }
+ ]
+}
