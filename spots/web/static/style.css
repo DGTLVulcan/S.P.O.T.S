@@ -226,10 +226,17 @@ main {
   align-items: flex-start;
 }
 
+/* A card's width share works like a column's weight: bigger number, bigger
+   share of the row. Only meaningful in a side-by-side column -- a stacked
+   one gives every card the full width. */
 .layout-column.flow-wrap > .card {
-  flex: 1 1 270px;
+  flex: var(--tile-w, 1) 1 calc(var(--tile-w, 1) * 190px);
   min-width: 250px;
 }
+
+/* A floor, not a ceiling: a card is never shorter than its contents, so
+   resizing can't hide a shot. */
+.card { min-height: var(--tile-h, 0); }
 
 .video-frame {
   position: relative;
@@ -1191,24 +1198,54 @@ input[type="range"] { accent-color: var(--accent); }
 
 .tile-handle {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   width: 100%;
   margin: 0 0 0.75rem;
-  padding: 0.45rem 0.6rem;
+  padding: 0.4rem 0.5rem;
   border: 1px dashed var(--border);
   border-radius: 8px;
   background: var(--page);
   color: var(--ink-secondary);
-  font: inherit;
   font-size: 0.85rem;
-  text-align: left;
+}
+
+/* Only the grip and name start a drag; the buttons beside them must stay
+   pressable. */
+.tile-drag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1 1 auto;
+  min-width: 0;
   cursor: grab;
   /* Without this a touch-drag scrolls the page instead of moving the card. */
   touch-action: none;
 }
 
-.tile-handle:active { cursor: grabbing; }
+.tile-drag:active { cursor: grabbing; }
+
+.tile-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.tile-size button {
+  padding: 0.05rem 0.4rem;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  min-width: 1.5rem;
+}
+
+.tile-width, .tile-height {
+  min-width: 2.6rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
 
 .tile-grip {
   flex: none;
@@ -1613,7 +1650,7 @@ a.equip-nav-item { text-decoration: none; }
 /* ---------- Hiding cards while arranging ---------- */
 
 .tile-hide {
-  margin-left: auto;
+  margin-left: 0.2rem;
   padding: 0.1rem 0.45rem;
   border: 1px solid var(--border);
   border-radius: 999px;

@@ -20,6 +20,9 @@
 
   const LABELS = window.SPOTS_TILES || {};
   const MAX_COLUMNS = 4;
+  const MAX_TILE_WIDTH = 6;
+  const MAX_TILE_HEIGHT = 900;
+  const TILE_HEIGHT_STEP = 80;
   const MIN_WEIGHT = 1;
   const MAX_WEIGHT = 6;
   const DEFAULT_HINT = hint ? hint.textContent : "";
@@ -27,6 +30,32 @@
   let editing = false;
   let drag = null;
   let saveTimer = null;
+
+  // Per-card sizes, seeded from what the server rendered.
+  const SIZES = new Map(Object.entries(
+    (window.SPOTS_LAYOUT && window.SPOTS_LAYOUT.sizes) || {}));
+
+  function sizeOf(tile) {
+    const stored = SIZES.get(tile) || {};
+    return { w: Number(stored.w) || 1, h: Number(stored.h) || 0 };
+  }
+
+  function applySize(card, size) {
+    card.style.setProperty("--tile-w", size.w);
+    if (size.h) card.style.setProperty("--tile-h", `${size.h}px`);
+    else card.style.removeProperty("--tile-h");
+  }
+
+  function resize(card, dw, dh) {
+    const tile = card.dataset.tile;
+    const size = sizeOf(tile);
+    size.w = Math.max(1, Math.min(MAX_TILE_WIDTH, size.w + dw));
+    size.h = Math.max(0, Math.min(MAX_TILE_HEIGHT, size.h + dh * TILE_HEIGHT_STEP));
+    SIZES.set(tile, size);
+    applySize(card, size);
+    refreshHandle(card);
+    save();
+  }
 
   function columns() {
     return Array.from(layoutEl.querySelectorAll(".layout-column"));
@@ -55,6 +84,8 @@
           .map((card) => card.dataset.tile),
       })),
       hidden: hiddenCards().map((card) => card.dataset.tile),
+      sizes: Object.fromEntries(
+        [...SIZES].filter(([, size]) => size.w !== 1 || size.h)),
     };
   }
 
@@ -81,27 +112,86 @@
   // ---- editing furniture, added and removed with the mode ------------
 
   function makeHandle(card) {
-    const handle = document.createElement("button");
-    handle.type = "button";
+    // A div holding real buttons, not a button holding clickable spans:
+    // there are three controls in here now, and nesting them inside a
+    // button is neither valid nor reachable from a keyboard.
+    const handle = document.createElement("div");
     handle.className = "tile-handle";
+
+    const drag = document.createElement("span");
+    drag.className = "tile-drag";
+    drag.title = "Drag to move this card";
     const grip = document.createElement("span");
     grip.className = "tile-grip";
     const label = document.createElement("span");
     label.textContent = LABELS[card.dataset.tile] || card.dataset.tile;
-    const hide = document.createElement("span");
+    drag.append(grip, label);
+    drag.addEventListener("pointerdown", (ev) => startDrag(ev, card));
+
+    const size = document.createElement("span");
+    size.className = "tile-size";
+    size.append(
+      sizeButton("−", "Narrower", () => resize(card, -1, 0), "narrow"),
+      readout("tile-width"),
+      sizeButton("+", "Wider", () => resize(card, 1, 0), "widen"),
+      sizeButton("−", "Shorter", () => resize(card, 0, -1), "shorten"),
+      readout("tile-height"),
+      sizeButton("+", "Taller", () => resize(card, 0, 1), "heighten"),
+    );
+
+    const hide = document.createElement("button");
+    hide.type = "button";
     hide.className = "tile-hide";
     hide.textContent = "Hide";
     hide.title = "Put this card away";
-    // On the handle rather than the card, so it only exists while editing.
-    hide.addEventListener("pointerdown", (ev) => ev.stopPropagation());
-    hide.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      hideCard(card);
-    });
-    handle.append(grip, label, hide);
-    handle.addEventListener("pointerdown", (ev) => startDrag(ev, card));
+    hide.addEventListener("click", () => hideCard(card));
+
+    handle.append(drag, size, hide);
     return handle;
+  }
+
+  function sizeButton(text, title, onClick, role) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = text;
+    button.title = title;
+    button.dataset.size = role;
+    button.addEventListener("click", onClick);
+    return button;
+  }
+
+  function readout(className) {
+    const span = document.createElement("span");
+    span.className = className;
+    return span;
+  }
+
+  function refreshHandle(card) {
+    const handle = card.querySelector(".tile-handle");
+    if (!handle) return;
+    const size = sizeOf(card.dataset.tile);
+    const column = card.closest(".layout-column");
+    const sideBySide = column && column.classList.contains("flow-wrap");
+    const width = handle.querySelector(".tile-width");
+    const height = handle.querySelector(".tile-height");
+    if (width) width.textContent = sideBySide ? `W${size.w}` : "full";
+    if (height) height.textContent = size.h ? `${size.h}px` : "auto";
+    handle.querySelectorAll("[data-size]").forEach((button) => {
+      const role = button.dataset.size;
+      if (role === "narrow" || role === "widen") {
+        // Width is a share of a row, so it means nothing where each card
+        // already has the whole row to itself.
+        button.disabled = !sideBySide
+          || (role === "narrow" && size.w <= 1)
+          || (role === "widen" && size.w >= MAX_TILE_WIDTH);
+        button.title = sideBySide
+          ? (role === "narrow" ? "Narrower" : "Wider")
+          : "Set the column to side by side to change widths";
+      } else {
+        button.disabled = (role === "shorten" && size.h <= 0)
+          || (role === "heighten" && size.h >= MAX_TILE_HEIGHT);
+      }
+    });
   }
 
   function makeStrip(column) {
@@ -134,6 +224,7 @@
   function refreshAll() {
     columns().forEach(refreshStrip);
     refreshHidden();
+    document.querySelectorAll(".card[data-tile]").forEach(refreshHandle);
     if (addColumnBtn) addColumnBtn.disabled = columns().length >= MAX_COLUMNS;
   }
 

@@ -228,6 +228,17 @@
   "subgroups": tile_subgroups,
 } %}
 
+  {#- Card sizes, as custom properties rather than an attribute on every
+      card, so the macros above stay unaware of the layout entirely. The ids
+      are whitelisted in spots/layout.py, so there is nothing to escape. -#}
+  {%- if layout.sizes %}
+  <style>
+    {%- for tile, size in layout.sizes.items() %}
+    [data-tile="{{ tile }}"] { {% if size.w != 1 %}--tile-w: {{ size.w }};{% endif %}{% if size.h %} --tile-h: {{ size.h }}px;{% endif %} }
+    {%- endfor %}
+  </style>
+  {%- endif %}
+
   <main class="layout" id="layout">
     {%- for column in layout.columns %}
     <section class="layout-column flow-{{ column.flow }}" data-weight="{{ column.weight }}" style="--column-weight: {{ column.weight }};">

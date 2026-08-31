@@ -31,6 +31,15 @@ MAX_COLUMNS = 4
 MIN_WEIGHT = 1
 MAX_WEIGHT = 6
 
+# Per-card size. Width is a share of the row it sits in, the same way a
+# column's weight works. Height is a floor in pixels, never a ceiling: a
+# card shorter than its contents would hide them, and on this page that
+# means hiding shots.
+MIN_TILE_WIDTH = 1
+MAX_TILE_WIDTH = 6
+MAX_TILE_HEIGHT = 900
+TILE_HEIGHT_STEP = 80
+
 DEFAULT_LAYOUT: dict = {
     "columns": [
         {"weight": 2, "flow": "stack", "tiles": ["range", "feed", "score", "scope"]},
@@ -41,6 +50,9 @@ DEFAULT_LAYOUT: dict = {
     # mention goes back where it started" rule below can tell "hidden on
     # purpose" apart from "written before this card existed".
     "hidden": [],
+    # tile id -> {"w": share, "h": minimum height in px}. Only cards that
+    # differ from the default are listed.
+    "sizes": {},
 }
 
 # Where a card goes when a stored layout doesn't mention it -- a layout
@@ -55,6 +67,29 @@ _HOME_COLUMN = {
 def default_layout() -> dict:
     """A fresh copy of the default, safe for the caller to modify."""
     return json.loads(json.dumps(DEFAULT_LAYOUT))
+
+
+def _clean_int(raw, low, high, fallback):
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return fallback
+    return max(low, min(high, value))
+
+
+def _clean_sizes(raw) -> dict:
+    """Per-card sizes, keeping only what differs from the default."""
+    sizes: dict[str, dict] = {}
+    if not isinstance(raw, dict):
+        return sizes
+    for tile, value in raw.items():
+        if tile not in TILES or not isinstance(value, dict):
+            continue
+        width = _clean_int(value.get("w"), MIN_TILE_WIDTH, MAX_TILE_WIDTH, 1)
+        height = _clean_int(value.get("h"), 0, MAX_TILE_HEIGHT, 0)
+        if width != 1 or height:
+            sizes[tile] = {"w": width, "h": height}
+    return sizes
 
 
 def _clean_weight(raw) -> int:
@@ -78,6 +113,7 @@ def clean_layout(raw) -> dict:
         return default_layout()
 
     hidden = [t for t in (raw.get("hidden") or []) if t in TILES]
+    sizes = _clean_sizes(raw.get("sizes"))
 
     columns = []
     seen: set[str] = set(hidden)
@@ -113,9 +149,9 @@ def clean_layout(raw) -> dict:
             # empty column to drop them back into. Falling through to the
             # default here would quietly un-hide the lot.
             return {"columns": [{"weight": 2, "flow": "stack", "tiles": []}],
-                    "hidden": hidden}
+                    "hidden": hidden, "sizes": sizes}
         return default_layout()
-    return {"columns": columns, "hidden": hidden}
+    return {"columns": columns, "hidden": hidden, "sizes": sizes}
 
 
 def loads(raw: str | None) -> dict:

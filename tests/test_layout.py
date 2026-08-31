@@ -135,6 +135,57 @@ class HiddenCardTests(unittest.TestCase):
         self.assertEqual(layout.DEFAULT_LAYOUT["hidden"], [])
 
 
+class TileSizeTests(unittest.TestCase):
+    def test_the_default_sizes_nothing(self):
+        self.assertEqual(layout.DEFAULT_LAYOUT["sizes"], {})
+
+    def test_a_size_is_kept(self):
+        cleaned = layout.clean_layout({
+            "columns": [{"tiles": ["shots"]}],
+            "sizes": {"shots": {"w": 3, "h": 320}},
+        })
+        self.assertEqual(cleaned["sizes"]["shots"], {"w": 3, "h": 320})
+
+    def test_defaults_are_not_stored(self):
+        # Otherwise every card ends up in the file for no reason.
+        cleaned = layout.clean_layout({
+            "columns": [{"tiles": ["shots", "feed"]}],
+            "sizes": {"shots": {"w": 1, "h": 0}, "feed": {"w": 2, "h": 0}},
+        })
+        self.assertNotIn("shots", cleaned["sizes"])
+        self.assertEqual(cleaned["sizes"]["feed"], {"w": 2, "h": 0})
+
+    def test_sizes_are_clamped(self):
+        cleaned = layout.clean_layout({
+            "columns": [{"tiles": ["shots", "feed"]}],
+            "sizes": {"shots": {"w": 99, "h": 99999}, "feed": {"w": -3, "h": -50}},
+        })
+        self.assertEqual(cleaned["sizes"]["shots"],
+                         {"w": layout.MAX_TILE_WIDTH, "h": layout.MAX_TILE_HEIGHT})
+        self.assertNotIn("feed", cleaned["sizes"])
+
+    def test_rubbish_sizes_are_dropped(self):
+        cleaned = layout.clean_layout({
+            "columns": [{"tiles": ["shots"]}],
+            "sizes": {"nope": {"w": 3}, "shots": "big", "feed": None},
+        })
+        self.assertEqual(cleaned["sizes"], {})
+
+    def test_a_size_survives_a_round_trip(self):
+        wanted = {"columns": [{"tiles": ["feed", "shots"]}],
+                  "sizes": {"shots": {"w": 4, "h": 240}}}
+        self.assertEqual(layout.loads(layout.dumps(wanted))["sizes"],
+                         {"shots": {"w": 4, "h": 240}})
+
+    def test_a_hidden_card_keeps_its_size(self):
+        cleaned = layout.clean_layout({
+            "columns": [{"tiles": ["feed"]}],
+            "hidden": ["shots"],
+            "sizes": {"shots": {"w": 3, "h": 160}},
+        })
+        self.assertEqual(cleaned["sizes"]["shots"], {"w": 3, "h": 160})
+
+
 class LayoutStorageTests(unittest.TestCase):
     def setUp(self):
         handle, self.path = tempfile.mkstemp(suffix=".db")
