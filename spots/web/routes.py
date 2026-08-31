@@ -1202,6 +1202,7 @@ def _apply_settings_form(settings, form) -> list[str]:
     max_hole_area_px = _parse_int(form, "detection.max_hole_area_px", errors)
     min_circularity = _parse_float(form, "detection.min_circularity", errors)
     min_shot_spacing_px = _parse_int(form, "detection.min_shot_spacing_px", errors)
+    burn_in_margin_px = _parse_int(form, "detection.burn_in_margin_px", errors)
     debounce_frames = _parse_int(form, "detection.debounce_frames", errors)
     sample_fps = _parse_float(form, "detection.sample_fps", errors)
     realignment_min_matches = _parse_int(form, "detection.realignment_min_matches", errors)
@@ -1237,6 +1238,7 @@ def _apply_settings_form(settings, form) -> list[str]:
     settings.detection.max_hole_area_px = max_hole_area_px
     settings.detection.min_circularity = min_circularity
     settings.detection.min_shot_spacing_px = min_shot_spacing_px
+    settings.detection.burn_in_margin_px = burn_in_margin_px
     settings.detection.debounce_frames = debounce_frames
     settings.detection.realignment_min_matches = realignment_min_matches
     # Restart-required fields still get written so config.yaml is correct

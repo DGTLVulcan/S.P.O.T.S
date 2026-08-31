@@ -163,6 +163,15 @@
               <input type="number" step="0.05" min="0" max="1" id="min_circularity" name="detection.min_circularity" value="{{ settings.detection.min_circularity }}" required>
             </div>
             <div class="field">
+              <label for="burn_in_margin_px">Burn-in margin (px)</label>
+              <input type="number" id="burn_in_margin_px" name="detection.burn_in_margin_px"
+                     value="{{ settings.detection.burn_in_margin_px }}" required>
+              <span class="hint">How far past a counted hole the reference keeps being refreshed.
+                Raise it if one hole gets counted repeatedly on a target moving in the wind; too
+                high and a shot landing right beside an earlier one is absorbed instead of
+                counted.</span>
+            </div>
+            <div class="field">
               <label for="min_shot_spacing_px">Debounce match distance (px)</label>
               <input type="number" id="min_shot_spacing_px" name="detection.min_shot_spacing_px" value="{{ settings.detection.min_shot_spacing_px }}" required>
             </div>

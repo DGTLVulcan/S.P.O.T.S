@@ -102,6 +102,11 @@ class ShotDetector:
         self._config = config
         self._reference: np.ndarray | None = None
         self._committed: list[tuple[float, float]] = []
+        # Radius burned in for each committed shot, and the union of those
+        # discs as a mask. Kept so the reference can be refreshed there on
+        # every frame rather than only once, at commit.
+        self._burn_radii: list[int] = []
+        self._burn_mask: np.ndarray | None = None
         self._pending: list[_PendingCandidate] = []
         self._next_seq = 1
 
@@ -145,6 +150,8 @@ class ShotDetector:
         self._reference = _preprocess(frame_bgr)
         self._anchor = self._reference.copy()
         self._committed.clear()
+        self._burn_radii.clear()
+        self._burn_mask = None
         self._pending.clear()
         self._next_seq = max(1, next_seq)
         self._last_homography = None
@@ -158,6 +165,9 @@ class ShotDetector:
     def undo_last(self) -> None:
         if self._committed:
             self._committed.pop()
+            if self._burn_radii:
+                self._burn_radii.pop()
+            self._burn_mask = None
             self._next_seq = max(1, self._next_seq - 1)
 
     def reserve_seq(self) -> int:
@@ -218,6 +228,16 @@ class ShotDetector:
         if gray is None:
             logger.warning("Realignment failed (too few feature matches), skipping frame")
             return []
+
+        # Keep the reference current wherever a hole has already been
+        # counted. Burning a hole in once is not enough on a target that
+        # moves: the hole drifts against its burned-in patch, the sliver
+        # left over reads as a fresh change, and -- since a candidate next
+        # to a committed shot is deliberately NOT rejected -- the same hole
+        # gets counted again and again. Repainting those discs every frame
+        # keeps the difference there at zero, without touching the rest of
+        # the target, so genuinely new shots still register normally.
+        self._refresh_burned(gray)
 
         diff = cv2.absdiff(gray, self._reference)
         _, thresh = cv2.threshold(diff, cfg.diff_threshold, 255, cv2.THRESH_BINARY)
@@ -288,11 +308,28 @@ class ShotDetector:
         self._pending = next_pending
         return committed_now
 
+    def _refresh_burned(self, gray: np.ndarray) -> None:
+        """Repaint the reference from this frame at every counted hole."""
+        if not self._committed:
+            return
+        if self._burn_mask is None or self._burn_mask.shape != gray.shape:
+            mask = np.zeros(gray.shape, dtype=np.uint8)
+            for (cx, cy), radius in zip(self._committed, self._burn_radii):
+                cv2.circle(mask, (int(cx), int(cy)), radius, 255, thickness=-1)
+            # Cached because it only changes when a shot is added or undone,
+            # and rebuilding it per frame would cost more than the repaint.
+            self._burn_mask = mask.astype(bool)
+        np.copyto(self._reference, gray, where=self._burn_mask)
+
     def _burn_in(self, gray: np.ndarray, cx: float, cy: float, area_px: float) -> None:
         """Paint a committed hole into the reference so future diffs are
         incremental, letting overlapping/adjacent shots register separately.
         """
-        radius = int(math.sqrt(area_px / math.pi)) + 3
+        # Generous enough to cover the hole plus the drift left over after
+        # re-alignment, which is what the refresh above has to swallow.
+        radius = int(math.sqrt(area_px / math.pi)) + self._config.burn_in_margin_px
+        self._burn_radii.append(radius)
+        self._burn_mask = None
         mask = np.zeros_like(self._reference, dtype=np.uint8)
         cv2.circle(mask, (int(cx), int(cy)), radius, 255, thickness=-1)
         self._reference = np.where(mask == 255, gray, self._reference)

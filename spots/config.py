@@ -111,6 +111,12 @@ class DetectionConfig:
     max_hole_area_px: int = 400
     min_circularity: float = 0.5
     min_shot_spacing_px: int = 12
+    # How far past a counted hole the reference keeps being refreshed, to
+    # swallow whatever drift survives re-alignment. Raise it if one hole is
+    # still counted more than once; too high and a shot landing right beside
+    # an earlier one is absorbed instead of counted -- measured here, 5 px is
+    # the most that still separates holes 14 px apart.
+    burn_in_margin_px: int = 3
     debounce_frames: int = 2
     # Warp each frame onto the reference before diffing, so a target
     # swaying in the wind isn't read as a wall of new holes.

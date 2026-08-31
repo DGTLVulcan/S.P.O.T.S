@@ -188,5 +188,82 @@ class SyntheticModeTests(unittest.TestCase):
         self.assertLess(float(patch.mean()), 190)
 
 
+class RepeatedDetectionTests(unittest.TestCase):
+    """A hole that has been counted must not keep being counted.
+
+    Burning it into the reference once is not enough on a target that
+    moves: the hole drifts against its burned-in patch and the sliver left
+    over reads as a fresh change. Nothing else stops it, because a
+    candidate beside a committed shot is deliberately not rejected.
+    """
+
+    def _config(self, **overrides):
+        from spots.config import DetectionConfig
+        settings = dict(realignment_enabled=False, diff_threshold=20,
+                        debounce_frames=2, min_hole_area_px=20,
+                        max_hole_area_px=4000, min_circularity=0.4)
+        settings.update(overrides)
+        return DetectionConfig(**settings)
+
+    def _detector(self, refresh=True):
+        from spots.vision.detection import ShotDetector
+        detector = ShotDetector(self._config())
+        if not refresh:
+            detector._refresh_burned = lambda gray: None
+        return detector
+
+    def _source(self):
+        from spots.camera.source import SyntheticFrameSource
+        # Re-alignment off plus a swaying target stands in for the drift
+        # that survives alignment on a real range.
+        return SyntheticFrameSource(1920, 1080, mode="realistic", seed=3)
+
+    def test_one_hole_is_counted_once_on_a_moving_target(self):
+        source, detector = self._source(), self._detector()
+        detector.reset(source.get_latest_frame())
+        source.add_hole(960, 520)
+        found = []
+        for _ in range(60):
+            found += detector.process_frame(source.get_latest_frame())
+        self.assertEqual(len(found), 1, f"counted {len(found)} times")
+
+    def test_without_the_refresh_it_is_counted_over_and_over(self):
+        # Guards the fix: if this stops failing, the refresh has stopped
+        # being what prevents the repeats.
+        source, detector = self._source(), self._detector(refresh=False)
+        detector.reset(source.get_latest_frame())
+        source.add_hole(960, 520)
+        found = []
+        for _ in range(60):
+            found += detector.process_frame(source.get_latest_frame())
+        self.assertGreater(len(found), 1)
+
+    def test_a_second_shot_nearby_is_still_counted(self):
+        # The refresh must not swallow a genuine shot beside an old hole,
+        # which is the case burn-in exists to allow.
+        source, detector = self._source(), self._detector()
+        detector.reset(source.get_latest_frame())
+        source.add_hole(960, 520)
+        for _ in range(30):
+            detector.process_frame(source.get_latest_frame())
+        source.add_hole(1000, 520)
+        found = []
+        for _ in range(30):
+            found += detector.process_frame(source.get_latest_frame())
+        self.assertEqual(len(found), 1)
+        self.assertLess(abs(found[0].x_px - 1000), 25)
+
+    def test_undoing_a_shot_stops_refreshing_its_patch(self):
+        source, detector = self._source(), self._detector()
+        detector.reset(source.get_latest_frame())
+        source.add_hole(960, 520)
+        for _ in range(20):
+            detector.process_frame(source.get_latest_frame())
+        self.assertEqual(len(detector.committed_shots_px), 1)
+        detector.undo_last()
+        self.assertEqual(detector.committed_shots_px, [])
+        self.assertIsNone(detector._burn_mask)
+
+
 if __name__ == "__main__":
     unittest.main()
