@@ -1824,3 +1824,55 @@ a.equip-nav-item { text-decoration: none; }
   font-size: 0.8rem;
   line-height: 1.5;
 }
+
+/* ---------- Ballistics simulation ---------- */
+
+/* Simulation sits under Truing as a sub-entry rather than a peer: it draws
+   the same solution, it does not produce a different one. */
+.ball-nav.is-sub {
+  margin-left: 0.9rem;
+  border-left: 2px solid var(--border);
+  border-radius: 0 8px 8px 0;
+}
+
+.sim-stage {
+  position: relative;
+  height: min(46vh, 420px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--page);
+  overflow: hidden;
+}
+
+#sim-canvas { display: block; width: 100%; height: 100%; }
+
+.sim-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--ink-secondary);
+}
+
+.sim-control select, .sim-control input[type="range"] { margin: 0; }
+.sim-control input[type="range"] { width: 8rem; }
+.sim-control output { min-width: 2.6rem; font-variant-numeric: tabular-nums; }
+
+.sim-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.4rem;
+  margin: 0.7rem 0 0.3rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
+.sim-stat { display: inline-flex; flex-direction: column; }
+
+.sim-stat-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}

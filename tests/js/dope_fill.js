@@ -57,6 +57,14 @@ ballBody.tagName = "TBODY";
 ballTable.append(ballBody);
 ballTable.querySelector = (sel) => (sel === "tbody" ? ballBody : null);
 
+// A browser has a window; the page hangs its cross-file hooks off it.
+global.window = global;
+global.addEventListener = () => {};
+global.performance = global.performance || { now: () => Date.now() };
+global.requestAnimationFrame = (fn) => setTimeout(() => fn(Date.now()), 16);
+global.cancelAnimationFrame = (id) => clearTimeout(id);
+global.getComputedStyle = () => ({ getPropertyValue: () => "" });
+
 global.document = {
   getElementById: byId,
   createElement(tag) {

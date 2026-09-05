@@ -45,6 +45,12 @@
               <span class="equip-nav-sub">Fit the solution to real hits</span>
             </span>
           </button>
+          <button type="button" class="equip-nav-item ball-nav is-sub" data-panel="sim">
+            <span class="equip-nav-text">
+              <span class="equip-nav-name">Simulation</span>
+              <span class="equip-nav-sub">Watch the shot fly</span>
+            </span>
+          </button>
         </div>
       </aside>
 
@@ -156,6 +162,50 @@
           </div>
           <div id="true-result" hidden></div>
         </div>
+
+        <!-- ---------------- Simulation ---------------- -->
+        <div class="ball-panel" data-panel="sim" hidden>
+          <p class="hint">
+            The same solution, flown. Viewed from the side, downrange running left to right and
+            wind drift into the picture.
+          </p>
+
+          <div class="ball-actions">
+            <button type="button" id="sim-play" class="primary">Play</button>
+            <button type="button" id="sim-restart">Restart</button>
+            <button type="button" id="sim-reload">Re-solve</button>
+            <label class="sim-control">
+              <span>Speed</span>
+              <select id="sim-speed">
+                <option value="1">1x (real time)</option>
+                <option value="0.5">1/2 speed</option>
+                <option value="0.25" selected>1/4 speed</option>
+                <option value="0.1">1/10 speed</option>
+                <option value="0.05">1/20 speed</option>
+              </select>
+            </label>
+            <label class="sim-control">
+              <span>Height scale</span>
+              <input type="range" id="sim-exaggeration" min="1" max="120" step="1" value="40">
+              <output id="sim-exaggeration-value">40x</output>
+            </label>
+          </div>
+
+          <div class="sim-stage">
+            <canvas id="sim-canvas"></canvas>
+          </div>
+
+          <div class="sim-readout" id="sim-readout"></div>
+          <p class="hint" id="sim-state">Open this tab to work out the flight.</p>
+          <p class="hint" id="sim-summary"></p>
+
+          <p class="ball-caveat">
+            <strong>The height is stretched.</strong> A .308 drops about two metres over five
+            hundred &mdash; a slope of 0.4%, which at true scale is a straight line and shows you
+            nothing. Only the vertical scale is exaggerated, by the factor above; every number in
+            the readout is the real one. Set it to 1x to see the actual shape of the flight.
+          </p>
+        </div>
       </section>
     </div>
   </main>
@@ -164,5 +214,6 @@
   <script src="{{ url_for('static', filename='menu.js') }}"></script>
   <script src="{{ url_for('static', filename='range_status.js') }}"></script>
   <script src="{{ url_for('static', filename='ballistics.js') }}"></script>
+  <script src="{{ url_for('static', filename='ballistics_sim.js') }}"></script>
 </body>
 </html>

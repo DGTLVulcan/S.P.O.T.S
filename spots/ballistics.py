@@ -472,6 +472,43 @@ def card(shot: Shot, distances_m, unit: str = "mrad",
     }
 
 
+def trajectory(shot: Shot, max_distance_m: float, samples: int = 240) -> dict:
+    """The whole flight, densely sampled, for drawing rather than dialling.
+
+    Also reports the launch angle, because a picture of the trajectory is
+    only honest if it can show the barrel pointing above the line of sight
+    -- which is the thing most people are surprised by.
+    """
+    _validate(shot)
+    samples = max(20, min(600, int(samples)))
+    maximum = max(1.0, float(max_distance_m))
+    step = maximum / samples
+    points = solve(shot, [step * i for i in range(1, samples + 1)])
+    angle = _zero_angle(shot)
+    sound = shot.atmosphere.speed_of_sound
+    return {
+        "points": [
+            {
+                "x": round(p.distance_m, 2),
+                "y": round(p.drop_m, 4),
+                "z": round(p.windage_m, 4),
+                "v": round(p.velocity_ms, 1),
+                "t": round(p.time_s, 4),
+                "mach": round(p.mach, 3),
+            }
+            for p in points
+        ],
+        "launch_angle_deg": round(math.degrees(angle), 4),
+        "sight_height_mm": shot.sight_height_mm,
+        "zero_distance_m": shot.zero_distance_m,
+        "max_distance_m": points[-1].distance_m if points else 0.0,
+        "flight_time_s": round(points[-1].time_s, 3) if points else 0.0,
+        "impact_velocity_ms": round(points[-1].velocity_ms, 1) if points else 0.0,
+        "speed_of_sound_ms": round(sound, 1),
+        "transonic_mach": TRANSONIC_MACH,
+    }
+
+
 # ---------------------------------------------------------------------
 # Truing
 # ---------------------------------------------------------------------

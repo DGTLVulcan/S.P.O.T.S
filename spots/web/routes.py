@@ -1340,6 +1340,28 @@ def api_ballistics_solve():
     return jsonify(result)
 
 
+@bp.route("/api/ballistics/trajectory", methods=["POST"])
+def api_ballistics_trajectory():
+    """The whole flight path, for the simulation to draw."""
+    data = request.get_json(force=True) or {}
+    _equipment, _conditions, shot, missing, used = _ballistics_context(data.get("shot") or {})
+    if missing:
+        return jsonify({"error": "Still missing: " + "; ".join(missing),
+                        "missing": missing}), 400
+    try:
+        result = ballistics.trajectory(
+            shot,
+            float(data.get("max_distance_m") or dope.DEFAULT_MAX_DISTANCE_M),
+            int(data.get("samples") or 240),
+        )
+    except ballistics.BallisticsError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": f"Bad input: {exc}"}), 400
+    result["equipment"] = used
+    return jsonify(result)
+
+
 @bp.route("/api/ballistics/truing")
 def api_ballistics_truing():
     """Come-ups measured on past strings, ready to true against.

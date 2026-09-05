@@ -17,7 +17,9 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPT = os.path.join(ROOT, "tests", "js", "dope_fill.js")
+SIM_SCRIPT = os.path.join(ROOT, "tests", "js", "sim_playback.js")
 TARGET = os.path.join(ROOT, "spots", "web", "static", "ballistics.js")
+SIM_TARGET = os.path.join(ROOT, "spots", "web", "static", "ballistics_sim.js")
 
 
 @unittest.skipIf(shutil.which("node") is None, "node isn't installed")
@@ -52,6 +54,20 @@ class DopeFillTests(unittest.TestCase):
         finally:
             if os.path.exists(path):
                 os.unlink(path)
+
+
+@unittest.skipIf(shutil.which("node") is None, "node isn't installed")
+class SimulationTests(unittest.TestCase):
+    """Stopping has to show the completed flight rather than freezing the
+    bullet where it happens to be -- looking at the trajectory is the whole
+    reason for stopping."""
+
+    def test_playback_stop_and_replay(self):
+        result = subprocess.run(["node", SIM_SCRIPT, SIM_TARGET], cwd=ROOT,
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("PASS", result.stdout)
+        self.assertIn("Impact at 500 m", result.stdout)
 
 
 if __name__ == "__main__":

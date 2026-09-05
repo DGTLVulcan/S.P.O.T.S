@@ -395,13 +395,21 @@
       button.classList.toggle("is-open", button.dataset.panel === name);
     });
     $("ball-title").textContent =
-      { solve: "Come-up", dope: "DOPE card", true: "Truing" }[name] || "Ballistics";
+      { solve: "Come-up", dope: "DOPE card", true: "Truing", sim: "Simulation" }[name]
+      || "Ballistics";
     if (name === "true") loadTruing();
     // Only the first visit reads the saved card. Re-fetching on every
     // switch raced whatever had just been put in the table -- filling from
     // the solution showed the rows, then the fetch landed and wiped them --
     // and threw away un-saved typing on the way past.
     if (name === "dope" && !state.dopeLoaded) loadDope();
+    // The canvas has no measured size until its panel is on screen, so the
+    // flight is worked out when the tab is opened rather than up front.
+    if (name === "sim" && window.SPOTS_SIM && !window.SPOTS_SIM.hasData()) {
+      window.SPOTS_SIM.load();
+    }
+    // Leaving the tab should not leave an animation running behind it.
+    if (name !== "sim" && window.SPOTS_SIM) window.SPOTS_SIM.stop();
   }
 
   document.querySelectorAll(".ball-nav").forEach((button) => {
@@ -477,6 +485,13 @@
 
   $("true-reload").addEventListener("click", loadTruing);
   $("true-run").addEventListener("click", runTruing);
+
+  // The simulation is a separate file; it reads the inputs through this.
+  window.SPOTS_BALLISTICS = {
+    values: readValues,
+    unit: () => state.unit,
+    clickValue: () => state.clickValue,
+  };
 
   loadInputs();
 })();
