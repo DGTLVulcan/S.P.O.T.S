@@ -100,3 +100,36 @@ class SettingsPanelTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CanvasColourTests(unittest.TestCase):
+    """Every CSS variable a canvas reads has to exist in the stylesheet.
+
+    A canvas cannot inherit a colour: it asks getComputedStyle for a token
+    by name and falls back to a literal if there is none. That fallback is
+    a single fixed colour, so a misspelt token silently pins one theme's
+    ink onto both -- which is exactly what happened when the scope reticle
+    asked for --ink-primary, a name that has never existed. It drew dark
+    grey marks on a dark field and vanished.
+    """
+
+    def test_every_token_a_canvas_asks_for_exists(self):
+        static = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "spots", "web", "static")
+        with open(os.path.join(static, "style.css"), encoding="utf-8") as fh:
+            css = fh.read()
+        defined = set(re.findall(r"(--[a-z0-9-]+)\s*:", css))
+
+        asked = {}
+        for path in sorted(glob.glob(os.path.join(static, "*.js"))):
+            with open(path, encoding="utf-8") as fh:
+                for name in re.findall(r"""getPropertyValue\(\s*["'](--[a-z0-9-]+)["']"""
+                                       r"""|css\(\s*["'](--[a-z0-9-]+)["']""", fh.read()):
+                    token = name[0] or name[1]
+                    asked.setdefault(token, []).append(os.path.basename(path))
+
+        self.assertTrue(asked, "no canvas colours found -- has the helper been renamed?")
+        missing = {t: sorted(set(f)) for t, f in asked.items() if t not in defined}
+        self.assertEqual(missing, {},
+                         "these CSS variables are read by a canvas but never defined")

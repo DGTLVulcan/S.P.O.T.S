@@ -113,6 +113,28 @@
     return getComputedStyle(document.body).getPropertyValue(name).trim() || fallback;
   }
 
+  // The sight picture keeps its own colours rather than following the page
+  // into dark mode. A reticle is black against a daylit target; painting
+  // it in page ink meant dark marks on a dark field, invisible.
+  const FIELD = () => css("--scope-field", "#edebe4");
+  const INK = () => css("--scope-ink", "#14130e");
+  const RIM = () => css("--scope-rim", "#a9a69e");
+  const MARK = () => css("--scope-mark", "#d2352f");
+
+  // Marks closer together than this cannot be told apart. Drawing them
+  // anyway turns the reticle into a smear, which is what a 1 MOA hash did
+  // at top power -- the ticks landed six pixels apart.
+  const MIN_TICK_PX = 7;
+
+  // How many marks to skip so the ones that are drawn can be read. The
+  // multipliers are per reticle: skipping to every 5th of a half-mrad mark
+  // would put ticks on 2.5s, which is not a number anyone reads a hold in.
+  function stride(v, step, steps) {
+    const usable = steps || [1, 2, 5, 10, 20];
+    return usable.find((n) => step * n * v.scale >= MIN_TICK_PX)
+      || usable[usable.length - 1];
+  }
+
   function cross(v, reach, width) {
     ctx.lineWidth = width;
     ctx.beginPath();
@@ -140,7 +162,7 @@
     const b = across * v.scale;
     // Set every time: the posts run at 4px and hash marks drawn after them
     // inherit it, which turns a fine reticle into a row of blobs.
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1.4;
     ctx.beginPath();
     if (vertical) {
       ctx.moveTo(v.cx - b, v.cy - a);
@@ -158,25 +180,30 @@
     ctx.fill();
   }
 
-  function number(v, text, x, y) {
-    ctx.font = "10px system-ui, sans-serif";
+  function number(v, text, x, y, dx, dy) {
+    ctx.font = "600 11px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(text, v.cx + x * v.scale, v.cy - y * v.scale + 3);
+    ctx.fillText(text, v.cx + x * v.scale + (dx || 0),
+                 v.cy - y * v.scale + (dy || 4));
   }
 
   function drawMilDot(v) {
-    cross(v, 5, 1);
+    cross(v, 5, 1.5);
     posts(v, 5);
-    const r = Math.max(1.6, 0.1 * v.scale);
+    // A real mil-dot is about 0.2 mrad across, which at any sane zoom is
+    // two or three pixels. Floored a little above life size so the dots
+    // stay findable, since counting them is the whole job.
+    const r = Math.max(3, 0.1 * v.scale);
     for (let i = 1; i <= 4; i += 1) {
       [[i, 0], [-i, 0], [0, i], [0, -i]].forEach(([x, y]) => dot(v, x, y, r));
     }
   }
 
   function drawMradHash(v) {
-    cross(v, 6, 1);
+    cross(v, 6, 1.5);
     posts(v, 6);
-    for (let i = 1; i <= 12; i += 1) {
+    const step = stride(v, 0.5, [1, 2, 4, 12]);
+    for (let i = step; i <= 12; i += step) {
       const at = i * 0.5;
       const across = i % 2 === 0 ? 0.3 : 0.15;
       tick(v, at, across, true);
@@ -185,17 +212,18 @@
       tick(v, -at, across, false);
     }
     for (let mrad = 2; mrad <= 6; mrad += 2) {
-      number(v, String(mrad), 0.55, -mrad);
-      number(v, String(mrad), mrad, -0.55);
-      number(v, String(mrad), -mrad, -0.55);
+      number(v, String(mrad), 0, -mrad, 12);
+      number(v, String(mrad), mrad, 0, 0, 18);
+      number(v, String(mrad), -mrad, 0, 0, 18);
     }
   }
 
   function drawMradTree(v) {
-    cross(v, 10, 1);
+    cross(v, 10, 1.5);
     posts(v, 10);
-    const r = Math.max(1.3, 0.07 * v.scale);
-    for (let i = 1; i <= 20; i += 1) {
+    const r = Math.max(1.8, 0.07 * v.scale);
+    const step = stride(v, 0.5, [1, 2, 4, 20]);
+    for (let i = step; i <= 20; i += step) {
       const at = i * 0.5;
       const across = i % 2 === 0 ? 0.3 : 0.15;
       tick(v, at, across, true);
@@ -213,13 +241,15 @@
         dot(v, -i * 0.5, -drop, r);
       }
     }
-    for (let mrad = 2; mrad <= 10; mrad += 2) number(v, String(mrad), 0.55, -mrad);
+    // Left of the tree, clear of the widest wind row.
+    for (let mrad = 2; mrad <= 10; mrad += 2) number(v, String(mrad), -2.5, -mrad);
   }
 
   function drawMoaHash(v) {
-    cross(v, 20, 1);
+    cross(v, 20, 1.5);
     posts(v, 20);
-    for (let i = 1; i <= 20; i += 1) {
+    const step = stride(v, 1);
+    for (let i = step; i <= 20; i += step) {
       const across = i % 5 === 0 ? 1.0 : 0.5;
       tick(v, i, across, true);
       tick(v, -i, across, true);
@@ -227,19 +257,19 @@
       tick(v, -i, across, false);
     }
     for (let moa = 5; moa <= 20; moa += 5) {
-      number(v, String(moa), 1.9, -moa);
-      number(v, String(moa), moa, -1.9);
-      number(v, String(moa), -moa, -1.9);
+      number(v, String(moa), 0, -moa, 13);
+      number(v, String(moa), moa, 0, 0, 20);
+      number(v, String(moa), -moa, 0, 0, 20);
     }
   }
 
   function drawDuplex(v) {
-    cross(v, 2.5, 1);
+    cross(v, 2.5, 1.5);
     posts(v, 2.5);
   }
 
   function drawFine(v) {
-    cross(v, v.halfUnits, 1);
+    cross(v, v.halfUnits, 1.2);
   }
 
   // ---- what the zoom ring does -----------------------------------------
@@ -345,18 +375,18 @@
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, v.half, 0, Math.PI * 2);
-    ctx.fillStyle = css("--surface", "#ffffff");
+    ctx.fillStyle = FIELD();
     ctx.fill();
     ctx.clip();
-    ctx.strokeStyle = css("--ink-primary", "#26251f");
-    ctx.fillStyle = css("--ink-primary", "#26251f");
+    ctx.strokeStyle = INK();
+    ctx.fillStyle = INK();
     reticle.draw(v);
     ctx.restore();
 
     // The edge of the glass. Anything drawn past it is out of sight in a
     // real scope, and drawn outside the ring here to say so.
-    ctx.strokeStyle = css("--border", "#d9d7cf");
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = RIM();
+    ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(cx, cy, v.half, 0, Math.PI * 2);
     ctx.stroke();
@@ -373,7 +403,7 @@
     // and not just two marks that happen to be apart.
     ctx.save();
     ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = css("--center-marker", "#e34948");
+    ctx.strokeStyle = MARK();
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(v.cx, v.cy);
@@ -383,7 +413,7 @@
 
     // Fixed size on screen on purpose: this marks a point, and drawing it
     // at some angular size would be claiming a target size nobody gave us.
-    ctx.strokeStyle = css("--center-marker", "#e34948");
+    ctx.strokeStyle = MARK();
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(x, y, 11, 0, Math.PI * 2);
@@ -394,7 +424,7 @@
     ctx.moveTo(x, y - 16);
     ctx.lineTo(x, y + 16);
     ctx.stroke();
-    ctx.fillStyle = css("--center-marker", "#e34948");
+    ctx.fillStyle = MARK();
     ctx.beginPath();
     ctx.arc(x, y, 2.5, 0, Math.PI * 2);
     ctx.fill();
