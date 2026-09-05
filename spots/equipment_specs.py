@@ -15,6 +15,12 @@ import re
 from dataclasses import dataclass, field
 
 
+_DRAG_MODELS = (
+    ("g7", "G7 (boat tail / match)"),
+    ("g1", "G1 (flat base / hunting)"),
+)
+
+
 @dataclass(frozen=True)
 class SpecField:
     key: str
@@ -54,6 +60,8 @@ EQUIPMENT_SPECS: dict[str, tuple[SpecField, ...]] = {
         SpecField("barrel_length_in", "Barrel length", "number", unit="in", step="0.1",
                   placeholder="20"),
         SpecField("twist_rate", "Twist rate", placeholder="e.g. 1:10"),
+        SpecField("sight_height_mm", "Sight height over bore", "number", unit="mm",
+                  step="0.5", placeholder="40"),
         SpecField("muzzle_device", "Muzzle device", "select", options=_MUZZLE_DEVICES),
         SpecField("action", "Action", "select", options=_ACTIONS),
         SpecField("trigger_weight_lb", "Trigger weight", "number", unit="lb", step="0.1",
@@ -93,6 +101,9 @@ EQUIPMENT_SPECS: dict[str, tuple[SpecField, ...]] = {
                   placeholder="2650"),
         SpecField("ballistic_coefficient", "Ballistic coefficient", "number", step="0.001",
                   placeholder="0.462"),
+        SpecField("drag_model", "BC drag model", "select", options=_DRAG_MODELS),
+        SpecField("bullet_length_mm", "Bullet length", "number", unit="mm", step="0.1",
+                  placeholder="32.0"),
     ),
 }
 
@@ -109,7 +120,8 @@ CONDITION_FIELDS: tuple[SpecField, ...] = (
     )),
     SpecField("temperature_c", "Temperature", "number", unit="C", step="0.5", placeholder="18"),
     SpecField("humidity_pct", "Humidity", "number", unit="%", step="1", placeholder="60"),
-    SpecField("pressure_hpa", "Pressure", "number", unit="hPa", step="1", placeholder="1013"),
+    SpecField("pressure_hpa", "Station pressure", "number", unit="hPa", step="1",
+              placeholder="1013"),
     SpecField("light", "Light", "select", options=(
         ("", "Unspecified"), ("bright", "Bright sun"), ("overcast", "Overcast"),
         ("mixed", "Mixed"), ("low", "Low light"), ("mirage", "Heavy mirage"),
@@ -119,6 +131,10 @@ CONDITION_FIELDS: tuple[SpecField, ...] = (
         ("sling", "Prone, sling"), ("sitting", "Sitting"), ("standing", "Standing"),
         ("field", "Field improvised"),
     )),
+    SpecField("dialled_elevation", "Elevation dialled", "number", step="0.01",
+              placeholder="1.7"),
+    SpecField("dialled_windage", "Windage dialled", "number", step="0.01",
+              placeholder="0"),
     SpecField("notes", "Notes", placeholder="anything else about the string"),
 )
 

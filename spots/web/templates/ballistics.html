@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S.P.O.T.S - Ballistics</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="appbar">
+    {% set active = 'spots.ballistics_page' %}
+    {% include '_menu.html' %}
+    <div class="brand">
+      <h1>S.P.O.T.S</h1>
+      <span class="subtitle">Ballistics</span>
+    </div>
+    <div class="icon-nav">
+      {% include '_range_toggle.html' %}
+      <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
+    </div>
+  </header>
+
+  {% include '_range_banner.html' %}
+
+  <main class="equip-main">
+    <div class="equip-layout">
+      <aside class="equip-sidebar card">
+        <div class="equip-nav-group">
+          <div class="equip-nav-head"><span class="equip-nav-title">Ballistics</span></div>
+          <button type="button" class="equip-nav-item ball-nav is-open" data-panel="solve">
+            <span class="equip-nav-text">
+              <span class="equip-nav-name">Come-up</span>
+              <span class="equip-nav-sub">What to dial, at any range</span>
+            </span>
+          </button>
+          <button type="button" class="equip-nav-item ball-nav" data-panel="dope">
+            <span class="equip-nav-text">
+              <span class="equip-nav-name">DOPE card</span>
+              <span class="equip-nav-sub">Your own numbers, kept</span>
+            </span>
+          </button>
+          <button type="button" class="equip-nav-item ball-nav" data-panel="true">
+            <span class="equip-nav-text">
+              <span class="equip-nav-name">Truing</span>
+              <span class="equip-nav-sub">Fit the solution to real hits</span>
+            </span>
+          </button>
+        </div>
+      </aside>
+
+      <section class="equip-detail card">
+        <div class="equip-detail-head ball-head">
+          <div class="equip-detail-titles">
+            <span class="equip-detail-kind">Ballistics</span>
+            <span class="settings-title" id="ball-title">Come-up</span>
+          </div>
+          <div class="ball-head-controls">
+            <div class="segmented" role="group" aria-label="Turret unit">
+              <button type="button" id="unit-mrad" data-unit="mrad">mrad</button>
+              <button type="button" id="unit-moa" data-unit="moa">MOA</button>
+            </div>
+            <div class="segmented" role="group" aria-label="Detail level">
+              <button type="button" id="view-simple" class="primary">Simple</button>
+              <button type="button" id="view-advanced">Advanced</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="ball-kit" id="ball-kit"></p>
+        <div class="banner warn" id="ball-missing" hidden></div>
+
+        <!-- ---------------- Come-up ---------------- -->
+        <div class="ball-panel" data-panel="solve">
+          <!-- Simple view: one step at a time, in the order you'd fill them in. -->
+          <div id="ball-simple">
+            <ol class="ball-steps" id="ball-steps"></ol>
+          </div>
+
+          <!-- Advanced: everything at once, for when you know what you want. -->
+          <div id="ball-advanced" hidden>
+            <div class="ball-grid" id="ball-fields"></div>
+          </div>
+
+          <div class="ball-actions">
+            <button type="button" id="ball-solve" class="primary">Work it out</button>
+            <button type="button" id="ball-to-dope">Save as DOPE card</button>
+            <span class="hint" id="ball-status"></span>
+          </div>
+
+          <div id="ball-result" hidden>
+            <div class="ball-summary" id="ball-summary"></div>
+            <div class="table-scroll">
+              <table class="ball-table" id="ball-card">
+                <thead><tr>
+                  <th>Range</th><th>Drop</th><th>Elevation</th><th>Clicks</th>
+                  <th>Wind</th><th>Clicks</th><th>Velocity</th><th>Energy</th>
+                  <th>Time</th><th>Mach</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <p class="ball-caveat">
+              A solution is only as good as the muzzle velocity and BC it was given, and both
+              come off a box until you measure them. Shoot it, then use <strong>Truing</strong>
+              to bend it onto what your rifle actually did &mdash; that is the number to trust.
+            </p>
+          </div>
+        </div>
+
+        <!-- ---------------- DOPE card ---------------- -->
+        <div class="ball-panel" data-panel="dope" hidden>
+          <p class="hint">
+            Your own come-ups, kept per rifle and load. Fill it in by hand, or take the
+            worked-out numbers across from the Come-up tab and correct them as you confirm
+            each range.
+          </p>
+          <div class="ball-actions">
+            <button type="button" id="dope-fill">Fill from the solution</button>
+            <button type="button" id="dope-add">Add a row</button>
+            <button type="button" id="dope-save" class="primary">Save card</button>
+            <button type="button" id="dope-clear">Clear</button>
+            <span class="hint" id="dope-status"></span>
+          </div>
+          <div class="table-scroll">
+            <table class="ball-table dope-table" id="dope-card">
+              <thead><tr>
+                <th>Range (m)</th><th>Elevation</th><th>Windage</th><th>Note</th><th></th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ---------------- Truing ---------------- -->
+        <div class="ball-panel" data-panel="true" hidden>
+          <p class="hint">
+            Every solution starts from a number off a box. This one doesn't have to: S.P.O.T.S
+            already knows where your groups landed and how far away they were, so the muzzle
+            velocity can be corrected until the predicted come-ups match what actually happened.
+            A session can be used once it records the distance, a marked point of aim, and what
+            you had dialled at the time.
+          </p>
+          <div class="ball-actions">
+            <button type="button" id="true-reload">Reload sessions</button>
+            <button type="button" id="true-run" class="primary">True the velocity</button>
+            <span class="hint" id="true-status"></span>
+          </div>
+          <div class="table-scroll">
+            <table class="ball-table" id="true-table">
+              <thead><tr>
+                <th></th><th>Session</th><th>Range</th><th>Dialled</th>
+                <th>Group was</th><th>Actually needed</th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div id="true-result" hidden></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='menu.js') }}"></script>
+  <script src="{{ url_for('static', filename='range_status.js') }}"></script>
+  <script src="{{ url_for('static', filename='ballistics.js') }}"></script>
+</body>
+</html>

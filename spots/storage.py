@@ -9,6 +9,7 @@ import time
 from spots import layout
 
 _LAYOUT_KEY = "dashboard_layout"
+_DOPE_PREFIX = "dope_card:"
 _RANGE_STATE_KEY = "range_state"
 
 RANGE_STATES = ("hot", "cease")
@@ -257,6 +258,36 @@ class Storage:
             raise ValueError(f"range state must be one of {RANGE_STATES}")
         self.set_state(_RANGE_STATE_KEY, state)
         return state
+
+    def get_dope_card(self, key: str) -> dict | None:
+        """A saved come-up card for one rifle-and-load pairing."""
+        raw = self.get_state(_DOPE_PREFIX + str(key))
+        if not raw:
+            return None
+        try:
+            return json.loads(raw)
+        except ValueError:
+            return None
+
+    def set_dope_card(self, key: str, card: dict) -> None:
+        self.set_state(_DOPE_PREFIX + str(key), json.dumps(card))
+
+    def delete_dope_card(self, key: str) -> None:
+        self.set_state(_DOPE_PREFIX + str(key), None)
+
+    def list_dope_cards(self) -> dict[str, dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT key, value FROM app_state WHERE key LIKE ?",
+                (_DOPE_PREFIX + "%",),
+            ).fetchall()
+        cards = {}
+        for key, value in rows:
+            try:
+                cards[key[len(_DOPE_PREFIX):]] = json.loads(value)
+            except ValueError:
+                continue
+        return cards
 
     def get_layout(self) -> dict:
         """The dashboard arrangement, cleaned of anything that no longer

@@ -23,7 +23,7 @@ from flask import (
     url_for,
 )
 
-from spots import health, ranges
+from spots import ballistics, dope, health, ranges
 from spots.camera.source import SyntheticFrameSource
 from spots.layout import TILES
 from spots.camera.client import ZCamError
@@ -1259,6 +1259,159 @@ def _apply_settings_form(settings, form) -> list[str]:
 
     settings.save()
     return []
+
+
+def _ballistics_context(overrides=None):
+    """Solver input assembled from the selected kit, plus what's missing."""
+    equipment = _selected_equipment()
+    conditions = {}
+    snapshot = _worker().state.snapshot()
+    if snapshot.session_id is not None:
+        session = _storage().get_session(snapshot.session_id)
+        conditions = (session or {}).get("conditions") or {}
+    shot, missing, used = dope.shot_from_equipment(equipment, conditions, overrides)
+    return equipment, conditions, shot, missing, used
+
+
+@bp.route("/ballistics")
+def ballistics_page():
+    return render_template("ballistics.html", active="spots.ballistics_page")
+
+
+@bp.route("/api/ballistics/inputs")
+def api_ballistics_inputs():
+    """What the page starts from: every value we can fill in for you, and
+    the name of anything you still have to supply."""
+    equipment, conditions, shot, missing, used = _ballistics_context()
+    return jsonify({
+        "equipment": used,
+        "missing": missing,
+        "unit": dope.unit_for(equipment),
+        "conditions": conditions,
+        "shot": {
+            "muzzle_velocity_fps": shot.muzzle_velocity_fps,
+            "ballistic_coefficient": shot.ballistic_coefficient,
+            "drag_model": shot.drag_model,
+            "bullet_grains": shot.bullet_grains,
+            "bullet_diameter_mm": shot.bullet_diameter_mm,
+            "bullet_length_mm": shot.bullet_length_mm,
+            "sight_height_mm": shot.sight_height_mm,
+            "zero_distance_m": shot.zero_distance_m,
+            "twist_rate_in": shot.twist_rate_in,
+            "wind_speed_kph": shot.wind_speed_kph,
+            "wind_clock": shot.wind_clock,
+            "look_angle_deg": shot.look_angle_deg,
+            "temperature_c": shot.atmosphere.temperature_c,
+            "pressure_hpa": shot.atmosphere.pressure_hpa,
+            "humidity_pct": shot.atmosphere.humidity_pct,
+        },
+        "defaults": {
+            "max_distance_m": dope.DEFAULT_MAX_DISTANCE_M,
+            "step_m": dope.DEFAULT_STEP_M,
+        },
+    })
+
+
+@bp.route("/api/ballistics/solve", methods=["POST"])
+def api_ballistics_solve():
+    data = request.get_json(force=True) or {}
+    equipment, _, shot, missing, used = _ballistics_context(data.get("shot") or {})
+    if missing:
+        return jsonify({"error": "Still missing: " + "; ".join(missing),
+                        "missing": missing}), 400
+
+    unit = dope.unit_for(equipment, data.get("unit"))
+    click_value = data.get("click_value")
+    if click_value in (None, ""):
+        click_value = used.get("click_value") or 0.0
+    try:
+        distances = data.get("distances") or dope.default_distances(
+            int(data.get("max_distance_m") or dope.DEFAULT_MAX_DISTANCE_M),
+            int(data.get("step_m") or dope.DEFAULT_STEP_M),
+        )
+        result = ballistics.card(shot, distances, unit=unit,
+                                 click_value=float(click_value or 0.0))
+    except ballistics.BallisticsError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": f"Bad input: {exc}"}), 400
+
+    result["equipment"] = used
+    return jsonify(result)
+
+
+@bp.route("/api/ballistics/truing")
+def api_ballistics_truing():
+    """Come-ups measured on past strings, ready to true against.
+
+    The group centre comes from shots already recorded, so the only thing
+    this needs a human for is what was on the turret at the time.
+    """
+    unit = dope.unit_for(_selected_equipment(), request.args.get("unit"))
+    sessions = []
+    for summary in _storage().list_sessions():
+        conditions = summary.get("conditions") or {}
+        entry = dict(summary)
+        shots = [s for s in _storage().get_shots(summary["id"])
+                 if not s["excluded"] and not s["is_test"]
+                 and s["x_units"] is not None]
+        if shots:
+            entry["group_center"] = (
+                sum(s["x_units"] for s in shots) / len(shots),
+                sum(s["y_units"] for s in shots) / len(shots),
+            )
+        else:
+            entry["group_center"] = None
+        entry["shot_count"] = len(shots)
+        entry["conditions"] = conditions
+        sessions.append(entry)
+    rows = dope.observations_from_sessions(sessions, unit)
+    return jsonify({"unit": unit, "rows": rows})
+
+
+@bp.route("/api/ballistics/true", methods=["POST"])
+def api_ballistics_true():
+    data = request.get_json(force=True) or {}
+    equipment, _, shot, missing, _used = _ballistics_context(data.get("shot") or {})
+    if missing:
+        return jsonify({"error": "Still missing: " + "; ".join(missing)}), 400
+    unit = dope.unit_for(equipment, data.get("unit"))
+    observations = [(o.get("distance_m"), o.get("measured"))
+                    for o in (data.get("observations") or [])
+                    if o.get("distance_m") and o.get("measured") is not None]
+    try:
+        return jsonify(ballistics.true_muzzle_velocity(shot, observations, unit=unit))
+    except ballistics.BallisticsError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@bp.route("/api/ballistics/dope")
+def api_dope_get():
+    equipment = _selected_equipment()
+    key = dope.card_key(equipment)
+    stored = _storage().get_dope_card(key)
+    return jsonify({
+        "key": key,
+        "card": dope.clean_card(stored) if stored else None,
+        "unit": dope.unit_for(equipment),
+        "equipment": {kind: (item or {}).get("name") for kind, item in equipment.items()},
+    })
+
+
+@bp.route("/api/ballistics/dope", methods=["POST"])
+def api_dope_save():
+    data = request.get_json(force=True) or {}
+    equipment = _selected_equipment()
+    key = dope.card_key(equipment)
+    card = dope.clean_card(data.get("card"))
+    _storage().set_dope_card(key, card)
+    return jsonify({"ok": True, "key": key, "card": card})
+
+
+@bp.route("/api/ballistics/dope/delete", methods=["POST"])
+def api_dope_delete():
+    _storage().delete_dope_card(dope.card_key(_selected_equipment()))
+    return jsonify({"ok": True})
 
 
 @bp.route("/ranges")
