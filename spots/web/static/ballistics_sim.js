@@ -10,6 +10,11 @@
 // trajectory is a straight line and the picture says nothing. Every figure
 // in the readout is real; only the height of the curve is stretched, and
 // the factor is on screen so it can't be mistaken for the real shape.
+//
+// The camera and that factor are both fitted to the flight rather than
+// fixed, because the shape changes enormously with distance: a .223 drops
+// 3.7 cm over 50 m and 279 m over 2000. One hard-coded camera frames one
+// of those and loses the other off the edge of the canvas entirely.
 (function () {
   const canvas = document.getElementById("sim-canvas");
   if (!canvas) return;
@@ -24,34 +29,80 @@
     playing: false,
     t: 0,                // seconds of flight elapsed
     speed: 0.25,         // playback rate; 1 is real time
-    exaggeration: 40,    // vertical stretch
+    stretch: 1,          // height scale, as a multiple of the fitted one
     lastFrame: 0,
     raf: null,
   };
 
-  // ---- projection ------------------------------------------------------
+  // ---- framing and projection -------------------------------------------
+
+  const PAD = { x: 58, top: 30, bottom: 44 };  // room for the edge labels
+  const FILL = 0.62;      // share of the usable height the flight fills
+  const FLOOR_GAP = 0.28; // how far under the flight the scale plane sits
+
+  // About ten gridlines, spaced on a number a shooter reads without
+  // thinking: 25s and 50s and 100s, never 37s.
+  function gridStep(range) {
+    const steps = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
+    return steps.find((s) => s >= range / 10) || steps[steps.length - 1];
+  }
 
   // Camera sits off to the side and a little above, looking at the middle
   // of the flight. Downrange runs across the screen, lateral drift into
   // it, which is what makes a side-on view read as three dimensional.
-  function camera() {
-    const range = sim.data ? sim.data.max_distance_m : 500;
+  //
+  // Every part of it is solved from the flight itself, so the muzzle, the
+  // target and the distance scale are all in frame at any range.
+  function fit() {
+    const range = sim.data.max_distance_m;
+    const width = canvas.clientWidth || 900;
+    const height = canvas.clientHeight || 400;
+
+    // The sight line is drawn at y = 0, so it counts towards the extent.
+    let lo = 0;
+    let hi = 0;
+    for (const point of sim.data.points) {
+      if (point.y < lo) lo = point.y;
+      if (point.y > hi) hi = point.y;
+    }
+    const span = Math.max(hi - lo, 1e-4);   // a dead flat shot still needs one
+    const floor = lo - span * FLOOR_GAP;
+
+    const lateral = Math.max(0.5, range * 0.012);
+    // Far enough back to see the whole flight, and never so close that the
+    // near edge of the plane ends up behind the lens.
+    const dolly = Math.max(range * 1.15, lateral + 8);
+    const near = dolly - lateral;           // nearest corner of the plane
+
+    // Fit the length across first. That constraint does not depend on the
+    // height scale, so it pins the focal length on its own. The floors are
+    // for a canvas too small to hold the padding, on a phone in portrait.
+    const across = Math.max(40, width / 2 - PAD.x);
+    const focal = (across * near) / (range / 2);
+
+    // Then scale the height so the flight fills the frame it is given.
+    const usable = Math.max(60, height - PAD.top - PAD.bottom);
+    const fitted = (FILL * usable * near) / (focal * (hi - floor));
+
+    const exaggeration = fitted * sim.stretch;
     return {
-      x: range * 0.5,
-      y: 6,
-      z: -range * 0.85,
-      focal: canvas.clientWidth * 0.95,
+      range, width, height, lateral, focal, floor, fitted, exaggeration,
+      step: gridStep(range),
+      x: range / 2,
+      y: ((hi + floor) / 2) * exaggeration,  // centre the flight vertically
+      z: -dolly,
+      horizon: PAD.top + usable / 2,
     };
   }
 
   function project(x, y, z, cam) {
     const ex = x - cam.x;
-    const ey = y * sim.exaggeration - cam.y;
+    const ey = y * cam.exaggeration - cam.y;
     const ez = z - cam.z;
     if (ez <= 1) return null;                    // behind the camera
     return {
-      sx: canvas.clientWidth / 2 + (cam.focal * ex) / ez,
-      sy: canvas.clientHeight * 0.58 - (cam.focal * ey) / ez,
+      sx: cam.width / 2 + (cam.focal * ex) / ez,
+      sy: cam.horizon - (cam.focal * ey) / ez,
       scale: cam.focal / ez,
     };
   }
@@ -74,45 +125,58 @@
     ctx.clearRect(0, 0, width, height);
   }
 
+  // The distance scale under the flight.
+  //
+  // This used to be a five-line ground plane, on the idea that a receding
+  // grid gives the eye something to judge depth against. It never could:
+  // the plane is only ever about a hundredth of the camera distance wide,
+  // so all five lines landed within a pixel of each other and drew a grey
+  // smear. What it was really for is reading a range off the bottom, so
+  // that is what it now is -- a ruled axis with a tick per gridline.
   function drawGrid(cam) {
-    const range = sim.data.max_distance_m;
-    // A reference plane below the flight, purely so the eye has something
-    // to judge depth against. It is a scale, not the ground.
-    const floor = -(2.2 * 100) / sim.exaggeration;   // keep it clear of the path
-    const lateral = [-4, -2, 0, 2, 4];
-    const step = range <= 200 ? 25 : 50;
+    const lines = Math.floor(cam.range / cam.step + 1e-6);
+    // Label every second tick once they start crowding each other.
+    const every = lines > 8 ? 2 : 1;
+    // The axis sits at one depth and one height, so it is exactly level:
+    // every foot below shares this y.
+    const foot = (i) => project(i * cam.step, cam.floor, -cam.lateral, cam);
+    const start = foot(0);
+    const end = foot(lines);
+    if (!start || !end) return;
 
+    // Faint verticals at the labelled ranges, so the drop at 300 m can be
+    // read off without tracing the curve back by eye.
     ctx.lineWidth = 1;
     ctx.strokeStyle = css("--gridline", "#e1e0d9");
-
-    for (let d = 0; d <= range + 0.5; d += step) {
-      const a = project(d, floor, lateral[0], cam);
-      const b = project(d, floor, lateral[lateral.length - 1], cam);
-      if (!a || !b) continue;
+    for (let i = 0; i <= lines; i += every) {
+      const p = foot(i);
+      if (!p) continue;
       ctx.beginPath();
-      ctx.moveTo(a.sx, a.sy);
-      ctx.lineTo(b.sx, b.sy);
+      ctx.moveTo(p.sx, p.sy);
+      ctx.lineTo(p.sx, PAD.top);
       ctx.stroke();
     }
-    lateral.forEach((z) => {
-      ctx.beginPath();
-      let started = false;
-      for (let d = 0; d <= range + 0.5; d += range / 60) {
-        const p = project(d, floor, z, cam);
-        if (!p) continue;
-        started ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy);
-        started = true;
-      }
-      ctx.stroke();
-    });
 
-    // Distance labels along the near edge.
+    ctx.strokeStyle = css("--ink-muted", "#898781");
+    ctx.beginPath();
+    ctx.moveTo(start.sx, start.sy);
+    ctx.lineTo(end.sx, end.sy);
+    ctx.stroke();
+    for (let i = 0; i <= lines; i += 1) {
+      const p = foot(i);
+      if (!p) continue;
+      ctx.beginPath();
+      ctx.moveTo(p.sx, p.sy);
+      ctx.lineTo(p.sx, p.sy + (i % every ? 3 : 6));
+      ctx.stroke();
+    }
+
     ctx.fillStyle = css("--ink-muted", "#898781");
     ctx.font = "11px system-ui, sans-serif";
     ctx.textAlign = "center";
-    for (let d = 0; d <= range + 0.5; d += step * 2) {
-      const p = project(d, floor, lateral[0], cam);
-      if (p) ctx.fillText(`${d}m`, p.sx, p.sy + 14);
+    for (let i = 0; i <= lines; i += every) {
+      const p = foot(i);
+      if (p) ctx.fillText(`${i * cam.step} m`, p.sx, p.sy + 19);
     }
   }
 
@@ -120,7 +184,7 @@
     // The trajectory is measured from the line of sight, so in this frame
     // the sight line is simply y = 0 -- the reference the bullet crosses
     // at the zero and falls away from afterwards.
-    const range = sim.data.max_distance_m;
+    const range = cam.range;
     ctx.save();
     ctx.setLineDash([6, 5]);
     ctx.strokeStyle = css("--ink-muted", "#898781");
@@ -175,7 +239,9 @@
         ctx.fill();
         ctx.font = "10px system-ui, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("transonic", p.sx, p.sy - 9);
+        // Below the dot: on a long shot this point is right on the line of
+        // sight, and above it the two labels sit on top of each other.
+        ctx.fillText("transonic", p.sx, p.sy + 16);
       }
     }
   }
@@ -187,23 +253,36 @@
     ctx.fillStyle = css("--ink-secondary", "#52514e");
     ctx.fillRect(p.sx - 16, p.sy - 2.5, 18, 5);
     ctx.font = "11px system-ui, sans-serif";
-    ctx.textAlign = "right";
-    ctx.fillText("muzzle", p.sx - 20, p.sy + 4);
+    ctx.textAlign = "center";
+    ctx.fillText("muzzle", p.sx - 7, p.sy - 9);
   }
 
   function drawTarget(cam) {
     const last = sim.data.points[sim.data.points.length - 1];
     if (!last) return;
-    const centre = project(last.x, 0, 0, cam);
-    if (!centre) return;
-    const size = Math.max(10, centre.scale * 0.6);
+    const aim = project(last.x, 0, 0, cam);              // on the line of sight
+    const hit = project(last.x, last.y, last.z, cam);
+    if (!aim || !hit) return;
+
+    // A post in the target's plane rather than a drawing of a target face.
+    // The vertical here is stretched, so a face at true scale would be a
+    // sliver and one big enough to see would be a lie about the scale.
+    // Spanning aim to impact says the useful thing anyway: that gap is how
+    // far under your point of aim the shot lands.
+    const top = Math.min(aim.sy, hit.sy) - 16;
+    const bottom = Math.max(aim.sy, hit.sy) + 16;
     ctx.strokeStyle = css("--ink-secondary", "#52514e");
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(centre.sx - size / 2, centre.sy - size, size, size * 2);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(aim.sx, top);
+    ctx.lineTo(aim.sx, bottom);
+    ctx.stroke();
     ctx.fillStyle = css("--ink-muted", "#898781");
     ctx.font = "11px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(`${Math.round(last.x)}m`, centre.sx, centre.sy + size + 14);
+    // No distance here: the axis already labels the far end, and the two
+    // labels landed on top of each other at short range.
+    ctx.fillText("target", aim.sx, top - 6);
   }
 
   function drawBullet(cam, upto) {
@@ -265,7 +344,7 @@
   function render() {
     if (!sim.data) return;
     clear();
-    const cam = camera();
+    const cam = fit();
     const finished = sim.t >= sim.data.flight_time_s;
     drawGrid(cam);
     drawSightLine(cam);
@@ -275,6 +354,11 @@
     if (finished) drawImpact(cam);
     const at = drawBullet(cam, sim.t);
     readout(at, finished);
+    // Both numbers matter: the one on the slider, and what it works out to
+    // against the real shape of the flight.
+    $("sim-exaggeration-value").textContent =
+      sim.stretch.toFixed(2) + "x fit (" + Math.round(cam.exaggeration)
+      + "x true)";
   }
 
   function readout(at, finished) {
@@ -457,7 +541,7 @@
         : "No ammo selected — the fields on the Come-up tab are being used instead.";
       $("sim-summary").textContent =
         `Launched ${data.launch_angle_deg}° above the line of sight, `
-        + `${data.flight_time_s} s to ${data.max_distance_m} m, `
+        + `${data.flight_time_s.toFixed(3)} s to ${data.max_distance_m} m, `
         + `arriving at ${Math.round(data.impact_velocity_ms / 0.3048)} fps.`;
       render();
       $("sim-state").textContent = "Ready — press Play.";
@@ -483,8 +567,7 @@
     sim.speed = Number(ev.target.value);
   });
   $("sim-exaggeration").addEventListener("input", (ev) => {
-    sim.exaggeration = Number(ev.target.value);
-    $("sim-exaggeration-value").textContent = `${sim.exaggeration}x`;
+    sim.stretch = Number(ev.target.value);
     render();
   });
 
