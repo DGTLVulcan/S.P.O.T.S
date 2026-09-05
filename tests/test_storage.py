@@ -338,10 +338,37 @@ class EquipmentSelectionTests(StorageTestCase):
         self.storage = Storage(self.path)
         self.assertEqual(self.storage.get_selected_equipment()["scope"], scope["id"])
 
-    def test_nothing_selected_by_default(self):
-        self.assertEqual(
-            self.storage.get_selected_equipment(), {kind: None for kind in EQUIPMENT_KINDS}
-        )
+    def test_the_seeded_kit_is_selected(self):
+        # There is one of each, so leaving it unselected would only make you
+        # pick the sole option by hand before anything could use it.
+        selected = self.storage.get_selected_equipment()
+        for kind in EQUIPMENT_KINDS:
+            self.assertIsNotNone(selected[kind], kind)
+            self.assertEqual(self.storage.get_equipment(selected[kind])["kind"], kind)
+
+    def test_resetting_puts_the_defaults_back(self):
+        original = {k: [i["name"] for i in self.storage.list_equipment(k)]
+                    for k in EQUIPMENT_KINDS}
+        self.storage.add_equipment("rifle", "Something else", None, None, None, {}, [])
+        first = self.storage.list_equipment("rifle")[0]
+        self.storage.delete_equipment(first["id"])
+
+        self.storage.reset_equipment()
+        self.assertEqual({k: [i["name"] for i in self.storage.list_equipment(k)]
+                          for k in EQUIPMENT_KINDS}, original)
+        # and it is usable again straight away
+        self.assertTrue(all(self.storage.get_selected_equipment().values()))
+
+    def test_the_defaults_carry_what_ballistics_needs(self):
+        # Muzzle velocity and BC are the two inputs every solution turns on,
+        # so shipping a load without them makes the calculator useless out
+        # of the box.
+        ammo = self.storage.list_equipment("ammo")[0]["specs"]
+        for key in ("muzzle_velocity_fps", "ballistic_coefficient", "drag_model"):
+            self.assertIn(key, ammo, key)
+        scope = self.storage.list_equipment("scope")[0]
+        self.assertTrue(scope["click_value"])
+        self.assertIn(scope["click_unit"], ("moa", "mrad"))
 
     def test_selection_can_be_cleared(self):
         ammo = self.storage.list_equipment("ammo")[0]

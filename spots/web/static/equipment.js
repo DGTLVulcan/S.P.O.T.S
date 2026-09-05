@@ -87,7 +87,13 @@
               : '<p class="equip-nav-empty">None yet</p>'}
           </div>`;
       })
-      .join("");
+      .join("")
+      + `<div class="equip-nav-group equip-reset">
+           <button type="button" id="equip-reset">Reset to defaults</button>
+           <p class="equip-nav-empty">Replaces the whole list with what a fresh
+           install ships with. Past sessions keep their own record of what they
+           were shot with.</p>
+         </div>`;
   }
 
   // ----------------------------------------------------------------- detail
@@ -269,6 +275,20 @@
   }
 
   sidebarEl.addEventListener("click", async (ev) => {
+    if (ev.target.id === "equip-reset") {
+      // Destructive and not undoable, so it asks first.
+      if (!window.confirm(
+          "Replace every rifle, scope, ammo and target with the defaults? "
+          + "Anything you have added or edited is lost. Past sessions keep "
+          + "their own record of what they were shot with.")) {
+        return;
+      }
+      fetch("/api/equipment/reset", { method: "POST" })
+        .then(() => load())
+        .catch((err) => toast(`Could not reset: ${err.message}`));
+      return;
+    }
+
     const addBtn = ev.target.closest(".equip-add-btn");
     if (addBtn) {
       const kind = addBtn.dataset.kind;

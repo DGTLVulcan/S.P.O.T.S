@@ -1890,3 +1890,10 @@ a.equip-nav-item { text-decoration: none; }
   font-size: 0.82rem;
   color: var(--ink-secondary);
 }
+
+/* Resetting the equipment list is destructive, so it sits apart from the
+   add buttons rather than beside them. */
+.equip-reset { border-top: 1px solid var(--border); padding-top: 0.8rem; }
+.equip-reset button { width: 100%; }
+.equip-reset button:hover { border-color: var(--critical); color: var(--critical); }
+.equip-reset .equip-nav-empty { margin-top: 0.4rem; line-height: 1.45; }

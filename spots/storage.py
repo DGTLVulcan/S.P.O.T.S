@@ -73,21 +73,26 @@ EQUIPMENT_KINDS = ("rifle", "scope", "ammo", "target")
 
 # Seeded once, on a database that has never had equipment, purely so the
 # dropdowns aren't empty on first run. All of it is editable.
+# The kit this install actually runs, with the figures taken from the
+# makers rather than invented. The two that drive every ballistic answer --
+# muzzle velocity and BC -- are Remington's own published numbers for this
+# load, and the solver reproduces their downrange velocities to within 1%.
+#
+# Sight height is deliberately absent: it depends on the rings and the
+# mount, not the rifle, so it has to be measured off the gun in front of
+# you. The ballistics page names it as missing until it is.
 _DEFAULT_EQUIPMENT = [
-    ("rifle", "Primary Rifle", None, None, None,
-     {"calibre": ".308 Winchester", "barrel_length_in": 20.0, "twist_rate": "1:10",
-      "action": "bolt"}),
-    ("rifle", "Rimfire", None, None, None,
-     {"calibre": ".22 LR", "barrel_length_in": 18.0, "twist_rate": "1:16", "action": "bolt"}),
-    ("scope", "1/4 MOA scope", None, 0.25, "moa", {"focal_plane": "ffp", "zero_distance_m": 100.0}),
-    ("scope", "1/8 MOA scope", None, 0.125, "moa", {"focal_plane": "ffp"}),
-    ("scope", "0.1 mrad scope", None, 0.1, "mrad", {"focal_plane": "ffp", "zero_distance_m": 100.0}),
-    ("ammo", "Factory match", None, None, None,
-     {"calibre": ".308 Winchester", "bullet_grains": 168.0, "bullet": "HPBT",
-      "manufacturer": "Federal"}),
-    ("ammo", "Handload", None, None, None,
-     {"calibre": ".308 Winchester", "bullet_grains": 168.0, "powder": "Varget",
-      "charge_grains": 42.5}),
+    ("rifle", "Franchi Horizon Elite .223", None, None, None,
+     {"calibre": ".223 Remington", "barrel_length_in": 22.0, "twist_rate": "1:9",
+      "action": "bolt", "muzzle_device": "thread_protector"}),
+    ("scope", "Simmons Pro Target 4-16x40 30mm", None, 0.1, "mrad",
+     {"magnification": "4-16x40", "reticle": "Mil-Dot", "focal_plane": "sfp",
+      "tube_diameter_mm": 30.0, "zero_distance_m": 100.0}),
+    ("ammo", "Remington UMC .223 55gr FMJ", None, None, None,
+     {"calibre": ".223 Remington", "bullet_grains": 55.0, "bullet_diameter_mm": 5.69,
+      "bullet": "FMJ", "manufacturer": "Remington",
+      "muzzle_velocity_fps": 3240.0, "ballistic_coefficient": 0.202,
+      "drag_model": "g1"}),
     # An illustrative face with round ring sizes, NOT a real competition
     # target -- measure the one you actually shoot and enter its rings.
     ("target", "Example 5-ring (edit to match yours)", None, None, None, {}),
@@ -195,6 +200,20 @@ class Storage:
                 for k, n, notes, cv, cu, specs in _DEFAULT_EQUIPMENT
             ],
         )
+        # Select what was just seeded. There is one of each kind, so leaving
+        # it unselected only makes you pick the sole option by hand before
+        # anything that reads the equipment -- the ballistics page most of
+        # all -- has something to work from.
+        for kind in EQUIPMENT_KINDS:
+            row = self._conn.execute(
+                "SELECT id FROM equipment WHERE kind = ? ORDER BY id ASC LIMIT 1", (kind,)
+            ).fetchone()
+            if row:
+                self._conn.execute(
+                    "INSERT INTO app_state (key, value) VALUES (?, ?)"
+                    " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (self._selection_key(kind), str(row[0])),
+                )
 
     def get_state(self, key: str, default: str | None = None) -> str | None:
         with self._lock:
@@ -258,6 +277,22 @@ class Storage:
             raise ValueError(f"range state must be one of {RANGE_STATES}")
         self.set_state(_RANGE_STATE_KEY, state)
         return state
+
+    def reset_equipment(self) -> None:
+        """Throw the equipment list away and seed it again.
+
+        Seeding only ever happens on an empty table, so an install that has
+        been running keeps whatever it started with -- this is the way to
+        take new defaults on an existing Pi. Sessions keep their own
+        snapshot of what they were shot with, so history is unaffected.
+        """
+        with self._lock:
+            self._conn.execute("DELETE FROM equipment")
+            for kind in EQUIPMENT_KINDS:
+                self._conn.execute("DELETE FROM app_state WHERE key = ?",
+                                   (self._selection_key(kind),))
+            self._seed_equipment_locked()
+            self._conn.commit()
 
     def get_dope_card(self, key: str) -> dict | None:
         """A saved come-up card for one rifle-and-load pairing."""

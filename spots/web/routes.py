@@ -552,6 +552,14 @@ def api_equipment_delete(equipment_id):
     return jsonify({"ok": True})
 
 
+@bp.route("/api/equipment/reset", methods=["POST"])
+def api_equipment_reset():
+    """Put the equipment list back to what a fresh install ships with."""
+    _storage().reset_equipment()
+    _sync_bullet_diameter()
+    return jsonify({"ok": True})
+
+
 @bp.route("/api/equipment/select", methods=["POST"])
 def api_equipment_select():
     data = request.get_json(force=True)
