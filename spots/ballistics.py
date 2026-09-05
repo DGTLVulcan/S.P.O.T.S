@@ -482,8 +482,10 @@ def trajectory(shot: Shot, max_distance_m: float, samples: int = 240) -> dict:
     _validate(shot)
     samples = max(20, min(600, int(samples)))
     maximum = max(1.0, float(max_distance_m))
-    step = maximum / samples
-    points = solve(shot, [step * i for i in range(1, samples + 1)])
+    # Scale each sample rather than accumulating a step, so the last one
+    # lands exactly on the range asked for. Stepping left 500 m reading
+    # 500.00000000000006, which the simulation then printed at the user.
+    points = solve(shot, [maximum * i / samples for i in range(1, samples + 1)])
     angle = _zero_angle(shot)
     sound = shot.atmosphere.speed_of_sound
     return {
@@ -501,8 +503,11 @@ def trajectory(shot: Shot, max_distance_m: float, samples: int = 240) -> dict:
         "launch_angle_deg": round(math.degrees(angle), 4),
         "sight_height_mm": shot.sight_height_mm,
         "zero_distance_m": shot.zero_distance_m,
-        "max_distance_m": points[-1].distance_m if points else 0.0,
-        "flight_time_s": round(points[-1].time_s, 3) if points else 0.0,
+        "max_distance_m": round(points[-1].distance_m, 2) if points else 0.0,
+        # Rounded the same as the point times, so asking for the sample at
+        # the end of the flight lands on the last point rather than just
+        # short of it.
+        "flight_time_s": round(points[-1].time_s, 4) if points else 0.0,
         "impact_velocity_ms": round(points[-1].velocity_ms, 1) if points else 0.0,
         "speed_of_sound_ms": round(sound, 1),
         "transonic_mach": TRANSONIC_MACH,
