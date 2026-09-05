@@ -44,7 +44,8 @@
     { key: "step_m", label: "Card steps of", unit: "m", step: 5 },
   ];
 
-  const state = { unit: "mrad", advanced: false, values: {}, solved: null, dope: null, truing: [] };
+  const state = { unit: "mrad", advanced: false, values: {}, solved: null,
+                dope: null, dopeLoaded: false, truing: [] };
 
   // ---- rendering the inputs -------------------------------------------
 
@@ -287,6 +288,7 @@
       const res = await fetch("/api/ballistics/dope");
       const data = await res.json();
       state.dope = data.card;
+      state.dopeLoaded = true;
       renderDope(data.card);
       $("dope-status").textContent = data.card
         ? "" : "No card saved for this rifle and load yet.";
@@ -395,7 +397,11 @@
     $("ball-title").textContent =
       { solve: "Come-up", dope: "DOPE card", true: "Truing" }[name] || "Ballistics";
     if (name === "true") loadTruing();
-    if (name === "dope") loadDope();
+    // Only the first visit reads the saved card. Re-fetching on every
+    // switch raced whatever had just been put in the table -- filling from
+    // the solution showed the rows, then the fetch landed and wiped them --
+    // and threw away un-saved typing on the way past.
+    if (name === "dope" && !state.dopeLoaded) loadDope();
   }
 
   document.querySelectorAll(".ball-nav").forEach((button) => {
@@ -429,6 +435,10 @@
       $("ball-status").textContent = "Work out a solution first.";
       return;
     }
+    // Claim the table before switching, so the first-visit load can't
+    // fire and overwrite what is about to be put in it.
+    state.dopeLoaded = true;
+    showPanel("dope");
     renderDope({
       rows: state.solved.rows.map((row) => ({
         distance_m: row.distance_m,
@@ -437,7 +447,6 @@
         note: row.transonic ? "transonic" : "",
       })),
     });
-    showPanel("dope");
     $("dope-status").textContent = "Filled from the solution — check it, then save.";
   });
 
@@ -454,6 +463,7 @@
         body: JSON.stringify({ card: readDope() }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      state.dopeLoaded = true;
       $("dope-status").textContent = "Saved for this rifle and load.";
     } catch (err) {
       $("dope-status").textContent = err.message;
