@@ -36,7 +36,9 @@
 
   // ---- framing and projection -------------------------------------------
 
-  const PAD = { x: 58, top: 30, bottom: 44 };  // room for the edge labels
+  // Room for the edge labels: the left gutter carries the drop scale, so
+  // the two sides are no longer the same width.
+  const PAD = { left: 62, right: 34, top: 34, bottom: 44 };
   const FILL = 0.62;      // share of the usable height the flight fills
   const FLOOR_GAP = 0.28; // how far under the flight the scale plane sits
 
@@ -77,7 +79,7 @@
     // Fit the length across first. That constraint does not depend on the
     // height scale, so it pins the focal length on its own. The floors are
     // for a canvas too small to hold the padding, on a phone in portrait.
-    const across = Math.max(40, width / 2 - PAD.x);
+    const across = Math.max(40, (width - PAD.left - PAD.right) / 2);
     const focal = (across * near) / (range / 2);
 
     // Then scale the height so the flight fills the frame it is given.
@@ -86,11 +88,12 @@
 
     const exaggeration = fitted * sim.stretch;
     return {
-      range, width, height, lateral, focal, floor, fitted, exaggeration,
+      range, width, height, lateral, focal, floor, hi, fitted, exaggeration,
       step: gridStep(range),
       x: range / 2,
       y: ((hi + floor) / 2) * exaggeration,  // centre the flight vertically
       z: -dolly,
+      cx: PAD.left + across,                 // x = 0 lands on the left gutter
       horizon: PAD.top + usable / 2,
     };
   }
@@ -101,7 +104,7 @@
     const ez = z - cam.z;
     if (ez <= 1) return null;                    // behind the camera
     return {
-      sx: cam.width / 2 + (cam.focal * ex) / ez,
+      sx: cam.cx + (cam.focal * ex) / ez,
       sy: cam.horizon - (cam.focal * ey) / ez,
       scale: cam.focal / ez,
     };
@@ -141,8 +144,7 @@
     // every foot below shares this y.
     const foot = (i) => project(i * cam.step, cam.floor, -cam.lateral, cam);
     const start = foot(0);
-    const end = foot(lines);
-    if (!start || !end) return;
+    if (!start) return;
 
     // Faint verticals at the labelled ranges, so the drop at 300 m can be
     // read off without tracing the curve back by eye.
@@ -157,10 +159,12 @@
       ctx.stroke();
     }
 
+    // Full width rather than out to the last tick: the range asked for is
+    // not always a whole number of gridlines.
     ctx.strokeStyle = css("--ink-muted", "#898781");
     ctx.beginPath();
-    ctx.moveTo(start.sx, start.sy);
-    ctx.lineTo(end.sx, end.sy);
+    ctx.moveTo(PAD.left, start.sy);
+    ctx.lineTo(cam.width - PAD.right, start.sy);
     ctx.stroke();
     for (let i = 0; i <= lines; i += 1) {
       const p = foot(i);
@@ -178,6 +182,77 @@
       const p = foot(i);
       if (p) ctx.fillText(`${i * cam.step} m`, p.sx, p.sy + 19);
     }
+  }
+
+  // Nice round drop values: about six of them, on a 1/2/5 decade so the
+  // labels come out as 50s and 100s rather than 47s.
+  function dropStep(span) {
+    const decade = Math.pow(10, Math.floor(Math.log10(span / 6)));
+    return [1, 2, 5].map((m) => decade * m).find((s) => s >= span / 6)
+      || decade * 10;
+  }
+
+  // The scale up the left, reading drop from the line of sight.
+  //
+  // Worth knowing why one exists at all: the height here is stretched, by
+  // a factor that changes with the range, so the curve on its own says
+  // nothing about how far the shot actually falls. This is the axis that
+  // turns the picture back into numbers.
+  //
+  // Depth is what sets the vertical scale in this projection, and depth
+  // does not change along the flight -- only across it. So a scale read at
+  // the near edge is true everywhere along the shot, to within the width
+  // of the wind drift.
+  function drawDropScale(cam) {
+    const step = dropStep(cam.hi - cam.floor);
+    const cm = step < 1;          // centimetres until the drop is metres deep
+    const at = (value) => project(0, value, -cam.lateral, cam);
+    const right = cam.width - PAD.right;
+    const first = Math.ceil(cam.floor / step - 1e-9);
+    const last = Math.floor(cam.hi / step + 1e-9);
+
+    ctx.font = "11px system-ui, sans-serif";
+    ctx.lineWidth = 1;
+    for (let i = first; i <= last; i += 1) {
+      const row = at(i * step);
+      if (!row) continue;
+
+      // Nothing at zero: the sight line is already drawn there, dashed,
+      // and a gridline on top of it just thickens it.
+      if (i !== 0) {
+        ctx.strokeStyle = css("--gridline", "#e1e0d9");
+        ctx.beginPath();
+        ctx.moveTo(PAD.left, row.sy);
+        ctx.lineTo(right, row.sy);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = css("--ink-muted", "#898781");
+      ctx.beginPath();
+      ctx.moveTo(PAD.left - 5, row.sy);
+      ctx.lineTo(PAD.left, row.sy);
+      ctx.stroke();
+
+      ctx.fillStyle = css("--ink-muted", "#898781");
+      ctx.textAlign = "right";
+      const shown = cm ? Math.round(i * step * 100)
+                       : Math.round(i * step * 10) / 10;
+      ctx.fillText(`${shown}`, PAD.left - 8, row.sy + 4);
+    }
+
+    const top = at(cam.hi);
+    const bottom = at(cam.floor);
+    if (top && bottom) {
+      ctx.strokeStyle = css("--ink-muted", "#898781");
+      ctx.beginPath();
+      ctx.moveTo(PAD.left, top.sy);
+      ctx.lineTo(PAD.left, bottom.sy);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = css("--ink-muted", "#898781");
+    ctx.textAlign = "left";
+    ctx.fillText(cm ? "drop (cm)" : "drop (m)", 4, PAD.top - 14);
   }
 
   function drawSightLine(cam) {
@@ -250,11 +325,13 @@
     const start = sim.data.points[0];
     const p = project(0, start ? start.y : 0, 0, cam);
     if (!p) return;
+    // Downrange of the axis, not behind it: the left of the axis is the
+    // drop scale's gutter now, and the barrel used to sit on the labels.
     ctx.fillStyle = css("--ink-secondary", "#52514e");
-    ctx.fillRect(p.sx - 16, p.sy - 2.5, 18, 5);
+    ctx.fillRect(p.sx + 1, p.sy - 2.5, 16, 5);
     ctx.font = "11px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("muzzle", p.sx - 7, p.sy - 9);
+    ctx.fillText("muzzle", p.sx + 14, p.sy - 9);
   }
 
   function drawTarget(cam) {
@@ -347,6 +424,7 @@
     const cam = fit();
     const finished = sim.t >= sim.data.flight_time_s;
     drawGrid(cam);
+    drawDropScale(cam);
     drawSightLine(cam);
     drawPath(cam, sim.t);
     drawMuzzle(cam);

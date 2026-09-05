@@ -1,11 +1,16 @@
-// Checks that the simulation actually frames the shot it is given.
+// Checks that the simulation frames the shot it is given, and that both
+// its scales are readable.
 //
 // The reported fault was that the distance scale along the bottom only
 // appeared once you asked for more than 2000 m, and that 50 m drew nothing
 // worth looking at. Both came from a camera and a height scale that were
-// hard-coded for a 500 m .308, so this drives the real trajectories out of
-// the solver at a spread of ranges and asserts that what gets drawn lands
-// inside the canvas.
+// hard-coded for a 500 m .308. So this drives the real trajectories out of
+// the solver at a spread of ranges and two canvas sizes, and asserts that
+// what gets drawn lands inside the canvas.
+//
+// The drop scale is checked just as hard. The height in this view is
+// stretched, by a factor that changes with the range, so a curve without
+// a scale beside it is a shape and nothing more.
 //
 // Usage: node sim_framing.js <ballistics_sim.js> <trajectories.json>
 const fs = require("fs");
@@ -116,12 +121,18 @@ function inspect(name) {
                           (o.op === "moveTo" || o.op === "lineTo"));
   const labels = ops.filter((o) => o.op === "fillText" && o.fill === MUTED &&
                             /^\d+ m$/.test(o.args[0]));
+  // The drop scale: bare numbers, and a caption naming their unit. The two
+  // label sets can't be confused -- a distance always carries its " m".
+  const drops = ops.filter((o) => o.op === "fillText" && o.fill === MUTED &&
+                           /^-?\d+(\.\d+)?$/.test(o.args[0]));
+  const caption = ops.find((o) => o.op === "fillText" &&
+                           /^drop \((cm|m)\)$/.test(o.args[0]));
   const grid = ops.filter((o) => o.stroke === GRID &&
                           (o.op === "moveTo" || o.op === "lineTo"));
   const target = ops.filter((o) => o.stroke === SECONDARY &&
                             (o.op === "moveTo" || o.op === "lineTo"));
   const muzzle = ops.filter((o) => o.op === "fillRect");
-  return { name, path, labels, grid, target, muzzle };
+  return { name, path, labels, drops, caption, grid, target, muzzle };
 }
 
 function extent(items, axis) {
@@ -160,7 +171,30 @@ function extent(items, axis) {
              + `..${labelX.hi.toFixed(0)} of ${size.w}`);
       }
 
-      // 2. The whole flight is in frame, muzzle and target included.
+      // 2. The drop scale. Without it the curve says nothing: the height is
+      //    stretched by a factor that changes with the range, so how far
+      //    the shot falls is unreadable off the picture alone.
+      if (drawn.drops.length < 3) {
+        fail(`${label}: only ${drawn.drops.length} drop labels drawn`);
+      }
+      if (!drawn.caption) fail(`${label}: the drop scale has no unit on it`);
+      const dropY = extent(drawn.drops, 2);
+      const dropX = extent(drawn.drops, 1);
+      if (dropY.lo < 0 || dropY.hi > size.h) {
+        fail(`${label}: drop scale off canvas, y ${dropY.lo.toFixed(0)}`
+             + `..${dropY.hi.toFixed(0)} of ${size.h}`);
+      }
+      // Right-aligned in the gutter, so their x is where the text ends.
+      if (dropX.lo < 30) {
+        fail(`${label}: drop labels run off the left at x ${dropX.lo.toFixed(0)}`);
+      }
+      // Zero is the line of sight, and every useful reading is measured
+      // from it, so it has to be one of the marks.
+      if (!drawn.drops.some((o) => o.args[0] === "0")) {
+        fail(`${label}: the drop scale has no zero`);
+      }
+
+      // 3. The whole flight is in frame, muzzle and target included.
       if (!drawn.path.length) fail(`${label}: no trajectory drawn`);
       const pathX = extent(drawn.path, 0);
       const pathY = extent(drawn.path, 1);
@@ -186,7 +220,7 @@ function extent(items, axis) {
              + `..${postY.hi.toFixed(0)} of ${size.h}`);
       }
 
-      // 3. And the curve has actual shape -- a flat line is what 50 m used
+      // 4. And the curve has actual shape -- a flat line is what 50 m used
       //    to draw, and it tells you nothing.
       const rise = pathY.hi - pathY.lo;
       if (rise < size.h * 0.2) {
@@ -194,13 +228,15 @@ function extent(items, axis) {
              + `${size.h} tall`);
       }
 
-      report.push(`${label.padEnd(20)} labels ${String(drawn.labels.length).padStart(2)}`
-        + `  scale y=${labelY.hi.toFixed(0)}`
+      const span = `${drawn.drops[drawn.drops.length - 1].args[0]}`
+        + `..${drawn.drops[0].args[0]} ${drawn.caption.args[0]}`;
+      report.push(`${label.padEnd(20)} ranges ${String(drawn.labels.length).padStart(2)}`
+        + `  drop ${span.padEnd(18)}`
         + `  flight x=${pathX.lo.toFixed(0)}..${pathX.hi.toFixed(0)}`
         + `  rise=${rise.toFixed(0)}px`
         + `  ${byId("sim-exaggeration-value").textContent}`);
     }
   }
   report.forEach((line) => console.log(line));
-  console.log("PASS - every range frames the flight and its distance scale");
+  console.log("PASS - every range frames the flight and carries both scales");
 })().catch((err) => fail(err.stack));
