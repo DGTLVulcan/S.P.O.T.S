@@ -1827,14 +1827,6 @@ a.equip-nav-item { text-decoration: none; }
 
 /* ---------- Ballistics simulation ---------- */
 
-/* Simulation sits under Truing as a sub-entry rather than a peer: it draws
-   the same solution, it does not produce a different one. */
-.ball-nav.is-sub {
-  margin-left: 0.9rem;
-  border-left: 2px solid var(--border);
-  border-radius: 0 8px 8px 0;
-}
-
 .sim-stage {
   position: relative;
   height: min(46vh, 420px);
