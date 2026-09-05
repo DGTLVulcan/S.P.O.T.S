@@ -103,6 +103,9 @@ global.SPOTS_BALLISTICS = {
   values: () => ({}), unit: () => "mrad", solved: () => null, solve: async () => {},
 };
 
+const PICKER = require("path").join(__dirname, "..", "..",
+  "spots", "web", "static", "comeup_picker.js");
+eval(fs.readFileSync(PICKER, "utf8"));
 eval(fs.readFileSync(SOURCE, "utf8"));
 
 // ---- what the recorded ops mean ---------------------------------------

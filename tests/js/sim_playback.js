@@ -119,6 +119,9 @@ global.SPOTS_BALLISTICS = {
   solved: () => card, solve: async () => {},
 };
 
+const PICKER = require("path").join(__dirname, "..", "..",
+  "spots", "web", "static", "comeup_picker.js");
+eval(fs.readFileSync(PICKER, "utf8"));
 eval(fs.readFileSync(process.argv[2], "utf8"));
 
 const fail = (msg) => { console.log("FAIL - " + msg); process.exit(1); };

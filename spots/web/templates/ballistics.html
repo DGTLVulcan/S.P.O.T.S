@@ -57,6 +57,12 @@
               <span class="equip-nav-sub">Watch the shot fly</span>
             </span>
           </button>
+          <button type="button" class="equip-nav-item ball-nav" data-panel="scope">
+            <span class="equip-nav-text">
+              <span class="equip-nav-name">Through the scope</span>
+              <span class="equip-nav-sub">Where to hold, without dialling</span>
+            </span>
+          </button>
         </div>
       </aside>
 
@@ -227,7 +233,10 @@
             the readout is the real one. Set it to 1x to see the actual shape of the flight.
           </p>
 
-          <h3 class="sim-heading">Through the scope</h3>
+        </div>
+
+        <!-- ---------------- Through the scope ---------------- -->
+        <div class="ball-panel" data-panel="scope" hidden>
           <p class="hint">
             The same shot held rather than dialled. Leave the turrets where they are, put the
             target centre on the marked spot, and the bullet lands in the middle. Wind is in it:
@@ -247,6 +256,18 @@
             </label>
             <span class="hint" id="reticle-scope"></span>
           </div>
+
+          <div class="table-scroll sim-picker">
+            <table class="ball-table sim-table" id="scope-card">
+              <thead><tr>
+                <th>Range</th><th>Drop</th><th>Elevation</th><th>Clicks</th>
+                <th>Wind</th><th>Clicks</th><th>Velocity</th><th>Energy</th>
+                <th>Time</th><th>Mach</th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="hint" id="scope-pick-hint">Pick a range to see the hold for it.</p>
 
           <div class="reticle-stage">
             <canvas id="reticle-canvas"></canvas>
@@ -280,6 +301,7 @@
   <script src="{{ url_for('static', filename='range_status.js') }}"></script>
   <script src="{{ url_for('static', filename='equipment_bar.js') }}"></script>
   <script src="{{ url_for('static', filename='ballistics.js') }}"></script>
+  <script src="{{ url_for('static', filename='comeup_picker.js') }}"></script>
   <script src="{{ url_for('static', filename='reticle.js') }}"></script>
   <script src="{{ url_for('static', filename='ballistics_sim.js') }}"></script>
 </body>

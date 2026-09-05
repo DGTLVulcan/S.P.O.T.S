@@ -49,6 +49,21 @@ class MenuTests(unittest.TestCase):
                 continue
             self.assertNotIn("<a ", bar.group(1), name)
 
+    def test_the_menu_is_in_the_order_it_was_asked_for(self):
+        # Order was specified, so it is not a detail to be reshuffled by
+        # whoever adds the next page: shooting, then setup, then review.
+        with open(os.path.join(TEMPLATES, "_menu.html"), encoding="utf-8") as fh:
+            menu = fh.read()
+        self.assertEqual(re.findall(r'\("(spots\.\w+)"', menu), [
+            "spots.index",
+            "spots.ballistics_page",
+            "spots.equipment_page",
+            "spots.sessions_list",
+            "spots.compare_page",
+            "spots.ranges_page",
+            "spots.settings_page",
+        ])
+
     def test_the_menu_lists_every_page_endpoint(self):
         with open(os.path.join(TEMPLATES, "_menu.html"), encoding="utf-8") as fh:
             menu = fh.read()
@@ -98,9 +113,6 @@ class SettingsPanelTests(unittest.TestCase):
         self.assertFalse(missing, f"panels with fields but no Save row: {missing}")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class CanvasColourTests(unittest.TestCase):
     """Every CSS variable a canvas reads has to exist in the stylesheet.
@@ -133,3 +145,44 @@ class CanvasColourTests(unittest.TestCase):
         missing = {t: sorted(set(f)) for t, f in asked.items() if t not in defined}
         self.assertEqual(missing, {},
                          "these CSS variables are read by a canvas but never defined")
+
+
+class BallisticsPanelTests(unittest.TestCase):
+    """Each item in the Ballistics side menu needs a panel behind it.
+
+    The two are matched only by a data-panel string, so a rename or a moved
+    section leaves a menu item that opens onto nothing -- and the page still
+    renders perfectly, just blank.
+    """
+
+    def _page(self):
+        with open(os.path.join(TEMPLATES, "ballistics.html"), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_every_menu_item_has_a_panel(self):
+        html = self._page()
+        nav = re.findall(r'class="equip-nav-item ball-nav[^"]*" data-panel="(\w+)"', html)
+        panels = re.findall(r'class="ball-panel" data-panel="(\w+)"', html)
+        self.assertEqual(sorted(nav), sorted(panels))
+        self.assertIn("scope", nav)
+
+    def test_the_scope_panel_owns_its_own_range_picker(self):
+        html = self._page()
+        # Anchored on the class, because the menu button carries the same
+        # data-panel attribute and comes first in the file.
+        panel = re.search(
+            r'class="ball-panel" data-panel="scope"(.*?)\n        </div>', html, re.S)
+        self.assertIsNotNone(panel, "the scope panel has gone")
+        for needed in ('id="scope-card"', 'id="scope-pick-hint"',
+                       'id="reticle-canvas"', 'id="reticle-type"', 'id="reticle-zoom"'):
+            self.assertIn(needed, panel.group(1), needed)
+
+    def test_the_simulation_panel_no_longer_carries_the_reticle(self):
+        html = self._page()
+        panel = re.search(
+            r'class="ball-panel" data-panel="sim"(.*?)\n        </div>', html, re.S)
+        self.assertIsNotNone(panel)
+        self.assertNotIn("reticle", panel.group(1))
+
+if __name__ == "__main__":
+    unittest.main()

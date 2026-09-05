@@ -41,9 +41,20 @@ function recorder() {
 function makeEl(id) {
   const el = {
     id, tagName: "DIV", value: "", innerHTML: "", _text: "",
+    children: [],
+    dataset: new Proxy({}, { set: (o, k, v) => { o[k] = String(v); return true; } }),
+    classList: {
+      _s: new Set(),
+      add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); },
+      toggle(c, on) { on ? this._s.add(c) : this._s.delete(c); },
+      contains(c) { return this._s.has(c); },
+    },
     handlers: {},
     addEventListener(name, fn) { (this.handlers[name] ||= []).push(fn); },
     dispatch(name) { (this.handlers[name] || []).forEach((fn) => fn({})); },
+    append(...kids) { kids.forEach((k) => this.children.push(k)); },
+    querySelector: () => null,
+    querySelectorAll: () => [],
     getContext: () => el._ctx || (el._ctx = recorder()),
   };
   Object.defineProperty(el, "clientWidth", { get: () => SIZE.w });
@@ -57,15 +68,31 @@ function makeEl(id) {
 const registry = {};
 const byId = (id) => (registry[id] ||= makeEl(id));
 
+// The come-up table above the picture needs a tbody rows can go into.
+const scopeBody = makeEl("scope-tbody");
+scopeBody.tagName = "TBODY";
+const scopeTable = byId("scope-card");
+scopeTable.querySelector = (sel) => (sel === "tbody" ? scopeBody : null);
+scopeTable.querySelectorAll = (sel) =>
+  (sel.includes("tbody tr") ? scopeBody.children.filter((c) => c.tagName === "TR") : []);
+const scopeRows = () => scopeBody.children.filter((c) => c.tagName === "TR");
+
 global.window = global;
 global.addEventListener = () => {};
 global.devicePixelRatio = 1;
 global.getComputedStyle = () => ({ getPropertyValue: () => "" });
-global.document = { getElementById: byId, body: makeEl("body") };
+global.document = {
+  getElementById: byId,
+  createElement: (tag) => { const e = makeEl(null); e.tagName = tag.toUpperCase(); return e; },
+  body: makeEl("body"),
+};
 
 let SCOPE = null;
 global.SPOTS_BALLISTICS = { scope: () => SCOPE, unit: () => "mrad" };
 
+const PICKER = require("path").join(__dirname, "..", "..",
+  "spots", "web", "static", "comeup_picker.js");
+eval(fs.readFileSync(PICKER, "utf8"));
 eval(fs.readFileSync(process.argv[2], "utf8"));
 
 const fail = (msg) => { console.log("FAIL - " + msg); process.exit(1); };
@@ -288,5 +315,56 @@ SCOPE = { scope: "Unknown", reticle: "Mil-Dot", focal_plane: "",
 window.SPOTS_RETICLE.show(FROM_LEFT, "mrad");
 if (!byId("reticle-zoom").disabled) fail("no magnification means no zoom control");
 console.log("no mag     : " + plain("reticle-zoom-value"));
+
+// ---- the panel's own come-up table ------------------------------------
+//
+// It is a tab in its own right now, so it has to get from a solution to a
+// hold without the simulation having been opened at all.
+const card = {
+  unit: "mrad", click_value: 0.1,
+  rows: [100, 200, 300, 400, 500].map((d) => ({
+    distance_m: d, drop_cm: -d * 0.44, elevation: d * 0.00886,
+    elevation_clicks: Math.round(d * 0.0886), windage: -d * 0.00634,
+    windage_clicks: -Math.round(d * 0.0634), velocity_fps: 3240 - d * 2.5,
+    energy_j: 1700 - d * 1.9, time_s: d / 620, mach: 2.9 - d * 0.0028,
+    transonic: d >= 450,
+  })),
+};
+
+SCOPE = { scope: "Test 4-16x40", reticle: "Mil-Dot", focal_plane: "sfp",
+          magnification: "4-16x40", magnification_min: 4, magnification_max: 16,
+          reticle_calibration_x: null };
+pick("mil-dot");
+ops.length = 0;
+window.SPOTS_RETICLE.cardChanged(card);
+
+if (scopeRows().length !== 5) {
+  fail(`expected 5 come-up rows in the scope panel, got ${scopeRows().length}`);
+}
+// The longest shot is the one that needs the most thinking about, so it is
+// where the panel lands.
+const chosen = scopeRows().filter((r) => r.classList.contains("is-chosen"));
+if (chosen.length !== 1 || chosen[0].dataset.distance !== "500") {
+  fail("the longest range should be picked by default");
+}
+const at500 = marker();
+console.log(`table      : ${scopeRows().length} rows, 500 m chosen, `
+  + `marker ${at500.x.toFixed(0)}, ${at500.y.toFixed(0)} px`);
+
+// Clicking a nearer range has to move the hold in, not just repaint a row.
+ops.length = 0;
+scopeRows()[1].dispatch("click");
+const at200 = marker();
+if (!(at200.y > 0 && at200.y < at500.y)) {
+  fail(`200 m should hold less than 500 m; got ${at200.y} vs ${at500.y}`);
+}
+if (!(at200.x > 0 && at200.x < at500.x)) {
+  fail(`200 m should need less wind than 500 m; got ${at200.x} vs ${at500.x}`);
+}
+const nowChosen = scopeRows().filter((r) => r.classList.contains("is-chosen"));
+if (nowChosen.length !== 1 || nowChosen[0].dataset.distance !== "200") {
+  fail("the clicked row should become the chosen one");
+}
+console.log(`picked 200m: marker ${at200.x.toFixed(0)}, ${at200.y.toFixed(0)} px`);
 
 console.log("PASS - the hold is opposite the dial, and tracks the zoom ring the way each focal plane does");

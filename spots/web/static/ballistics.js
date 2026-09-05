@@ -180,6 +180,7 @@
       state.solved = data;
       renderCard(data);
       if (window.SPOTS_SIM) window.SPOTS_SIM.cardChanged(data);
+      if (window.SPOTS_RETICLE) window.SPOTS_RETICLE.cardChanged(data);
       $("ball-status").textContent = "";
     } catch (err) {
       $("ball-status").textContent = err.message;
@@ -398,18 +399,20 @@
     document.querySelectorAll(".ball-nav").forEach((button) => {
       button.classList.toggle("is-open", button.dataset.panel === name);
     });
-    $("ball-title").textContent =
-      { solve: "Come-up", dope: "DOPE card", true: "Truing", sim: "Simulation" }[name]
-      || "Ballistics";
+    $("ball-title").textContent = {
+      solve: "Come-up", dope: "DOPE card", true: "Truing",
+      sim: "Simulation", scope: "Through the scope",
+    }[name] || "Ballistics";
     if (name === "true") loadTruing();
     // Only the first visit reads the saved card. Re-fetching on every
     // switch raced whatever had just been put in the table -- filling from
     // the solution showed the rows, then the fetch landed and wiped them --
     // and threw away un-saved typing on the way past.
     if (name === "dope" && !state.dopeLoaded) loadDope();
-    // The canvas has no measured size until its panel is on screen, so the
-    // flight is worked out when the tab is opened rather than up front.
+    // Neither canvas has a measured size until its panel is on screen, so
+    // both are drawn when their tab is opened rather than up front.
     if (name === "sim" && window.SPOTS_SIM) window.SPOTS_SIM.open();
+    if (name === "scope" && window.SPOTS_RETICLE) window.SPOTS_RETICLE.open();
     // Leaving the tab should not leave an animation running behind it.
     if (name !== "sim" && window.SPOTS_SIM) window.SPOTS_SIM.stop();
   }
@@ -506,11 +509,17 @@
       state.solved = null;
       state.dopeLoaded = false;
       if (window.SPOTS_SIM) window.SPOTS_SIM.reset();
+      if (window.SPOTS_RETICLE) window.SPOTS_RETICLE.reset();
       await loadInputs();
-      // Changing the load while watching the flight should re-fly it with
-      // the new one rather than leaving an empty stage.
-      const panel = document.querySelector('.ball-panel[data-panel="sim"]');
-      if (panel && !panel.hidden && window.SPOTS_SIM) window.SPOTS_SIM.open();
+      // Changing the load while watching the flight, or reading a hold off
+      // the glass, should work the new one out rather than leave an empty
+      // stage behind.
+      const showing = (name) => {
+        const panel = document.querySelector(`.ball-panel[data-panel="${name}"]`);
+        return panel && !panel.hidden;
+      };
+      if (showing("sim") && window.SPOTS_SIM) window.SPOTS_SIM.open();
+      if (showing("scope") && window.SPOTS_RETICLE) window.SPOTS_RETICLE.open();
     });
   }
 

@@ -501,62 +501,19 @@
   // The same rows the Come-up tab shows. Clicking one flies the shot to
   // that range, so the picture and the number you would dial sit together.
   function renderTable(card) {
-    const body = $("sim-card").querySelector("tbody");
-    body.textContent = "";
-    if (!card || !card.rows || !card.rows.length) {
-      $("sim-pick-hint").textContent =
-        "No solution yet — work one out on the Come-up tab.";
-      return;
-    }
-    const unit = card.unit.toUpperCase();
-    card.rows.forEach((row) => {
-      const tr = document.createElement("tr");
-      tr.className = "sim-row" + (row.transonic ? " is-transonic" : "");
-      tr.dataset.distance = row.distance_m;
-      [
-        `${row.distance_m} m`,
-        `${row.drop_cm} cm`,
-        `${row.elevation.toFixed(2)} ${unit}`,
-        row.elevation_clicks === null ? "—" : row.elevation_clicks,
-        `${row.windage.toFixed(2)} ${unit}`,
-        row.windage_clicks === null ? "—" : row.windage_clicks,
-        `${row.velocity_fps} fps`,
-        `${row.energy_j} J`,
-        `${row.time_s.toFixed(2)} s`,
-        row.mach.toFixed(2),
-      ].forEach((text) => {
-        const td = document.createElement("td");
-        td.textContent = text;
-        tr.append(td);
-      });
-      tr.addEventListener("click", () => choose(Number(tr.dataset.distance)));
-      body.append(tr);
-    });
-    $("sim-pick-hint").textContent = "Pick a range to fly it.";
+    const drawn = window.SPOTS_PICKER.render($("sim-card"), card, choose);
+    $("sim-pick-hint").textContent = drawn
+      ? "Pick a range to fly it."
+      : "No solution yet — work one out on the Come-up tab.";
   }
 
   function markChosen(distance) {
-    $("sim-card").querySelectorAll("tbody tr").forEach((tr) => {
-      tr.classList.toggle("is-chosen", Number(tr.dataset.distance) === distance);
-    });
-  }
-
-  // The scope picture under the stage reads the same row as the flight,
-  // so the hold you are shown is the hold for the shot you are watching.
-  function pushHold() {
-    if (!window.SPOTS_RETICLE) return;
-    const rows = (sim.card && sim.card.rows) || [];
-    const row = rows.find((r) => r.distance_m === sim.range);
-    const api = window.SPOTS_BALLISTICS;
-    const unit = (sim.card && sim.card.unit) || (api && api.unit && api.unit());
-    if (row) window.SPOTS_RETICLE.show(row, unit);
-    else window.SPOTS_RETICLE.clear();
+    window.SPOTS_PICKER.mark($("sim-card"), distance);
   }
 
   async function choose(distance) {
     sim.range = distance;
     markChosen(distance);
-    pushHold();
     await load();
   }
 
@@ -564,10 +521,7 @@
   function cardChanged(card) {
     sim.card = card;
     renderTable(card);
-    const rows = (card && card.rows) || [];
-    const wanted = rows.some((r) => r.distance_m === sim.range)
-      ? sim.range
-      : (rows.length ? rows[rows.length - 1].distance_m : null);
+    const wanted = window.SPOTS_PICKER.keep(card, sim.range);
     if (wanted !== null) choose(wanted);
   }
 
@@ -595,7 +549,6 @@
     sim.data = null;
     sim.card = null;
     sim.range = null;
-    if (window.SPOTS_RETICLE) window.SPOTS_RETICLE.clear();
     renderTable(null);
     $("sim-load").textContent = "";
     clear();

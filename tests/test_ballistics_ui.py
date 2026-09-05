@@ -202,6 +202,10 @@ class ReticleTests(unittest.TestCase):
         # A calibration the scope states beats the assumed top power. Older
         # mil-dots are often true at 10x, where assuming 16x is 60% out.
         self.assertIn("stated 10x : reads 7.09 mrad down at 16x", result.stdout)
+        # It is a tab of its own now, so it has to get from a solution to a
+        # hold with its own come-up table and no help from the simulation.
+        self.assertIn("table      : 5 rows, 500 m chosen", result.stdout)
+        self.assertIn("picked 200m:", result.stdout)
 
     def test_an_upside_down_zoom_ratio_would_be_caught(self):
         with open(RETICLE_TARGET, encoding="utf-8") as handle:

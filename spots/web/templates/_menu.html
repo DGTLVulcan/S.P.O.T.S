@@ -3,13 +3,16 @@
     Set `active` to the endpoint name before including, so the page you are
     on is marked. Every destination lives here: the app bar keeps only the
     controls that act on the page in front of you. -#}
+{#- Order is deliberate and pinned by a test: what you use while shooting
+    first, what you set up before it next, what you look back at after it
+    last. -#}
 {%- set items = [
   ("spots.index",         "&#8962;",  "Live view",       "The target and the shot log"),
-  ("spots.ranges_page",   "pin",      "Ranges",          "Range maps and rules"),
-  ("spots.ballistics_page", "&#128200;", "Ballistics", "Come-ups, DOPE and truing"),
+  ("spots.ballistics_page", "&#128200;", "Ballistics",   "Come-ups, DOPE, holds and truing"),
+  ("spots.equipment_page", "&#128295;", "Equipment",     "Rifles, scopes, ammo and targets"),
   ("spots.sessions_list", "&#128337;", "Session history", "Past strings"),
   ("spots.compare_page",  "&#128202;", "Compare sessions", "Two strings side by side"),
-  ("spots.equipment_page", "&#128295;", "Equipment",      "Rifles, scopes, ammo and targets"),
+  ("spots.ranges_page",   "pin",      "Ranges",          "Range maps and rules"),
   ("spots.settings_page", "&#9881;",  "Settings",        "Target, detection and camera"),
 ] -%}
 <div class="menu">

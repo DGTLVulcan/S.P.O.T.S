@@ -51,6 +51,8 @@
     matched: false, touched: false,
     mag: null,          // where the zoom ring is
     scope: null,        // what we know about the glass
+    card: null,         // the solution the table above is showing
+    range: null,        // the row picked off it
   };
 
   // ---- the reticles ----------------------------------------------------
@@ -596,20 +598,72 @@
     }
   }
 
+  // ---- the come-up rows above the picture -------------------------------
+  //
+  // Its own table rather than a shared reading off the simulation's: the
+  // range you want to see a hold for is rarely the one you last watched a
+  // bullet fly to.
+  function renderTable(card) {
+    const drawn = window.SPOTS_PICKER
+      && window.SPOTS_PICKER.render($("scope-card"), card, pick);
+    const hint = $("scope-pick-hint");
+    if (hint) {
+      hint.textContent = drawn
+        ? "Pick a range to see the hold for it."
+        : "No solution yet — work one out on the Come-up tab.";
+    }
+  }
+
+  function pick(distance) {
+    view.range = distance;
+    window.SPOTS_PICKER.mark($("scope-card"), distance);
+    show(window.SPOTS_PICKER.rowFor(view.card, distance),
+         view.card && view.card.unit);
+  }
+
+  function show(row, unit) {
+    view.row = row || null;
+    view.unit = unit === "moa" ? "moa" : "mrad";
+    adopt();
+    render();
+  }
+
+  // Called by the page when a fresh solution has been worked out.
+  function cardChanged(card) {
+    view.card = card;
+    renderTable(card);
+    const wanted = window.SPOTS_PICKER.keep(card, view.range);
+    if (wanted !== null) pick(wanted);
+    else show(null, view.unit);
+  }
+
+  // Opening the tab. The canvas has no measured size until its panel is on
+  // screen, so nothing is drawn until this runs.
+  async function open() {
+    const api = window.SPOTS_BALLISTICS;
+    const existing = api && api.solved && api.solved();
+    if (existing) {
+      if (view.card !== existing) cardChanged(existing);
+      else show(view.row, view.unit);
+      return;
+    }
+    renderTable(null);
+    show(null, view.unit);
+    if (api && api.solve) await api.solve();   // calls cardChanged when it lands
+  }
+
+  function reset() {
+    view.card = null;
+    view.range = null;
+    renderTable(null);
+    show(null, view.unit);
+  }
+
   window.addEventListener("resize", () => { if (view.row) render(); });
 
   window.SPOTS_RETICLE = {
-    // Called by the simulation whenever a different come-up row is chosen.
-    show(row, unit) {
-      view.row = row || null;
-      view.unit = unit === "moa" ? "moa" : "mrad";
-      adopt();
-      render();
-    },
-    clear() {
-      view.row = null;
-      render();
-    },
+    show, open, reset, cardChanged,
+    clear() { show(null, view.unit); },
     reticles: () => Object.keys(RETICLES),
   };
 })();
