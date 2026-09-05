@@ -239,6 +239,12 @@
               <span>Reticle</span>
               <select id="reticle-type"></select>
             </label>
+            <label class="sim-control">
+              <span>Zoom</span>
+              <input type="range" id="reticle-zoom" min="1" max="24" step="0.5" value="16"
+                     title="Steps through the selected scope's magnification range">
+              <output id="reticle-zoom-value">no magnification recorded</output>
+            </label>
             <span class="hint" id="reticle-scope"></span>
           </div>
 
@@ -252,9 +258,17 @@
           <p class="ball-caveat">
             <strong>This is the hold, not the dial.</strong> The two are opposites: a shot needing
             4.3 mrad up on the turret needs the target sitting 4.3 mrad <em>below</em> the centre
-            instead. Drawn at true subtension, so the target marker moves against the reticle as
-            the range changes &mdash; but on a second focal plane scope the marks only subtend
-            what they claim at one magnification, and holding at any other is a guess.
+            instead.
+          </p>
+          <p class="ball-caveat">
+            <strong>The zoom ring changes the answer on a second focal plane scope.</strong>
+            There the reticle keeps its size on the glass while the target grows behind it, so
+            each mark is worth less angle the further you zoom in: a 4.4 mrad hold is 4.4 dots at
+            the calibrated power and 2.2 at half of it. On a first focal plane scope the reticle
+            grows with the image, the marks are worth the same at any power, and the hold never
+            moves. Set which power your reticle is true at on the scope's equipment record
+            &mdash; blank, top power is assumed. Every hold figure here is exact; only how much
+            glass the picture shows is approximate, from a typical eyepiece.
           </p>
         </div>
       </section>

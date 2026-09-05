@@ -187,14 +187,53 @@ class ReticleTests(unittest.TestCase):
         # Every reticle on the menu gets the same hold put through it.
         for name in ("mil-dot", "mrad-hash", "mrad-tree", "moa-hash", "duplex"):
             self.assertIn(name, result.stdout)
+        # A 4.43 mrad hold on a 16x-calibrated second focal plane scope is
+        # 4.43 dots at 16x and half that at 8x, because the marks keep
+        # their size on the glass while the target grows behind them.
+        self.assertIn("sfp 16x  : reads 4.43 mrad down", result.stdout)
+        self.assertIn("sfp  8x  : reads 2.21 mrad down", result.stdout)
+        self.assertIn("sfp  4x  : reads 1.11 mrad down", result.stdout)
+        # First focal plane magnifies the reticle with the image, so the
+        # same hold sits on the same mark at every power.
+        for line in ("ffp 16x  : reads 4.43 mrad down",
+                     "ffp  8x  : reads 4.43 mrad down",
+                     "ffp  4x  : reads 4.43 mrad down"):
+            self.assertIn(line, result.stdout)
+        # A calibration the scope states beats the assumed top power. Older
+        # mil-dots are often true at 10x, where assuming 16x is 60% out.
+        self.assertIn("stated 10x : reads 7.09 mrad down at 16x", result.stdout)
+
+    def test_an_upside_down_zoom_ratio_would_be_caught(self):
+        with open(RETICLE_TARGET, encoding="utf-8") as handle:
+            source = handle.read()
+        # The plausible mistake: dividing the wrong way round, so the hold
+        # grows as you zoom out instead of shrinking.
+        broken = source.replace("ratio = view.mag / cal.mag;",
+                                "ratio = cal.mag / view.mag;")
+        self.assertNotEqual(broken, source, "the magnification ratio has moved")
+
+        path = os.path.join(ROOT, "tests", "js", "_broken_reticle_zoom.js")
+        try:
+            with open(path, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write(broken)
+            result = self._run(path)
+            self.assertNotEqual(result.returncode, 0,
+                                "the check no longer notices an inverted zoom ratio")
+            self.assertIn("FAIL", result.stdout)
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
 
     def test_an_inverted_hold_would_be_caught(self):
         with open(RETICLE_TARGET, encoding="utf-8") as handle:
             source = handle.read()
         # The sign flip that turns a correct picture into a confidently
         # wrong one, with nothing on screen to give it away.
-        broken = source.replace("return { x: -right, y: -up, unit: reticle.unit };",
-                                "return { x: right, y: up, unit: reticle.unit };")
+        broken = source.replace(
+            "      angle: { x: -right, y: -up },\n"
+            "      marks: { x: -right * ratio, y: -up * ratio },",
+            "      angle: { x: right, y: up },\n"
+            "      marks: { x: right * ratio, y: up * ratio },")
         self.assertNotEqual(broken, source, "the hold's sign convention has moved")
 
         path = os.path.join(ROOT, "tests", "js", "_broken_reticle.js")
@@ -222,6 +261,29 @@ class ReticleTests(unittest.TestCase):
         self.assertEqual(used["reticle"], "Mil-Dot")
         self.assertEqual(used["focal_plane"], "sfp")
         self.assertEqual(used["magnification"], "4-16x40")
+        # The zoom control's ends come from the same string.
+        self.assertEqual(used["magnification_min"], 4.0)
+        self.assertEqual(used["magnification_max"], 16.0)
+
+    def test_reading_a_scopes_zoom_range(self):
+        from spots import dope
+        cases = {
+            "4-16x40": (4.0, 16.0),
+            "5-25x56": (5.0, 25.0),
+            "3-9x40": (3.0, 9.0),
+            "2.5-10x44": (2.5, 10.0),
+            "4-16X40": (4.0, 16.0),        # shouted, as retailers write it
+            "4-16×40": (4.0, 16.0),        # a real multiplication sign
+            "4 - 16 x 40": (4.0, 16.0),
+            "10x42": (10.0, 10.0),         # fixed power
+            "6x": (6.0, 6.0),              # objective left off
+            "": (None, None),
+            "Mil-Dot": (None, None),       # the reticle in the wrong field
+            "16-4x40": (None, None),       # backwards; better to say nothing
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(dope.parse_magnification(text), expected)
 
 
 if __name__ == "__main__":

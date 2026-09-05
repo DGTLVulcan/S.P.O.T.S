@@ -66,6 +66,30 @@ def parse_twist(raw) -> float | None:
     return value if value > 0 else None
 
 
+def parse_magnification(raw) -> tuple[float | None, float | None]:
+    """The low and high power out of a scope's description.
+
+    Written "4-16x40", "5-25x56", or "10x42" for a fixed scope, and often
+    with the objective left off entirely. Returns (low, high), equal when
+    the scope does not zoom, and (None, None) when it cannot be read --
+    which is not an error, just a scope nobody has described yet.
+    """
+    text = str(raw or "").strip().lower().replace("×", "x")
+    if not text:
+        return None, None
+    match = re.search(r"(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*x", text)
+    if match:
+        low, high = float(match.group(1)), float(match.group(2))
+        if 0 < low <= high:
+            return low, high
+        return None, None
+    match = re.search(r"(\d+(?:\.\d+)?)\s*x", text)
+    if match:
+        fixed = float(match.group(1))
+        return (fixed, fixed) if fixed > 0 else (None, None)
+    return None, None
+
+
 def shot_from_equipment(equipment: dict, conditions: dict | None = None,
                         overrides: dict | None = None):
     """Build a solver input from the selected kit.
@@ -158,7 +182,13 @@ def shot_from_equipment(equipment: dict, conditions: dict | None = None,
         "reticle": (scope.get("reticle") or "").strip(),
         "focal_plane": (scope.get("focal_plane") or "").strip(),
         "magnification": (scope.get("magnification") or "").strip(),
+        # On a second focal plane scope the marks only subtend what they
+        # claim at one power, so the picture needs to know which one. Blank
+        # is left blank rather than guessed: the page says what it assumed.
+        "reticle_calibration_x": _number(scope, "reticle_calibration_x"),
     }
+    used["magnification_min"], used["magnification_max"] = parse_magnification(
+        used["magnification"])
     return shot, missing, used
 
 

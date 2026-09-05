@@ -10,6 +10,25 @@
 // So the target lands in the picture exactly where the bullet would have
 // landed had you aimed dead centre, which is worth knowing because it is
 // the one part of this that people get backwards.
+//
+// ---- and then there is the magnification -----------------------------
+//
+// The angle you have to hold never changes. What changes with the zoom
+// ring is where that angle falls on the glass, and the two kinds of scope
+// do opposite things:
+//
+//   First focal plane: the reticle is magnified along with the target, so
+//   a mark is always worth the same angle. The hold sits on the same mark
+//   at every power. What zoom changes is how much you can see -- wind the
+//   power up far enough and the hold leaves the field of view.
+//
+//   Second focal plane: the reticle stays the same size on the glass while
+//   the target grows, so each mark is worth LESS angle as you zoom in. The
+//   hold moves: 4.4 mrad might be 4.4 dots at top power and 2.2 at half
+//   it. Hold the same dot at the wrong power and you miss by the ratio.
+//
+// Both fall out of one line -- how many marks the hold works out to -- and
+// that line is the whole reason this view has a zoom control.
 (function () {
   const canvas = document.getElementById("reticle-canvas");
   if (!canvas) return;
@@ -21,8 +40,18 @@
   // use; the reticle has a unit of its own, and they are often different.
   const MOA_PER_MRAD = 3.437746;
 
-  const view = { row: null, unit: "mrad", choice: "mil-dot",
-                 matched: false, touched: false };
+  // Apparent field of the eyepiece, in mrad of true field times power.
+  // About 19 degrees, which is typical of a variable scope -- it sets how
+  // much glass the picture shows, and nothing else. Every hold number on
+  // screen is exact regardless of it.
+  const APPARENT_MRAD = 330;
+
+  const view = {
+    row: null, unit: "mrad", choice: "mil-dot",
+    matched: false, touched: false,
+    mag: null,          // where the zoom ring is
+    scope: null,        // what we know about the glass
+  };
 
   // ---- the reticles ----------------------------------------------------
   //
@@ -97,12 +126,11 @@
   // The heavy bars that run in from the edge of the glass on most hunting
   // and tactical reticles.
   function posts(v, from) {
-    const edge = v.half;
     ctx.lineWidth = 4;
     ctx.beginPath();
     [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([dx, dy]) => {
       ctx.moveTo(v.cx + dx * from * v.scale, v.cy + dy * from * v.scale);
-      ctx.lineTo(v.cx + dx * edge, v.cy + dy * edge);
+      ctx.lineTo(v.cx + dx * v.half, v.cy + dy * v.half);
     });
     ctx.stroke();
   }
@@ -150,12 +178,11 @@
     posts(v, 6);
     for (let i = 1; i <= 12; i += 1) {
       const at = i * 0.5;
-      const long = i % 2 === 0;
-      const across = long ? 0.3 : 0.15;
-      tick(v, at, across, true);            // above centre
-      tick(v, -at, across, true);           // below centre
-      tick(v, at, across, false);           // right
-      tick(v, -at, across, false);          // left
+      const across = i % 2 === 0 ? 0.3 : 0.15;
+      tick(v, at, across, true);
+      tick(v, -at, across, true);
+      tick(v, at, across, false);
+      tick(v, -at, across, false);
     }
     for (let mrad = 2; mrad <= 6; mrad += 2) {
       number(v, String(mrad), 0.55, -mrad);
@@ -170,10 +197,11 @@
     const r = Math.max(1.3, 0.07 * v.scale);
     for (let i = 1; i <= 20; i += 1) {
       const at = i * 0.5;
-      tick(v, at, i % 2 === 0 ? 0.3 : 0.15, true);     // straight down
+      const across = i % 2 === 0 ? 0.3 : 0.15;
+      tick(v, at, across, true);
       if (at <= 6) {
-        tick(v, at, i % 2 === 0 ? 0.3 : 0.15, false);
-        tick(v, -at, i % 2 === 0 ? 0.3 : 0.15, false);
+        tick(v, at, across, false);
+        tick(v, -at, across, false);
       }
     }
     // The tree itself: a row of wind dots under each whole mrad, widening
@@ -192,8 +220,7 @@
     cross(v, 20, 1);
     posts(v, 20);
     for (let i = 1; i <= 20; i += 1) {
-      const long = i % 5 === 0;
-      const across = long ? 1.0 : 0.5;
+      const across = i % 5 === 0 ? 1.0 : 0.5;
       tick(v, i, across, true);
       tick(v, -i, across, true);
       tick(v, i, across, false);
@@ -215,12 +242,37 @@
     cross(v, v.halfUnits, 1);
   }
 
+  // ---- what the zoom ring does -----------------------------------------
+
+  // Half the true field of view, in the reticle's unit, at a given power.
+  function halfField(mag, unit) {
+    const mrad = APPARENT_MRAD / (2 * Math.max(mag, 0.1));
+    return unit === "moa" ? mrad * MOA_PER_MRAD : mrad;
+  }
+
+  function ffp() {
+    return !!(view.scope && view.scope.focal_plane === "ffp");
+  }
+
+  // The power at which a second focal plane reticle means what it says.
+  // Top power unless the scope records otherwise, which is the common case
+  // and, when it is wrong, wrong by a stated assumption rather than a
+  // silent one.
+  function calibration() {
+    const scope = view.scope || {};
+    const stated = Number(scope.reticle_calibration_x);
+    if (Number.isFinite(stated) && stated > 0) return { mag: stated, stated: true };
+    const top = Number(scope.magnification_max);
+    if (Number.isFinite(top) && top > 0) return { mag: top, stated: false };
+    return { mag: null, stated: false };
+  }
+
   // ---- the picture -----------------------------------------------------
 
   function clear() {
     const ratio = window.devicePixelRatio || 1;
-    const width = canvas.clientWidth || 420;
-    const height = canvas.clientHeight || 420;
+    const width = canvas.clientWidth || 440;
+    const height = canvas.clientHeight || 440;
     if (canvas.width !== width * ratio || canvas.height !== height * ratio) {
       canvas.width = width * ratio;
       canvas.height = height * ratio;
@@ -233,6 +285,9 @@
   // The hold, in the reticle's own unit and signed the way the picture is
   // drawn: x right of centre, y above it. Both come out opposite to the
   // correction you would otherwise have dialled.
+  //
+  // `angle` is the real angle and never moves. `marks` is what to read off
+  // the reticle, which on a second focal plane scope depends on the power.
   function hold(reticle) {
     if (!view.row) return null;
     let up = Number(view.row.elevation);
@@ -243,7 +298,21 @@
       up *= factor;
       right *= factor;
     }
-    return { x: -right, y: -up, unit: reticle.unit };
+
+    // A first focal plane mark is worth the same angle at every power, so
+    // the reading is the angle. A second focal plane mark is worth its
+    // nominal angle only at the calibration power, and scales from there.
+    const cal = calibration();
+    let ratio = 1;
+    if (!ffp() && cal.mag && view.mag) ratio = view.mag / cal.mag;
+
+    return {
+      unit: reticle.unit,
+      angle: { x: -right, y: -up },
+      marks: { x: -right * ratio, y: -up * ratio },
+      ratio,
+      calibration: cal,
+    };
   }
 
   function render() {
@@ -255,40 +324,50 @@
     const cx = size.width / 2;
     const cy = size.height / 2;
 
-    // The glass, and the black beyond it.
+    // How much of the reticle the eyepiece actually shows. On a first
+    // focal plane scope that shrinks as you zoom; on a second focal plane
+    // one the reticle is fixed on the glass, so it does not.
+    const cal = calibration();
+    let visible = Math.max(reticle.extent, 1) * 1.15;
+    if (view.mag) {
+      visible = ffp() ? halfField(view.mag, reticle.unit)
+        : (cal.mag ? halfField(cal.mag, reticle.unit) : visible);
+    }
+
+    // Zoom the whole picture out if the hold falls outside the glass, so
+    // it can still be seen -- sitting beyond the edge, which is the point.
+    const need = target
+      ? Math.max(Math.abs(target.marks.x), Math.abs(target.marks.y)) : 0;
+    const halfUnits = Math.max(visible, need * 1.2, reticle.extent * 1.05, 0.5);
+    const v = { cx, cy, halfUnits, scale: radius / halfUnits,
+                half: radius * (visible / halfUnits) };
+
     ctx.save();
     ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.arc(cx, cy, v.half, 0, Math.PI * 2);
     ctx.fillStyle = css("--surface", "#ffffff");
     ctx.fill();
     ctx.clip();
-
-    // Frame far enough out to hold the marks, and further still when the
-    // hold runs past the end of them.
-    const reach = Math.max(reticle.extent, 1);
-    const need = target ? Math.max(Math.abs(target.x), Math.abs(target.y)) : 0;
-    const halfUnits = Math.max(reach * 1.15, need * 1.25);
-    const v = { cx, cy, half: radius, halfUnits, scale: radius / halfUnits };
-
     ctx.strokeStyle = css("--ink-primary", "#26251f");
     ctx.fillStyle = css("--ink-primary", "#26251f");
     reticle.draw(v);
-
-    if (target) drawTarget(v, target, reticle);
     ctx.restore();
 
+    // The edge of the glass. Anything drawn past it is out of sight in a
+    // real scope, and drawn outside the ring here to say so.
     ctx.strokeStyle = css("--border", "#d9d7cf");
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.arc(cx, cy, v.half, 0, Math.PI * 2);
     ctx.stroke();
 
+    if (target) drawTarget(v, target, reticle);
     readout(target, reticle);
   }
 
   function drawTarget(v, target, reticle) {
-    const x = v.cx + target.x * v.scale;
-    const y = v.cy - target.y * v.scale;
+    const x = v.cx + target.marks.x * v.scale;
+    const y = v.cy - target.marks.y * v.scale;
 
     // A line from centre to the hold, so the offset reads as a direction
     // and not just two marks that happen to be apart.
@@ -320,11 +399,24 @@
     ctx.arc(x, y, 2.5, 0, Math.PI * 2);
     ctx.fill();
 
-    const past = reticle.marked
-      && Math.max(Math.abs(target.x), Math.abs(target.y)) > reticle.extent;
     ctx.font = "11px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(past ? "past the marks" : "target centre", x, y - 21);
+    // Under the marker when the hold is small, or the label lands on the
+    // horizontal crosshair and neither can be read.
+    const above = Math.abs(y - v.cy) > 34;
+    ctx.fillText(offGlass(target, v) ? "outside the field of view"
+      : (pastMarks(target, reticle) ? "past the marks" : "target centre"),
+      x, above ? y - 21 : y + 30);
+  }
+
+  function pastMarks(target, reticle) {
+    return reticle.marked
+      && Math.max(Math.abs(target.marks.x), Math.abs(target.marks.y)) > reticle.extent;
+  }
+
+  function offGlass(target, v) {
+    const r = Math.hypot(target.marks.x, target.marks.y) * v.scale;
+    return r > v.half;
   }
 
   function say(value, unit) {
@@ -340,28 +432,47 @@
     }
     // Named as a hold, which is the instruction: the sign convention only
     // confuses things once it is on screen.
-    const up = -target.y;
-    const right = -target.x;
+    const up = -target.angle.y;
+    const right = -target.angle.x;
+    const unitName = target.unit === "moa" ? "MOA" : "mrad";
     const parts = [
       ["Elevation", `${say(up, target.unit)} ${up >= 0 ? "up" : "down"}`],
       ["Windage", Math.abs(right) < 0.005 ? "none"
         : `${say(right, target.unit)} ${right >= 0 ? "right" : "left"}`],
-      ["Target sits", `${say(target.y, target.unit)} `
-        + `${target.y >= 0 ? "above" : "below"} centre, `
-        + `${say(target.x, target.unit)} ${target.x >= 0 ? "right" : "left"}`],
     ];
+    // What to actually read off the glass. On a first focal plane scope it
+    // is the same number; on a second it is the one that matters, because
+    // the angle is not what the marks are worth at this power.
+    parts.push(["Read off the reticle",
+      `${Math.abs(target.marks.y).toFixed(2)} ${unitName} `
+      + `${target.marks.y >= 0 ? "up" : "down"}`
+      + (Math.abs(target.marks.x) < 0.005 ? ""
+        : `, ${Math.abs(target.marks.x).toFixed(2)} `
+          + `${target.marks.x >= 0 ? "right" : "left"}`)]);
     $("reticle-readout").innerHTML = parts.map(([label, text]) =>
       `<span class="sim-stat"><span class="sim-stat-label">${label}</span>${text}</span>`
     ).join("");
 
     if (!note) return;
     const lines = [reticle.note];
-    if (reticle.marked
-        && Math.max(Math.abs(target.x), Math.abs(target.y)) > reticle.extent) {
+    if (view.mag) {
+      if (ffp()) {
+        lines.push(`First focal plane, so the marks are worth the same at `
+          + `every power — the hold is the same at ${view.mag.toFixed(1)}x as `
+          + `anywhere else.`);
+      } else if (target.calibration.mag) {
+        const worth = target.calibration.mag / view.mag;
+        lines.push(`Second focal plane: one mark is worth `
+          + `${worth.toFixed(2)} ${unitName} at ${view.mag.toFixed(1)}x, against `
+          + `1 ${unitName} at ${target.calibration.mag.toFixed(1)}x`
+          + (target.calibration.stated ? "" : " (assumed — top power)") + ".");
+      }
+    }
+    if (pastMarks(target, reticle)) {
       lines.push("This hold runs off the end of the marks — at this range you "
                  + "have to dial, or zero further out.");
     }
-    if (view.matched) lines.push("Matched to the selected scope.");
+    if (view.matched) lines.push("Reticle matched to the selected scope.");
     note.textContent = lines.join(" ");
   }
 
@@ -381,10 +492,33 @@
     });
   }
 
-  // The scope's own reticle, when it is named clearly enough to be sure.
+  const zoom = $("reticle-zoom");
+  if (zoom) {
+    zoom.addEventListener("input", () => {
+      view.mag = Number(zoom.value);
+      showZoom();
+      render();
+    });
+  }
+
+  function showZoom() {
+    const out = $("reticle-zoom-value");
+    if (!out) return;
+    if (!view.mag) {
+      out.textContent = "no magnification recorded";
+      return;
+    }
+    const field = halfField(view.mag, "mrad") * 2;
+    out.textContent = `${view.mag.toFixed(1)}x — about ${field.toFixed(0)} mrad `
+      + `(${(field * 0.1).toFixed(1)} m at 100 m) across the glass`;
+  }
+
+  // The scope's own reticle and zoom range, when it is described clearly
+  // enough to be sure of them.
   function adopt() {
     const api = window.SPOTS_BALLISTICS;
     const scope = api && api.scope ? api.scope() : null;
+    view.scope = scope;
     const label = $("reticle-scope");
     if (!scope || !scope.scope) {
       if (label) label.textContent = "";
@@ -400,12 +534,35 @@
       view.matched = true;
       picker.value = key;
     }
-    // On a second focal plane scope the marks only subtend what they claim
-    // at one magnification, which is the difference between a hold that
-    // lands and one that misses by half the correction.
+
+    const low = Number(scope.magnification_min);
+    const high = Number(scope.magnification_max);
+    const usable = Number.isFinite(low) && Number.isFinite(high) && low > 0;
+    if (zoom) {
+      zoom.disabled = !usable;
+      if (usable) {
+        zoom.min = low;
+        zoom.max = high;
+        // Fine enough to feel continuous, coarse enough to land on the
+        // round numbers the ring is marked with.
+        zoom.step = high - low > 12 ? 0.5 : 0.1;
+        if (!view.mag || view.mag < low || view.mag > high) {
+          // Top power: where a second focal plane reticle is usually true,
+          // and where anyone reading a hold off the glass would be anyway.
+          view.mag = high;
+        }
+        zoom.value = view.mag;
+      } else {
+        view.mag = null;
+      }
+    }
+    showZoom();
+
     if (scope.focal_plane === "sfp" && label && named) {
       label.textContent += " — second focal plane, so the spacing only holds "
         + "at the scope's calibrated magnification";
+    } else if (scope.focal_plane === "ffp" && label && named) {
+      label.textContent += " — first focal plane, so the spacing holds at any power";
     }
   }
 

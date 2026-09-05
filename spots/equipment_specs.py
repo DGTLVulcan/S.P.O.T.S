@@ -76,6 +76,11 @@ EQUIPMENT_SPECS: dict[str, tuple[SpecField, ...]] = {
         SpecField("reticle", "Reticle", placeholder="e.g. EBR-7C"),
         SpecField("focal_plane", "Focal plane", "select",
                   options=(("", "Unspecified"), ("ffp", "First (FFP)"), ("sfp", "Second (SFP)"))),
+        # Second focal plane only: the power at which the reticle's spacing
+        # is what it claims. Usually top power, sometimes 10x. Left blank,
+        # the scope picture assumes top power and says so.
+        SpecField("reticle_calibration_x", "Reticle true at", "number", unit="x", step="0.1",
+                  placeholder="top power if blank"),
         SpecField("tube_diameter_mm", "Tube diameter", "number", unit="mm", step="0.1",
                   placeholder="30"),
         SpecField("zero_distance_m", "Zero distance", "number", unit="m", step="1",

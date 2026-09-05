@@ -1,12 +1,16 @@
 // Drives reticle.js under a stub DOM and a recording canvas.
 //
-// What actually needs pinning down here is the sign convention, because it
-// is the one thing in this feature that is easy to get backwards and
-// impossible to spot by eye: the hold is the OPPOSITE of the dial, so a
-// shot needing "4.4 up, 3.2 left" on the turrets has to be drawn with the
-// target sitting low and RIGHT of the reticle centre. Get it inverted and
-// the picture still looks perfectly plausible while telling you to miss by
-// twice the correction.
+// Two things here are easy to get backwards and impossible to spot by eye,
+// because a wrong picture looks exactly as plausible as a right one.
+//
+// The sign convention: the hold is the OPPOSITE of the dial, so a shot
+// needing "4.4 up, 3.2 left" on the turrets has to be drawn with the
+// target sitting low and RIGHT of the reticle centre. Inverted, it tells
+// you to miss by twice the correction.
+//
+// The zoom ring: on a second focal plane scope the reading changes with
+// the power, and on a first it does not. Invert that ratio and it tells
+// you to hold four dots where you need one.
 //
 // Usage: node reticle_hold.js <reticle.js>
 const fs = require("fs");
@@ -183,4 +187,106 @@ if (byId("reticle-type").value !== "mrad-tree") {
   fail("a hand-picked reticle must survive the next update");
 }
 
-console.log("PASS - the hold is drawn opposite the dial, in every unit and reticle");
+
+// ---- the zoom ring, and what each kind of scope does with it -----------
+//
+// The angle to hold never changes. What the reticle READS changes only on
+// a second focal plane scope, because there the marks keep their size on
+// the glass while the target grows behind them.
+// Some of these nodes are written as markup and some as plain text.
+const plain = (id) => (byId(id).innerHTML || byId(id).textContent || "")
+  .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+function reading() {
+  const match = /Read off the reticle ([\d.]+) mrad down/.exec(plain("reticle-readout"));
+  if (!match) fail("no reticle reading in the readout: " + plain("reticle-readout"));
+  return Number(match[1]);
+}
+
+function zoomTo(mag) {
+  ops.length = 0;
+  byId("reticle-zoom").value = mag;
+  byId("reticle-zoom").dispatch("input");
+}
+
+function useScope(plane) {
+  SCOPE = { scope: "Test 4-16x40", reticle: "Mil-Dot", focal_plane: plane,
+            magnification: "4-16x40", magnification_min: 4, magnification_max: 16,
+            reticle_calibration_x: null };
+}
+
+pick("mil-dot");
+
+// Second focal plane: 4.43 mrad is 4.43 dots at the calibrated 16x, half
+// that at 8x, a quarter at 4x. Hold the same dot at the wrong power and
+// you miss by the ratio, which is the whole reason this control exists.
+useScope("sfp");
+window.SPOTS_RETICLE.show(FROM_LEFT, "mrad");
+const sfp = {};
+for (const mag of [16, 8, 4]) {
+  zoomTo(mag);
+  sfp[mag] = { read: reading(), px: marker() };
+  console.log(`sfp ${String(mag).padStart(2)}x  : reads ${sfp[mag].read.toFixed(2)} mrad down`
+    + `, marker ${sfp[mag].px.y.toFixed(0)}px below centre`);
+}
+if (Math.abs(sfp[16].read - 4.43) > 0.01) {
+  fail(`at the calibrated power the reading is the angle, got ${sfp[16].read}`);
+}
+if (Math.abs(sfp[8].read - 4.43 / 2) > 0.01) {
+  fail(`half power should halve the reading, got ${sfp[8].read}`);
+}
+if (Math.abs(sfp[4].read - 4.43 / 4) > 0.01) {
+  fail(`quarter power should quarter the reading, got ${sfp[4].read}`);
+}
+// The reticle is fixed on the glass, so the marker really does move.
+if (!(sfp[16].px.y > sfp[8].px.y && sfp[8].px.y > sfp[4].px.y)) {
+  fail("on SFP the hold has to move against the marks as the power changes");
+}
+
+// First focal plane: the marks grow with the image, so the reading is the
+// angle at every power and the hold never leaves its mark.
+useScope("ffp");
+window.SPOTS_RETICLE.show(FROM_LEFT, "mrad");
+for (const mag of [16, 8, 4]) {
+  zoomTo(mag);
+  const read = reading();
+  if (Math.abs(read - 4.43) > 0.01) {
+    fail(`FFP must read the same at every power; ${mag}x gave ${read}`);
+  }
+  console.log(`ffp ${String(mag).padStart(2)}x  : reads ${read.toFixed(2)} mrad down`
+    + `, marker ${marker().y.toFixed(0)}px below centre`);
+}
+// It should still say which plane it is, since that is the difference.
+if (!/first focal plane/i.test(plain("reticle-note"))) {
+  fail("an FFP scope should say the hold holds at any power: " + plain("reticle-note"));
+}
+
+// A calibration the scope actually states beats the assumed top power.
+// Plenty of older mil-dots are true at 10x, and assuming 16x there would
+// put every hold out by 60%.
+SCOPE = { scope: "Test 4-16x40", reticle: "Mil-Dot", focal_plane: "sfp",
+          magnification: "4-16x40", magnification_min: 4, magnification_max: 16,
+          reticle_calibration_x: 10 };
+window.SPOTS_RETICLE.show(FROM_LEFT, "mrad");
+zoomTo(10);
+if (Math.abs(reading() - 4.43) > 0.01) {
+  fail(`at a stated 10x calibration the reading is the angle, got ${reading()}`);
+}
+zoomTo(16);
+if (Math.abs(reading() - 4.43 * 1.6) > 0.01) {
+  fail(`16x on a 10x reticle should read 1.6x the angle, got ${reading()}`);
+}
+if (/assumed/.test(plain("reticle-note"))) {
+  fail("a stated calibration must not be reported as assumed");
+}
+console.log(`stated 10x : reads ${reading().toFixed(2)} mrad down at 16x`);
+
+// A scope nobody has described cannot be zoomed, and must say so rather
+// than pretending to a range it does not have.
+SCOPE = { scope: "Unknown", reticle: "Mil-Dot", focal_plane: "",
+          magnification: "", magnification_min: null, magnification_max: null };
+window.SPOTS_RETICLE.show(FROM_LEFT, "mrad");
+if (!byId("reticle-zoom").disabled) fail("no magnification means no zoom control");
+console.log("no mag     : " + plain("reticle-zoom-value"));
+
+console.log("PASS - the hold is opposite the dial, and tracks the zoom ring the way each focal plane does");
