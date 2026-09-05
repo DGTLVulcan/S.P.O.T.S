@@ -7,9 +7,17 @@ const fs = require("fs");
 function makeEl(id) {
   const el = {
     id, tagName: "DIV", value: "", innerHTML: "", hidden: false, _text: "",
-    dataset: {}, children: [], type: "", step: "",
+    // The real DOM stringifies everything put in dataset; the code under
+    // test relies on that when it reads a distance back out.
+    dataset: new Proxy({}, { set: (o, k, v) => { o[k] = String(v); return true; } }),
+    children: [], type: "", step: "",
     clientWidth: 900, clientHeight: 400, width: 900, height: 400,
-    classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+    classList: {
+      _s: new Set(),
+      add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); },
+      toggle(c, on) { on ? this._s.add(c) : this._s.delete(c); },
+      contains(c) { return this._s.has(c); },
+    },
     handlers: {},
     addEventListener(name, fn) { (this.handlers[name] ||= []).push(fn); },
     dispatch(name, ev) { (this.handlers[name] || []).forEach((fn) => fn(ev || {})); },
@@ -35,6 +43,18 @@ function makeEl(id) {
 
 const registry = {};
 const byId = (id) => (registry[id] ||= makeEl(id));
+
+// The come-up table above the stage needs a tbody rows can go into.
+const simBody = makeEl("sim-tbody");
+simBody.tagName = "TBODY";
+simBody.querySelectorAll = function (sel) {
+  return sel.includes("tr") ? this.children.filter((c) => c.tagName === "TR") : [];
+};
+const simTable = byId("sim-card");
+simTable.append(simBody);
+simTable.querySelector = (sel) => (sel === "tbody" ? simBody : null);
+simTable.querySelectorAll = (sel) =>
+  (sel.includes("tbody tr") ? simBody.children.filter((c) => c.tagName === "TR") : []);
 
 global.window = global;
 global.addEventListener = () => {};
@@ -72,8 +92,29 @@ const trajectory = {
   transonic_mach: 1.2,
 };
 
-global.fetch = async () => ({ ok: true, json: async () => trajectory });
-global.SPOTS_BALLISTICS = { values: () => ({ max_distance_m: 500 }), unit: () => "mrad" };
+const card = {
+  unit: "mrad", click_value: 0.1, transonic_from_m: null, stability: null,
+  air_density: 1.225, density_ratio: 1, speed_of_sound_ms: 340,
+  spin_drift_included: false,
+  rows: [100, 200, 300, 400, 500].map((d) => ({
+    distance_m: d, drop_cm: -d * 0.4, elevation: d * 0.008, elevation_clicks: Math.round(d * 0.08),
+    windage: d * 0.002, windage_clicks: Math.round(d * 0.02), velocity_fps: 2600 - d * 1.8,
+    energy_j: 4000 - d * 4, time_s: d / 700, mach: 2.3 - d * 0.0016, transonic: false,
+  })),
+};
+
+let requestedRange = null;
+global.fetch = async (url, opts) => {
+  if (opts && opts.body) {
+    const body = JSON.parse(opts.body);
+    if (body.max_distance_m) requestedRange = body.max_distance_m;
+  }
+  return { ok: true, json: async () => trajectory };
+};
+global.SPOTS_BALLISTICS = {
+  values: () => ({ max_distance_m: 500 }), unit: () => "mrad",
+  solved: () => card, solve: async () => {},
+};
 
 eval(fs.readFileSync(process.argv[2], "utf8"));
 
@@ -118,5 +159,27 @@ const fail = (msg) => { console.log("FAIL - " + msg); process.exit(1); };
   }
   console.log("replayed  :", byId("sim-state").textContent);
 
-  console.log("PASS - stop shows the impact frame and play restarts");
+  // ---- the come-up table above the stage ----
+  await window.SPOTS_SIM.open();
+  const rows = simBody.children.filter((c) => c.tagName === "TR");
+  if (rows.length !== 5) fail(`expected 5 come-up rows, got ${rows.length}`);
+  console.log(`table rows : ${rows.length}`);
+
+  // The furthest range is flown by default.
+  const chosen = rows.filter((r) => r.classList.contains("is-chosen"));
+  if (chosen.length !== 1) fail(`expected exactly one chosen row, got ${chosen.length}`);
+  if (chosen[0].dataset.distance !== "500") fail("the longest range wasn't picked by default");
+  if (requestedRange !== 500) fail(`asked for ${requestedRange} m, expected 500`);
+
+  // Clicking a different row flies that range instead.
+  rows[2].dispatch("click");
+  await new Promise((r) => setTimeout(r, 20));
+  if (requestedRange !== 300) fail(`clicking 300 m asked for ${requestedRange} m`);
+  const nowChosen = rows.filter((r) => r.classList.contains("is-chosen"));
+  if (nowChosen.length !== 1 || nowChosen[0].dataset.distance !== "300") {
+    fail("the clicked row didn't become the chosen one");
+  }
+  console.log(`clicked 300m -> requested ${requestedRange} m, one row marked`);
+
+  console.log("PASS - stop shows the impact frame, play restarts, rows pick the range");
 })().catch((err) => fail(err.stack));

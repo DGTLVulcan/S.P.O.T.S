@@ -14,6 +14,12 @@
       <h1>S.P.O.T.S</h1>
       <span class="subtitle">Ballistics</span>
     </div>
+    <div class="equipment-bar">
+      <select id="equip-rifle" class="equipment-select" aria-label="Rifle" title="Rifle"></select>
+      <select id="equip-scope" class="equipment-select" aria-label="Scope" title="Scope"></select>
+      <select id="equip-ammo" class="equipment-select" aria-label="Ammo" title="Ammo"></select>
+      <select id="equip-target" class="equipment-select" aria-label="Target" title="Target face"></select>
+    </div>
     <div class="icon-nav">
       {% include '_range_toggle.html' %}
       <button id="theme-toggle" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">&#9788;</button>
@@ -191,6 +197,18 @@
             </label>
           </div>
 
+          <div class="table-scroll sim-picker">
+            <table class="ball-table sim-table" id="sim-card">
+              <thead><tr>
+                <th>Range</th><th>Drop</th><th>Elevation</th><th>Clicks</th>
+                <th>Wind</th><th>Clicks</th><th>Velocity</th><th>Energy</th>
+                <th>Time</th><th>Mach</th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="hint" id="sim-pick-hint">Pick a range to fly it.</p>
+
           <div class="sim-stage">
             <canvas id="sim-canvas"></canvas>
           </div>
@@ -213,6 +231,7 @@
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
   <script src="{{ url_for('static', filename='menu.js') }}"></script>
   <script src="{{ url_for('static', filename='range_status.js') }}"></script>
+  <script src="{{ url_for('static', filename='equipment_bar.js') }}"></script>
   <script src="{{ url_for('static', filename='ballistics.js') }}"></script>
   <script src="{{ url_for('static', filename='ballistics_sim.js') }}"></script>
 </body>

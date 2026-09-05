@@ -758,76 +758,11 @@
     }
   }
 
-  // Header pickers. The selection is stored server-side so it survives a
-  // restart, and the scope supplies the turret clicks for corrections.
-  const EQUIPMENT_KINDS = ["rifle", "scope", "ammo", "target"];
-  const EQUIPMENT_LABELS = { rifle: "Rifle", scope: "Scope", ammo: "Ammo", target: "Target" };
-
-  function equipmentSelect(kind) {
-    return document.getElementById("equip-" + kind);
-  }
-
-  async function loadEquipment() {
-    let data;
-    try {
-      data = await (await fetch("/api/equipment")).json();
-    } catch (err) {
-      return; // header pickers are non-critical; leave them empty
-    }
-    for (const kind of EQUIPMENT_KINDS) {
-      const select = equipmentSelect(kind);
-      if (!select) continue;
-      // Only offer ammo that suits the rifle's chambering. The server
-      // decides that, so this filter can't disagree with it.
-      const all = data.items[kind] || [];
-      const usable = all.filter((item) => item.compatible !== false);
-      const hidden = all.length - usable.length;
-      const selected = data.selected[kind];
-
-      let placeholder = `${EQUIPMENT_LABELS[kind]}: none`;
-      if (kind === "ammo" && !usable.length && data.calibres && data.calibres.rifle) {
-        placeholder = `No ${data.calibres.rifle} ammo`;
-      }
-
-      select.innerHTML =
-        `<option value="">${placeholder}</option>` +
-        usable
-          .map((item) => {
-            const detail = kind === "scope" && item.click_value
-              ? [item.summary, `${item.click_value} ${item.click_unit || "moa"}/click`]
-                  .filter(Boolean).join(", ")
-              : item.summary;
-            const label = detail ? `${item.name} (${detail})` : item.name;
-            return `<option value="${item.id}"${item.id === selected ? " selected" : ""}>${label}</option>`;
-          })
-          .join("");
-
-      select.title = hidden
-        ? `${EQUIPMENT_LABELS[kind]} — ${hidden} hidden: wrong calibre for the selected rifle`
-        : EQUIPMENT_LABELS[kind];
-    }
-  }
-
-  for (const kind of EQUIPMENT_KINDS) {
-    const select = equipmentSelect(kind);
-    if (!select) continue;
-    select.addEventListener("change", async () => {
-      try {
-        const result = await postJson("/api/equipment/select", { kind, id: select.value || null });
-        let message = `${EQUIPMENT_LABELS[kind]} set to ${select.options[select.selectedIndex].text}.`;
-        if (result.cleared_ammo) {
-          message += ` ${result.cleared_ammo} unselected -- wrong calibre for this rifle.`;
-        }
-        setStatus(message);
-        // Reload the pickers: changing the rifle changes which ammo is on
-        // offer, and the scope choice changes the turret click value.
-        loadEquipment();
-        refreshShots();
-      } catch (err) {
-        setStatus(`Error selecting ${kind}: ` + err.message);
-        loadEquipment();
-      }
-    });
+  // Header pickers live in equipment_bar.js, shared with the ballistics
+  // page. This page only says what to do once a choice has been made.
+  if (window.SPOTS_EQUIPMENT) {
+    window.SPOTS_EQUIPMENT.onStatus(setStatus);
+    window.SPOTS_EQUIPMENT.onChange(() => refreshShots());
   }
 
   setInterval(refreshShots, 1000);
@@ -836,7 +771,6 @@
   loadFeed();
   loadSimMode();
   loadDistance();
-  loadEquipment();
   pumpFrames();
   // Badge only -- surfaces just when something needs attention.
   pollHealth("health-root", "badge-health", 10000);

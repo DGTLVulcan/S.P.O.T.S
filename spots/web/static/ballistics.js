@@ -176,6 +176,7 @@
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       state.solved = data;
       renderCard(data);
+      if (window.SPOTS_SIM) window.SPOTS_SIM.cardChanged(data);
       $("ball-status").textContent = "";
     } catch (err) {
       $("ball-status").textContent = err.message;
@@ -405,9 +406,7 @@
     if (name === "dope" && !state.dopeLoaded) loadDope();
     // The canvas has no measured size until its panel is on screen, so the
     // flight is worked out when the tab is opened rather than up front.
-    if (name === "sim" && window.SPOTS_SIM && !window.SPOTS_SIM.hasData()) {
-      window.SPOTS_SIM.load();
-    }
+    if (name === "sim" && window.SPOTS_SIM) window.SPOTS_SIM.open();
     // Leaving the tab should not leave an animation running behind it.
     if (name !== "sim" && window.SPOTS_SIM) window.SPOTS_SIM.stop();
   }
@@ -491,7 +490,21 @@
     values: readValues,
     unit: () => state.unit,
     clickValue: () => state.clickValue,
+    solved: () => state.solved,
+    solve,
   };
+
+  if (window.SPOTS_EQUIPMENT) {
+    window.SPOTS_EQUIPMENT.onStatus((message) => { $("ball-status").textContent = message; });
+    window.SPOTS_EQUIPMENT.onChange(() => {
+      // Different kit is a different solution entirely, so nothing already
+      // worked out survives the change.
+      state.solved = null;
+      state.dopeLoaded = false;
+      if (window.SPOTS_SIM) window.SPOTS_SIM.reset();
+      loadInputs();
+    });
+  }
 
   loadInputs();
 })();

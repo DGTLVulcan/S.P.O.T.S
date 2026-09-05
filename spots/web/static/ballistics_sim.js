@@ -19,6 +19,8 @@
 
   const sim = {
     data: null,          // the trajectory from the server
+    card: null,          // the come-up rows shown above the stage
+    range: null,         // the row currently picked
     playing: false,
     t: 0,                // seconds of flight elapsed
     speed: 0.25,         // playback rate; 1 is real time
@@ -332,6 +334,96 @@
     render();
   }
 
+  // ---- the come-up table, and choosing a range off it -------------------
+
+  // The same rows the Come-up tab shows. Clicking one flies the shot to
+  // that range, so the picture and the number you would dial sit together.
+  function renderTable(card) {
+    const body = $("sim-card").querySelector("tbody");
+    body.textContent = "";
+    if (!card || !card.rows || !card.rows.length) {
+      $("sim-pick-hint").textContent =
+        "No solution yet — work one out on the Come-up tab.";
+      return;
+    }
+    const unit = card.unit.toUpperCase();
+    card.rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      tr.className = "sim-row" + (row.transonic ? " is-transonic" : "");
+      tr.dataset.distance = row.distance_m;
+      [
+        `${row.distance_m} m`,
+        `${row.drop_cm} cm`,
+        `${row.elevation.toFixed(2)} ${unit}`,
+        row.elevation_clicks === null ? "—" : row.elevation_clicks,
+        `${row.windage.toFixed(2)} ${unit}`,
+        row.windage_clicks === null ? "—" : row.windage_clicks,
+        `${row.velocity_fps} fps`,
+        `${row.energy_j} J`,
+        `${row.time_s.toFixed(2)} s`,
+        row.mach.toFixed(2),
+      ].forEach((text) => {
+        const td = document.createElement("td");
+        td.textContent = text;
+        tr.append(td);
+      });
+      tr.addEventListener("click", () => choose(Number(tr.dataset.distance)));
+      body.append(tr);
+    });
+    $("sim-pick-hint").textContent = "Pick a range to fly it.";
+  }
+
+  function markChosen(distance) {
+    $("sim-card").querySelectorAll("tbody tr").forEach((tr) => {
+      tr.classList.toggle("is-chosen", Number(tr.dataset.distance) === distance);
+    });
+  }
+
+  async function choose(distance) {
+    sim.range = distance;
+    markChosen(distance);
+    await load();
+  }
+
+  // Called by the page when a fresh solution has been worked out.
+  function cardChanged(card) {
+    sim.card = card;
+    renderTable(card);
+    const rows = (card && card.rows) || [];
+    const wanted = rows.some((r) => r.distance_m === sim.range)
+      ? sim.range
+      : (rows.length ? rows[rows.length - 1].distance_m : null);
+    if (wanted !== null) choose(wanted);
+  }
+
+  // Opening the tab: show the solution that exists, or ask for one.
+  async function open() {
+    const api = window.SPOTS_BALLISTICS;
+    const existing = api && api.solved && api.solved();
+    if (existing) {
+      if (sim.card !== existing) cardChanged(existing);
+      else if (!sim.data) load();
+      return;
+    }
+    $("sim-state").textContent = "Working out the solution…";
+    if (api && api.solve) {
+      await api.solve();          // this calls cardChanged when it lands
+      if (!(api.solved && api.solved())) {
+        $("sim-state").textContent =
+          "Nothing to fly yet — the Come-up tab says what is missing.";
+      }
+    }
+  }
+
+  function reset() {
+    stop(false);
+    sim.data = null;
+    sim.card = null;
+    sim.range = null;
+    renderTable(null);
+    clear();
+  }
+
   // ---- loading ---------------------------------------------------------
 
   async function load() {
@@ -344,7 +436,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           shot: values,
-          max_distance_m: values.max_distance_m,
+          max_distance_m: sim.range || values.max_distance_m,
           samples: 240,
         }),
       });
@@ -389,5 +481,9 @@
 
   // The page only draws this once you open the tab, so the canvas has a
   // measured size to project into.
-  window.SPOTS_SIM = { load, stop: () => stop(false), hasData: () => !!sim.data };
+  window.SPOTS_SIM = {
+    load, open, reset, cardChanged,
+    stop: () => stop(false),
+    hasData: () => !!sim.data,
+  };
 })();

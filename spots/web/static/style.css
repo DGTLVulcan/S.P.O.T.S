@@ -1868,3 +1868,14 @@ a.equip-nav-item { text-decoration: none; }
   text-transform: uppercase;
   color: var(--ink-muted);
 }
+
+/* The come-up rows above the flight: pick one to fly it. */
+.sim-picker { max-height: 15rem; }
+.sim-table tbody tr { cursor: pointer; }
+.sim-table tbody tr:hover td { background: var(--page); }
+
+.sim-table tbody tr.is-chosen td {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.sim-table tbody tr.is-chosen td:first-child { font-weight: 700; }

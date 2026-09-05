@@ -5,7 +5,10 @@ const fs = require("fs");
 function makeEl(id) {
   const el = {
     id, tagName: "DIV", value: "", innerHTML: "", hidden: false, _text: "",
-    dataset: {}, children: [], type: "", step: "",
+    // The real DOM stringifies everything put in dataset; the code under
+    // test relies on that when it reads a distance back out.
+    dataset: new Proxy({}, { set: (o, k, v) => { o[k] = String(v); return true; } }),
+    children: [], type: "", step: "",
     classList: {
       _s: new Set(),
       add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); },

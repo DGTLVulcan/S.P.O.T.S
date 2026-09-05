@@ -68,6 +68,9 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("PASS", result.stdout)
         self.assertIn("Impact at 500 m", result.stdout)
+        # The come-up rows above the stage pick which range gets flown.
+        self.assertIn("table rows : 5", result.stdout)
+        self.assertIn("clicked 300m -> requested 300 m", result.stdout)
 
 
 if __name__ == "__main__":
