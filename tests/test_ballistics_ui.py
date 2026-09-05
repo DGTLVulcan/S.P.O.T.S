@@ -23,8 +23,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPT = os.path.join(ROOT, "tests", "js", "dope_fill.js")
 SIM_SCRIPT = os.path.join(ROOT, "tests", "js", "sim_playback.js")
 FRAME_SCRIPT = os.path.join(ROOT, "tests", "js", "sim_framing.js")
+RETICLE_SCRIPT = os.path.join(ROOT, "tests", "js", "reticle_hold.js")
 TARGET = os.path.join(ROOT, "spots", "web", "static", "ballistics.js")
 SIM_TARGET = os.path.join(ROOT, "spots", "web", "static", "ballistics_sim.js")
+RETICLE_TARGET = os.path.join(ROOT, "spots", "web", "static", "reticle.js")
 
 
 @unittest.skipIf(shutil.which("node") is None, "node isn't installed")
@@ -161,6 +163,65 @@ class FramingTests(unittest.TestCase):
         # entirely at 2000.
         self._broken([("const exaggeration = fitted * sim.stretch;",
                        "const exaggeration = 40;")], "fixed height scale")
+
+
+@unittest.skipIf(shutil.which("node") is None, "node isn't installed")
+class ReticleTests(unittest.TestCase):
+    """The hold is the opposite of the dial, and that is the whole feature.
+
+    A shot needing 4.4 mrad up and 3.2 mrad left on the turrets has to be
+    drawn with the target sitting low and RIGHT of the reticle centre --
+    where the bullet would have gone had you aimed dead centre. Inverted,
+    the picture looks entirely plausible and tells you to miss by twice the
+    correction, so it gets driven rather than eyeballed.
+    """
+
+    def _run(self, source):
+        return subprocess.run(["node", RETICLE_SCRIPT, source], cwd=ROOT,
+                              capture_output=True, text=True, timeout=60)
+
+    def test_the_hold_is_drawn_opposite_the_dial(self):
+        result = self._run(RETICLE_TARGET)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("PASS", result.stdout)
+        # Every reticle on the menu gets the same hold put through it.
+        for name in ("mil-dot", "mrad-hash", "mrad-tree", "moa-hash", "duplex"):
+            self.assertIn(name, result.stdout)
+
+    def test_an_inverted_hold_would_be_caught(self):
+        with open(RETICLE_TARGET, encoding="utf-8") as handle:
+            source = handle.read()
+        # The sign flip that turns a correct picture into a confidently
+        # wrong one, with nothing on screen to give it away.
+        broken = source.replace("return { x: -right, y: -up, unit: reticle.unit };",
+                                "return { x: right, y: up, unit: reticle.unit };")
+        self.assertNotEqual(broken, source, "the hold's sign convention has moved")
+
+        path = os.path.join(ROOT, "tests", "js", "_broken_reticle.js")
+        try:
+            with open(path, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write(broken)
+            result = self._run(path)
+            self.assertNotEqual(result.returncode, 0,
+                                "the check no longer notices an inverted hold")
+            self.assertIn("FAIL", result.stdout)
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+
+    def test_the_scope_carries_what_the_picture_needs(self):
+        # The reticle and focal plane reach the page through the same
+        # payload as the solver inputs, and neither is a solver value --
+        # easy to drop when that dict gets tidied.
+        from spots import dope
+        equipment = {"scope": {"name": "Simmons Pro Target 4-16x40 30mm",
+                               "click_value": 0.1, "click_unit": "mrad",
+                               "specs": {"reticle": "Mil-Dot", "focal_plane": "sfp",
+                                         "magnification": "4-16x40"}}}
+        _, _, used = dope.shot_from_equipment(equipment, {}, {})
+        self.assertEqual(used["reticle"], "Mil-Dot")
+        self.assertEqual(used["focal_plane"], "sfp")
+        self.assertEqual(used["magnification"], "4-16x40")
 
 
 if __name__ == "__main__":

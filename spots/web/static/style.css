@@ -1838,6 +1838,28 @@ a.equip-nav-item { text-decoration: none; }
 
 #sim-canvas { display: block; width: 100%; height: 100%; }
 
+.sim-heading {
+  margin: 1.6rem 0 0.3rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Square, and no wider than it is tall: the scope picture is a circle, and
+   a wide box would just be margin either side of it. */
+.reticle-stage {
+  position: relative;
+  height: min(52vh, 440px);
+  aspect-ratio: 1;
+  max-width: 100%;
+  margin: 0 auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--page);
+  overflow: hidden;
+}
+
+#reticle-canvas { display: block; width: 100%; height: 100%; }
+
 .sim-control {
   display: inline-flex;
   align-items: center;

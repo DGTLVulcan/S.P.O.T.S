@@ -226,6 +226,36 @@
             nothing. Only the vertical scale is exaggerated, by the factor above; every number in
             the readout is the real one. Set it to 1x to see the actual shape of the flight.
           </p>
+
+          <h3 class="sim-heading">Through the scope</h3>
+          <p class="hint">
+            The same shot held rather than dialled. Leave the turrets where they are, put the
+            target centre on the marked spot, and the bullet lands in the middle. Wind is in it:
+            change the speed or the clock on the Come-up tab and the hold moves.
+          </p>
+
+          <div class="ball-actions">
+            <label class="sim-control">
+              <span>Reticle</span>
+              <select id="reticle-type"></select>
+            </label>
+            <span class="hint" id="reticle-scope"></span>
+          </div>
+
+          <div class="reticle-stage">
+            <canvas id="reticle-canvas"></canvas>
+          </div>
+
+          <div class="sim-readout" id="reticle-readout"></div>
+          <p class="hint" id="reticle-note">Pick a range above to work out the hold.</p>
+
+          <p class="ball-caveat">
+            <strong>This is the hold, not the dial.</strong> The two are opposites: a shot needing
+            4.3 mrad up on the turret needs the target sitting 4.3 mrad <em>below</em> the centre
+            instead. Drawn at true subtension, so the target marker moves against the reticle as
+            the range changes &mdash; but on a second focal plane scope the marks only subtend
+            what they claim at one magnification, and holding at any other is a guess.
+          </p>
         </div>
       </section>
     </div>
@@ -236,6 +266,7 @@
   <script src="{{ url_for('static', filename='range_status.js') }}"></script>
   <script src="{{ url_for('static', filename='equipment_bar.js') }}"></script>
   <script src="{{ url_for('static', filename='ballistics.js') }}"></script>
+  <script src="{{ url_for('static', filename='reticle.js') }}"></script>
   <script src="{{ url_for('static', filename='ballistics_sim.js') }}"></script>
 </body>
 </html>

@@ -152,6 +152,12 @@ def shot_from_equipment(equipment: dict, conditions: dict | None = None,
         "ammo": (equipment.get("ammo") or {}).get("name"),
         "unit": scope_item.get("click_unit") or "mrad",
         "click_value": scope_item.get("click_value") or 0.0,
+        # Nothing here reaches the solver. It is for drawing the scope
+        # picture, which needs to know what you are looking through: the
+        # marks, and whether their spacing holds at every magnification.
+        "reticle": (scope.get("reticle") or "").strip(),
+        "focal_plane": (scope.get("focal_plane") or "").strip(),
+        "magnification": (scope.get("magnification") or "").strip(),
     }
     return shot, missing, used
 

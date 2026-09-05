@@ -541,9 +541,22 @@
     });
   }
 
+  // The scope picture under the stage reads the same row as the flight,
+  // so the hold you are shown is the hold for the shot you are watching.
+  function pushHold() {
+    if (!window.SPOTS_RETICLE) return;
+    const rows = (sim.card && sim.card.rows) || [];
+    const row = rows.find((r) => r.distance_m === sim.range);
+    const api = window.SPOTS_BALLISTICS;
+    const unit = (sim.card && sim.card.unit) || (api && api.unit && api.unit());
+    if (row) window.SPOTS_RETICLE.show(row, unit);
+    else window.SPOTS_RETICLE.clear();
+  }
+
   async function choose(distance) {
     sim.range = distance;
     markChosen(distance);
+    pushHold();
     await load();
   }
 
@@ -582,6 +595,7 @@
     sim.data = null;
     sim.card = null;
     sim.range = null;
+    if (window.SPOTS_RETICLE) window.SPOTS_RETICLE.clear();
     renderTable(null);
     $("sim-load").textContent = "";
     clear();

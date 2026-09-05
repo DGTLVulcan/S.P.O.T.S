@@ -126,6 +126,9 @@
       state.unit = data.unit;
       state.values = Object.assign({}, data.shot, data.defaults);
       state.clickValue = data.equipment.click_value;
+      // Kept for the scope picture, which needs the reticle and the
+      // focal plane -- neither of which the solver has any use for.
+      state.equipment = data.equipment;
 
       const kit = [data.equipment.rifle, data.equipment.scope, data.equipment.ammo]
         .filter(Boolean).join("  ·  ");
@@ -491,6 +494,7 @@
     unit: () => state.unit,
     clickValue: () => state.clickValue,
     solved: () => state.solved,
+    scope: () => state.equipment || null,
     solve,
   };
 
