@@ -86,6 +86,9 @@ for (let i = 1; i <= 240; i += 1) {
                 mach: (800 - x * 0.55) / 340 });
 }
 const trajectory = {
+  equipment: { rifle: 'Primary Rifle', scope: 'Scope', ammo: 'Factory match' },
+  load: { muzzle_velocity_fps: 2650, ballistic_coefficient: 0.243,
+          drag_model: 'g7', bullet_grains: 175 },
   points, launch_angle_deg: 0.0712, sight_height_mm: 45, zero_distance_m: 100,
   max_distance_m: 500, flight_time_s: points[points.length - 1].t,
   impact_velocity_ms: points[points.length - 1].v, speed_of_sound_ms: 340,
@@ -128,6 +131,14 @@ const fail = (msg) => { console.log("FAIL - " + msg); process.exit(1); };
   // On arrival it should already show the finished flight, so the
   // trajectory is visible before you press anything.
   if (!byId("sim-readout").innerHTML.includes("Range")) fail("no readout after load");
+  // The flight has to say which load it used, or there is no way to tell
+  // it took the selected ammo into account.
+  const loadLine = byId("sim-load").textContent;
+  if (!loadLine.includes("Factory match")) fail("the load isn't named: " + loadLine);
+  if (!loadLine.includes("2650 fps") || !loadLine.includes("0.243")) {
+    fail("the load line doesn't show what it was solved with: " + loadLine);
+  }
+  console.log("load line :", loadLine);
   const atLoad = byId("sim-state").textContent;
 
   // Play, advance a couple of frames, and it should be in flight.

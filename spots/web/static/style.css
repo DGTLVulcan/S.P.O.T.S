@@ -1879,3 +1879,14 @@ a.equip-nav-item { text-decoration: none; }
   color: var(--ink);
 }
 .sim-table tbody tr.is-chosen td:first-child { font-weight: 700; }
+
+/* The load the flight was solved with, named above the picture. */
+.sim-load {
+  margin: 0 0 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border-left: 3px solid var(--accent);
+  background: var(--page);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.82rem;
+  color: var(--ink-secondary);
+}

@@ -1359,6 +1359,14 @@ def api_ballistics_trajectory():
     except (TypeError, ValueError) as exc:
         return jsonify({"error": f"Bad input: {exc}"}), 400
     result["equipment"] = used
+    # What the flight was actually solved with, so the picture can name the
+    # load rather than leaving you to trust that it used the right one.
+    result["load"] = {
+        "muzzle_velocity_fps": shot.muzzle_velocity_fps,
+        "ballistic_coefficient": shot.ballistic_coefficient,
+        "drag_model": shot.drag_model,
+        "bullet_grains": shot.bullet_grains,
+    }
     return jsonify(result)
 
 

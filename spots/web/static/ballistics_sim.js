@@ -421,6 +421,7 @@
     sim.card = null;
     sim.range = null;
     renderTable(null);
+    $("sim-load").textContent = "";
     clear();
   }
 
@@ -444,6 +445,16 @@
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       sim.data = data;
       sim.t = data.flight_time_s;        // show the finished flight first
+      // Name the load. The flight is solved from the selected ammo, and the
+      // whole thing is meaningless if you are looking at the wrong one.
+      const load = data.load || {};
+      const kit = data.equipment || {};
+      const bullet = load.bullet_grains ? `${load.bullet_grains} gr, ` : "";
+      $("sim-load").textContent = kit.ammo
+        ? `${kit.ammo} — ${bullet}${Math.round(load.muzzle_velocity_fps)} fps, `
+          + `BC ${load.ballistic_coefficient} ${String(load.drag_model || "").toUpperCase()}`
+          + (kit.rifle ? `, from ${kit.rifle}` : "")
+        : "No ammo selected — the fields on the Come-up tab are being used instead.";
       $("sim-summary").textContent =
         `Launched ${data.launch_angle_deg}° above the line of sight, `
         + `${data.flight_time_s} s to ${data.max_distance_m} m, `

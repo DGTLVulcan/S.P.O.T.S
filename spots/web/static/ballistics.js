@@ -496,13 +496,17 @@
 
   if (window.SPOTS_EQUIPMENT) {
     window.SPOTS_EQUIPMENT.onStatus((message) => { $("ball-status").textContent = message; });
-    window.SPOTS_EQUIPMENT.onChange(() => {
+    window.SPOTS_EQUIPMENT.onChange(async () => {
       // Different kit is a different solution entirely, so nothing already
       // worked out survives the change.
       state.solved = null;
       state.dopeLoaded = false;
       if (window.SPOTS_SIM) window.SPOTS_SIM.reset();
-      loadInputs();
+      await loadInputs();
+      // Changing the load while watching the flight should re-fly it with
+      // the new one rather than leaving an empty stage.
+      const panel = document.querySelector('.ball-panel[data-panel="sim"]');
+      if (panel && !panel.hidden && window.SPOTS_SIM) window.SPOTS_SIM.open();
     });
   }
 
