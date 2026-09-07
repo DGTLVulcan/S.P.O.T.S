@@ -27,7 +27,7 @@ function recorder() {
   const target = {
     setTransform() {}, clearRect() {}, save() {}, restore() {},
     beginPath() {}, closePath() {}, setLineDash() {},
-    stroke() {}, fill() {},
+    stroke() {}, fill() {}, clip() {}, rect() {},
     measureText: () => ({ width: 10 }),
     moveTo: (x, y) => note("moveTo", [x, y]),
     lineTo: (x, y) => note("lineTo", [x, y]),

@@ -161,8 +161,10 @@ class FramingTests(unittest.TestCase):
     def test_a_fixed_height_scale_would_be_caught(self):
         # 40x suited 500 m and nothing else: flat at 50 m, off the canvas
         # entirely at 2000.
-        self._broken([("const exaggeration = fitted * sim.stretch;",
-                       "const exaggeration = 40;")], "fixed height scale")
+        self._broken([
+            ("const exaggeration = sim.scale === null ? fitted : clampScale(sim.scale);",
+             "const exaggeration = 40;"),
+        ], "fixed height scale")
 
 
 @unittest.skipIf(shutil.which("node") is None, "node isn't installed")

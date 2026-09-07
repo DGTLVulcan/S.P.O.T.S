@@ -198,10 +198,14 @@
             </label>
             <label class="sim-control">
               <span>Height scale</span>
-              <input type="range" id="sim-exaggeration" min="0.25" max="4" step="0.05" value="1"
-                     title="Stretches the curve above or below the scale fitted to this range">
+              {#- Log scale: the useful exaggeration runs from 1x to several
+                  hundred depending on the range, which no linear slider
+                  covers. The value is log10 of the factor. -#}
+              <input type="range" id="sim-exaggeration" min="0" max="3.5" step="0.01" value="2"
+                     title="How much the drop is exaggerated. All the way left is true scale.">
               <output id="sim-exaggeration-value">fitted to range</output>
             </label>
+            <button type="button" id="sim-fit">Fit</button>
           </div>
 
           <p class="sim-load" id="sim-load"></p>
@@ -229,8 +233,12 @@
           <p class="ball-caveat">
             <strong>The height is stretched.</strong> A .308 drops about two metres over five
             hundred &mdash; a slope of 0.4%, which at true scale is a straight line and shows you
-            nothing. Only the vertical scale is exaggerated, by the factor above; every number in
-            the readout is the real one. Set it to 1x to see the actual shape of the flight.
+            nothing. Only the vertical is exaggerated, by the factor on the slider; every number
+            in the readout is the real one. The plot itself never changes size &mdash; what the
+            scale changes is how much drop it covers, which is why the numbers up the left move
+            with it. Drag it all the way down to <strong>1x</strong> for true scale, the same
+            metres up as across: honest, and almost perfectly flat. <strong>Fit</strong> goes
+            back to the scale chosen for this range.
           </p>
 
         </div>

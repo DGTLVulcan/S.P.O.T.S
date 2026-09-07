@@ -29,7 +29,7 @@
     playing: false,
     t: 0,                // seconds of flight elapsed
     speed: 0.25,         // playback rate; 1 is real time
-    stretch: 1,          // height scale, as a multiple of the fitted one
+    scale: null,         // vertical exaggeration; null follows the fitted one
     lastFrame: 0,
     raf: null,
   };
@@ -39,8 +39,9 @@
   // Room for the edge labels: the left gutter carries the drop scale, so
   // the two sides are no longer the same width.
   const PAD = { left: 62, right: 34, top: 34, bottom: 44 };
-  const FILL = 0.62;      // share of the usable height the flight fills
-  const FLOOR_GAP = 0.28; // how far under the flight the scale plane sits
+  const FILL = 0.78;   // share of the plot the flight fills at the fitted scale
+  const AIR = 0.07;    // a little room above the sight line
+  const MAX_SCALE = 3162;   // the top of the slider, 10^3.5
 
   // About ten gridlines, spaced on a number a shooter reads without
   // thinking: 25s and 50s and 100s, never 37s.
@@ -68,7 +69,6 @@
       if (point.y > hi) hi = point.y;
     }
     const span = Math.max(hi - lo, 1e-4);   // a dead flat shot still needs one
-    const floor = lo - span * FLOOR_GAP;
 
     const lateral = Math.max(0.5, range * 0.012);
     // Far enough back to see the whole flight, and never so close that the
@@ -82,20 +82,37 @@
     const across = Math.max(40, (width - PAD.left - PAD.right) / 2);
     const focal = (across * near) / (range / 2);
 
-    // Then scale the height so the flight fills the frame it is given.
+    // The plot is a fixed box. What the height scale changes is how much
+    // drop that box covers, which is why the axis numbers move and the box
+    // does not -- turning the scale down used to shrink the whole drawing
+    // into a band and leave most of the canvas empty.
     const usable = Math.max(60, height - PAD.top - PAD.bottom);
-    const fitted = (FILL * usable * near) / (focal * (hi - floor));
+    const fitted = clampScale((FILL * usable * near) / (focal * span));
+    const exaggeration = sim.scale === null ? fitted : clampScale(sim.scale);
 
-    const exaggeration = fitted * sim.stretch;
+    // At this scale, that is the drop the box spans, top to bottom.
+    const visible = (usable * near) / (focal * exaggeration);
+    const top = hi + visible * AIR;
+    const floor = top - visible;             // the distance axis sits here
+
     return {
-      range, width, height, lateral, focal, floor, hi, fitted, exaggeration,
+      range, width, height, lateral, focal, floor, hi, top, visible,
+      fitted, exaggeration,
       step: gridStep(range),
       x: range / 2,
-      y: ((hi + floor) / 2) * exaggeration,  // centre the flight vertically
+      y: ((top + floor) / 2) * exaggeration,
       z: -dolly,
       cx: PAD.left + across,                 // x = 0 lands on the left gutter
       horizon: PAD.top + usable / 2,
     };
+  }
+
+  // 1x is true scale: vertical metres drawn the same size as downrange
+  // ones. Below that there is nothing to show -- 0x would flatten every
+  // shot onto the sight line, which is not what any of them look like.
+  function clampScale(value) {
+    if (!Number.isFinite(value) || value < 1) return 1;
+    return Math.min(value, MAX_SCALE);
   }
 
   function project(x, y, z, cam) {
@@ -204,12 +221,12 @@
   // the near edge is true everywhere along the shot, to within the width
   // of the wind drift.
   function drawDropScale(cam) {
-    const step = dropStep(cam.hi - cam.floor);
+    const step = dropStep(cam.visible);
     const cm = step < 1;          // centimetres until the drop is metres deep
     const at = (value) => project(0, value, -cam.lateral, cam);
     const right = cam.width - PAD.right;
     const first = Math.ceil(cam.floor / step - 1e-9);
-    const last = Math.floor(cam.hi / step + 1e-9);
+    const last = Math.floor(cam.top / step + 1e-9);
 
     ctx.font = "11px system-ui, sans-serif";
     ctx.lineWidth = 1;
@@ -240,7 +257,7 @@
       ctx.fillText(`${shown}`, PAD.left - 8, row.sy + 4);
     }
 
-    const top = at(cam.hi);
+    const top = at(cam.top);
     const bottom = at(cam.floor);
     if (top && bottom) {
       ctx.strokeStyle = css("--ink-muted", "#898781");
@@ -425,18 +442,26 @@
     const finished = sim.t >= sim.data.flight_time_s;
     drawGrid(cam);
     drawDropScale(cam);
+
+    // Scaled in far enough and the flight leaves the box. Clipped rather
+    // than allowed to run over the axis labels, the same way any chart
+    // zoomed past its data would.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(PAD.left - 8, PAD.top,
+             cam.width - PAD.left - PAD.right + 16,
+             cam.height - PAD.top - PAD.bottom);
+    ctx.clip();
     drawSightLine(cam);
     drawPath(cam, sim.t);
     drawMuzzle(cam);
     drawTarget(cam);
     if (finished) drawImpact(cam);
     const at = drawBullet(cam, sim.t);
+    ctx.restore();
+
+    showScale(cam);
     readout(at, finished);
-    // Both numbers matter: the one on the slider, and what it works out to
-    // against the real shape of the flight.
-    $("sim-exaggeration-value").textContent =
-      sim.stretch.toFixed(2) + "x fit (" + Math.round(cam.exaggeration)
-      + "x true)";
   }
 
   function readout(at, finished) {
@@ -512,6 +537,10 @@
   }
 
   async function choose(distance) {
+    // A different shot drops a different amount, so a height scale chosen
+    // for the last one stops meaning anything -- and left alone it can put
+    // the whole flight outside the box. Back to the fitted scale.
+    if (distance !== sim.range) sim.scale = null;
     sim.range = distance;
     markChosen(distance);
     await load();
@@ -608,13 +637,34 @@
   });
   $("sim-reload").addEventListener("click", load);
 
-  $("sim-speed").addEventListener("change", (ev) => {
-    sim.speed = Number(ev.target.value);
+  $("sim-speed").addEventListener("change", () => {
+    sim.speed = Number($("sim-speed").value);
   });
-  $("sim-exaggeration").addEventListener("input", (ev) => {
-    sim.stretch = Number(ev.target.value);
+  // The slider is the exaggeration itself, on a log scale: the useful
+  // value runs from 1x at 50 m to a few hundred at 2000, which no linear
+  // slider covers usefully.
+  $("sim-exaggeration").addEventListener("input", () => {
+    sim.scale = clampScale(Math.pow(10, Number($("sim-exaggeration").value)));
     render();
   });
+
+  $("sim-fit").addEventListener("click", () => {
+    sim.scale = null;
+    render();
+  });
+
+  function showScale(cam) {
+    const slider = $("sim-exaggeration");
+    // Following the fit means the slider has to be moved to wherever that
+    // landed, since the fitted value changes with every range.
+    if (slider && sim.scale === null) {
+      slider.value = Math.log10(cam.exaggeration);
+    }
+    $("sim-exaggeration-value").textContent = cam.exaggeration < 1.02
+      ? "1x — true scale, no exaggeration"
+      : `${Math.round(cam.exaggeration)}x vertical`
+        + (sim.scale === null ? " (fitted)" : "");
+  }
 
   window.addEventListener("resize", () => { if (sim.data) render(); });
 
