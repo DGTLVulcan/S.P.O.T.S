@@ -21,10 +21,8 @@
   --radius: 10px;
   --shadow: 0 1px 2px rgba(11, 11, 11, 0.06), 0 4px 16px rgba(11, 11, 11, 0.05);
 
-  /* The scope's sight picture is a view of a daylit scene, not part of the
-     page chrome, so it stays light in both themes. A reticle is black
-     against the target; following the page into dark mode painted dark
-     marks on a dark field and left them invisible. */
+  /* The scope's sight picture is a daylit scene rather than page chrome, so
+     it stays light in both themes with black marks on it. */
   --scope-field: #edebe4;
   --scope-ink: #14130e;
   --scope-rim: #a9a69e;
@@ -76,9 +74,8 @@
 
 * { box-sizing: border-box; }
 
-/* [hidden] must beat any display a class sets. .equip-detail-foot's
-   display:flex outranks the browser's own rule and left the Save button
-   showing on panels with nothing to save. */
+/* [hidden] has to beat any display a class sets: a class's display:flex
+   otherwise outranks the browser's own rule for it. */
 [hidden] { display: none !important; }
 
 html, body {
@@ -219,9 +216,8 @@ main {
 }
 
 /* ---------- Layout columns ----------
-   The page is columns of cards, both filled from whatever arrangement was
-   saved (see spots/layout.py). The basis scales with the weight so a wider
-   column also wraps later, the way the original fixed pair did. */
+   Columns of cards, filled from the saved arrangement (spots/layout.py).
+   The basis scales with the weight, so a wider column also wraps later. */
 
 .layout-column {
   flex: var(--column-weight, 2) 1 calc(var(--column-weight, 2) * 300px);
@@ -241,9 +237,8 @@ main {
   align-items: flex-start;
 }
 
-/* A card's width share works like a column's weight: bigger number, bigger
-   share of the row. Only meaningful in a side-by-side column -- a stacked
-   one gives every card the full width. */
+/* A card's width share works like a column's weight. Only meaningful in a
+   side-by-side column; a stacked one gives every card the full width. */
 .layout-column.flow-wrap > .card {
   flex: var(--tile-w, 1) 1 calc(var(--tile-w, 1) * 190px);
   min-width: 250px;
@@ -1014,8 +1009,7 @@ input[type="range"] { accent-color: var(--accent); }
 .ring-row input { width: 100%; }
 
 /* ---------- Dashboard controls ----------
-   Three tiers, since a flat list of ten buttons gave no clue what you use
-   every string and what you touch once:
+   Three tiers, by how often they are used:
    1. action bar  -- feed switch, New Target, Undo
    2. setup strip -- the ordered prerequisites, with their state visible
    3. details     -- zoom, reset and exports, folded away */
@@ -1137,9 +1131,8 @@ input[type="range"] { accent-color: var(--accent); }
 .settings-nav { cursor: pointer; }
 
 /* ---------- Arranging cards ----------
-   Rearranging is a mode you turn on, not something a stray drag can do:
-   the feed itself is a click target for placing shots, so a card only
-   becomes draggable once the handle exists. */
+   Rearranging is a mode you turn on: a card only becomes draggable once
+   the handle exists, since the feed is itself a click target. */
 
 .icon-columns {
   display: block;
@@ -1602,8 +1595,7 @@ a.equip-nav-item { text-decoration: none; }
 
 /* ---------- Range status ----------
    Red for live fire, green for a cold range, the way a range flag reads.
-   Full width and hard to miss: it is the one thing on the page that says
-   whether it is safe to be downrange. */
+   Full width, since it says whether it is safe to be downrange. */
 
 .range-banner {
   display: flex;
@@ -1665,8 +1657,7 @@ a.equip-nav-item { text-decoration: none; }
 }
 
 /* ---------- Range status card ----------
-   A target the size of a gloved thumb: this gets pressed in a hurry, and
-   often by someone who is not looking closely at the screen. */
+   A target the size of a gloved thumb, since it gets pressed in a hurry. */
 
 .range-card { padding: 0.9rem; }
 

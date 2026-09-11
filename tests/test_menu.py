@@ -1,10 +1,7 @@
 """The site menu, and the system box at the foot of it.
 
-The box reports the Pi to whoever is standing in front of it, so the
-readings have to be right -- a power row saying OK while the supply is
-sagging is worse than no row at all. It is driven for real under a stub DOM
-rather than checked by reading the source, because the interesting parts
-are the polling lifecycle and what each reading renders as.
+The box is driven for real under a stub DOM, since what matters is the
+polling lifecycle and what each reading renders as.
 """
 import os
 import re
@@ -44,8 +41,8 @@ class MenuStatsMarkupTests(unittest.TestCase):
 class HealthLevelTests(unittest.TestCase):
     """Each row's colour comes from the server.
 
-    The thresholds live in one place: deciding in JavaScript whether 72 C is
-    warm would be a second copy of numbers that already exist in health.py.
+    The thresholds live only in health.py, so the browser never decides
+    whether 72 C is warm.
     """
 
     def _collect(self, temp=45.0, free_mb=50000.0, throttle="0x0"):

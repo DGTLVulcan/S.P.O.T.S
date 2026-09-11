@@ -1,9 +1,6 @@
-// The rifle / scope / ammo / target pickers in the app bar.
-//
-// Shared by every page that shows them, so the dashboard and the ballistics
-// page cannot drift apart about what is selected or how it is presented.
-// The selection lives on the Pi, so it is the same on every device looking
-// at S.P.O.T.S.
+// The rifle / scope / ammo / target pickers in the app bar, shared by every
+// page that shows them. The selection lives on the Pi, so it is the same on
+// every device.
 (function () {
   const KINDS = ["rifle", "scope", "ammo", "target"];
   const LABELS = { rifle: "Rifle", scope: "Scope", ammo: "Ammo", target: "Target" };

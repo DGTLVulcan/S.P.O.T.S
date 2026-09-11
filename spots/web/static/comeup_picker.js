@@ -1,9 +1,7 @@
 // The come-up rows, as a table you pick a range off.
 //
-// Two panels show this: the flight simulation and the scope picture. It is
-// the same solution and the same rows in both, so it is built in one place
-// -- a column added to one and not the other would have the two tabs
-// quietly disagreeing about what the solution says.
+// Built in one place and used by two panels, the flight simulation and the
+// scope picture, so both show the same rows.
 (function () {
   const CELLS = [
     (row) => `${row.distance_m} m`,
@@ -50,9 +48,8 @@
     });
   }
 
-  // Which row a panel should land on after a fresh solution: the one it
-  // was already showing if that range survived, otherwise the longest shot
-  // on the card -- the one that needs the most thinking about.
+  // Which row a panel lands on after a fresh solution: the one it was
+  // showing if that range survived, otherwise the longest shot on the card.
   function keep(card, wanted) {
     const rows = (card && card.rows) || [];
     if (rows.some((row) => row.distance_m === wanted)) return wanted;

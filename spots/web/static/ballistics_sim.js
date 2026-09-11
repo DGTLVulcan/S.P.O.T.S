@@ -1,20 +1,9 @@
 // A side-on view of the shot, drawn in perspective and flown in time.
 //
-// Hand-rolled projection onto a 2D canvas rather than a 3D library: this
-// has to work at the range, on the Pi's own network, with no internet to
-// fetch anything from.
-//
-// The one thing to understand before reading the numbers off it: the
-// vertical scale is exaggerated, and has to be. A .308 drops about two
-// metres over five hundred, which is a slope of 0.4% -- at true scale the
-// trajectory is a straight line and the picture says nothing. Every figure
-// in the readout is real; only the height of the curve is stretched, and
-// the factor is on screen so it can't be mistaken for the real shape.
-//
-// The camera and that factor are both fitted to the flight rather than
-// fixed, because the shape changes enormously with distance: a .223 drops
-// 3.7 cm over 50 m and 279 m over 2000. One hard-coded camera frames one
-// of those and loses the other off the edge of the canvas entirely.
+// The projection is hand-rolled onto a 2D canvas, so nothing has to be
+// fetched at the range. The camera and the vertical exaggeration are both
+// fitted to the flight. Only the height is stretched, by the factor shown
+// on the slider; every figure in the readout is the real one.
 (function () {
   const canvas = document.getElementById("sim-canvas");
   if (!canvas) return;
@@ -36,32 +25,28 @@
 
   // ---- framing and projection -------------------------------------------
 
-  // Room for the edge labels: the left gutter carries the drop scale, so
-  // the two sides are no longer the same width.
+  // Edge padding. The left gutter is wider because it carries the drop
+  // scale.
   const PAD = { left: 62, right: 34, top: 34, bottom: 44 };
   const FILL = 0.78;   // share of the plot the flight fills at the fitted scale
   const AIR = 0.07;    // a little room above the sight line
   const MAX_SCALE = 3162;   // the top of the slider, 10^3.5
 
-  // About ten gridlines, spaced on a number a shooter reads without
-  // thinking: 25s and 50s and 100s, never 37s.
+  // Gridline spacing: about ten lines, on a round number.
   function gridStep(range) {
     const steps = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
     return steps.find((s) => s >= range / 10) || steps[steps.length - 1];
   }
 
-  // Camera sits off to the side and a little above, looking at the middle
-  // of the flight. Downrange runs across the screen, lateral drift into
-  // it, which is what makes a side-on view read as three dimensional.
-  //
-  // Every part of it is solved from the flight itself, so the muzzle, the
-  // target and the distance scale are all in frame at any range.
+  // Solves the camera from the flight. It sits off to the side and a
+  // little above, looking at the middle: downrange runs across the screen
+  // and lateral drift into it.
   function fit() {
     const range = sim.data.max_distance_m;
     const width = canvas.clientWidth || 900;
     const height = canvas.clientHeight || 400;
 
-    // The sight line is drawn at y = 0, so it counts towards the extent.
+    // The sight line is at y = 0, so it counts towards the extent.
     let lo = 0;
     let hi = 0;
     for (const point of sim.data.points) {
@@ -71,26 +56,23 @@
     const span = Math.max(hi - lo, 1e-4);   // a dead flat shot still needs one
 
     const lateral = Math.max(0.5, range * 0.012);
-    // Far enough back to see the whole flight, and never so close that the
-    // near edge of the plane ends up behind the lens.
+    // Far enough back to see the whole flight, never so close that the
+    // near edge ends up behind the lens.
     const dolly = Math.max(range * 1.15, lateral + 8);
     const near = dolly - lateral;           // nearest corner of the plane
 
-    // Fit the length across first. That constraint does not depend on the
-    // height scale, so it pins the focal length on its own. The floors are
-    // for a canvas too small to hold the padding, on a phone in portrait.
+    // The length across pins the focal length on its own, independently of
+    // the height scale. The floor covers a canvas too small for the padding.
     const across = Math.max(40, (width - PAD.left - PAD.right) / 2);
     const focal = (across * near) / (range / 2);
 
-    // The plot is a fixed box. What the height scale changes is how much
-    // drop that box covers, which is why the axis numbers move and the box
-    // does not -- turning the scale down used to shrink the whole drawing
-    // into a band and leave most of the canvas empty.
+    // The plot is a fixed box; the height scale changes how much drop it
+    // covers, so the axis numbers move and the box does not.
     const usable = Math.max(60, height - PAD.top - PAD.bottom);
     const fitted = clampScale((FILL * usable * near) / (focal * span));
     const exaggeration = sim.scale === null ? fitted : clampScale(sim.scale);
 
-    // At this scale, that is the drop the box spans, top to bottom.
+    // The drop the box spans, top to bottom, at this scale.
     const visible = (usable * near) / (focal * exaggeration);
     const top = hi + visible * AIR;
     const floor = top - visible;             // the distance axis sits here
@@ -107,9 +89,8 @@
     };
   }
 
-  // 1x is true scale: vertical metres drawn the same size as downrange
-  // ones. Below that there is nothing to show -- 0x would flatten every
-  // shot onto the sight line, which is not what any of them look like.
+  // Clamps the exaggeration to the slider's range. 1x is true scale:
+  // vertical metres drawn the same size as downrange ones.
   function clampScale(value) {
     if (!Number.isFinite(value) || value < 1) return 1;
     return Math.min(value, MAX_SCALE);
@@ -145,26 +126,20 @@
     ctx.clearRect(0, 0, width, height);
   }
 
-  // The distance scale under the flight.
-  //
-  // This used to be a five-line ground plane, on the idea that a receding
-  // grid gives the eye something to judge depth against. It never could:
-  // the plane is only ever about a hundredth of the camera distance wide,
-  // so all five lines landed within a pixel of each other and drew a grey
-  // smear. What it was really for is reading a range off the bottom, so
-  // that is what it now is -- a ruled axis with a tick per gridline.
+  // The distance scale under the flight: a ruled axis with a tick per
+  // gridline, plus faint verticals rising from the labelled ranges.
   function drawGrid(cam) {
     const lines = Math.floor(cam.range / cam.step + 1e-6);
-    // Label every second tick once they start crowding each other.
+    // Label every second tick once they crowd each other.
     const every = lines > 8 ? 2 : 1;
-    // The axis sits at one depth and one height, so it is exactly level:
-    // every foot below shares this y.
+    // One depth and one height, so the axis is exactly level: every foot
+    // shares this y.
     const foot = (i) => project(i * cam.step, cam.floor, -cam.lateral, cam);
     const start = foot(0);
     if (!start) return;
 
-    // Faint verticals at the labelled ranges, so the drop at 300 m can be
-    // read off without tracing the curve back by eye.
+    // Verticals at the labelled ranges, for reading the drop at a given
+    // distance.
     ctx.lineWidth = 1;
     ctx.strokeStyle = css("--gridline", "#e1e0d9");
     for (let i = 0; i <= lines; i += every) {
@@ -176,8 +151,8 @@
       ctx.stroke();
     }
 
-    // Full width rather than out to the last tick: the range asked for is
-    // not always a whole number of gridlines.
+    // Full width, since the range is not always a whole number of
+    // gridlines.
     ctx.strokeStyle = css("--ink-muted", "#898781");
     ctx.beginPath();
     ctx.moveTo(PAD.left, start.sy);
@@ -201,8 +176,7 @@
     }
   }
 
-  // Nice round drop values: about six of them, on a 1/2/5 decade so the
-  // labels come out as 50s and 100s rather than 47s.
+  // Round drop values, about six of them, on a 1/2/5 decade.
   function dropStep(span) {
     const decade = Math.pow(10, Math.floor(Math.log10(span / 6)));
     return [1, 2, 5].map((m) => decade * m).find((s) => s >= span / 6)
@@ -211,15 +185,9 @@
 
   // The scale up the left, reading drop from the line of sight.
   //
-  // Worth knowing why one exists at all: the height here is stretched, by
-  // a factor that changes with the range, so the curve on its own says
-  // nothing about how far the shot actually falls. This is the axis that
-  // turns the picture back into numbers.
-  //
-  // Depth is what sets the vertical scale in this projection, and depth
-  // does not change along the flight -- only across it. So a scale read at
-  // the near edge is true everywhere along the shot, to within the width
-  // of the wind drift.
+  // Depth sets the vertical scale in this projection, and depth changes
+  // across the flight rather than along it, so a scale read at the near
+  // edge holds at every range on the plot.
   function drawDropScale(cam) {
     const step = dropStep(cam.visible);
     const cm = step < 1;          // centimetres until the drop is metres deep
@@ -234,8 +202,7 @@
       const row = at(i * step);
       if (!row) continue;
 
-      // Nothing at zero: the sight line is already drawn there, dashed,
-      // and a gridline on top of it just thickens it.
+      // No gridline at zero: the dashed sight line is already there.
       if (i !== 0) {
         ctx.strokeStyle = css("--gridline", "#e1e0d9");
         ctx.beginPath();
@@ -273,9 +240,8 @@
   }
 
   function drawSightLine(cam) {
-    // The trajectory is measured from the line of sight, so in this frame
-    // the sight line is simply y = 0 -- the reference the bullet crosses
-    // at the zero and falls away from afterwards.
+    // Drop is measured from the line of sight, so here it is just y = 0 --
+    // the line the bullet crosses at the zero and falls away from.
     const range = cam.range;
     ctx.save();
     ctx.setLineDash([6, 5]);
@@ -306,8 +272,8 @@
     ctx.lineWidth = 2;
     ctx.lineJoin = "round";
 
-    // Already flown: solid. Still to come: only once the flight is over,
-    // so watching it is a flight rather than a bullet chasing a drawn line.
+    // Only the part already flown is drawn, so playback is a flight rather
+    // than a bullet chasing a drawn line.
     ctx.strokeStyle = css("--accent", "#2a78d6");
     ctx.beginPath();
     let started = false;
@@ -320,7 +286,7 @@
     }
     ctx.stroke();
 
-    // Mark where it went supersonic-to-transonic, if it did.
+    // Where it dropped through transonic, if it did.
     const transonic = points.find((p) => p.mach < sim.data.transonic_mach && p.t <= upto);
     if (transonic) {
       const p = project(transonic.x, transonic.y, transonic.z, cam);
@@ -331,8 +297,7 @@
         ctx.fill();
         ctx.font = "10px system-ui, sans-serif";
         ctx.textAlign = "center";
-        // Below the dot: on a long shot this point is right on the line of
-        // sight, and above it the two labels sit on top of each other.
+        // Below the dot, clear of the sight line's own label.
         ctx.fillText("transonic", p.sx, p.sy + 16);
       }
     }
@@ -342,8 +307,7 @@
     const start = sim.data.points[0];
     const p = project(0, start ? start.y : 0, 0, cam);
     if (!p) return;
-    // Downrange of the axis, not behind it: the left of the axis is the
-    // drop scale's gutter now, and the barrel used to sit on the labels.
+    // Downrange of the axis, clear of the drop scale's gutter.
     ctx.fillStyle = css("--ink-secondary", "#52514e");
     ctx.fillRect(p.sx + 1, p.sy - 2.5, 16, 5);
     ctx.font = "11px system-ui, sans-serif";
@@ -358,11 +322,8 @@
     const hit = project(last.x, last.y, last.z, cam);
     if (!aim || !hit) return;
 
-    // A post in the target's plane rather than a drawing of a target face.
-    // The vertical here is stretched, so a face at true scale would be a
-    // sliver and one big enough to see would be a lie about the scale.
-    // Spanning aim to impact says the useful thing anyway: that gap is how
-    // far under your point of aim the shot lands.
+    // A post in the target's plane rather than a target face, since the
+    // vertical is stretched. The span from aim to impact is the drop.
     const top = Math.min(aim.sy, hit.sy) - 16;
     const bottom = Math.max(aim.sy, hit.sy) + 16;
     ctx.strokeStyle = css("--ink-secondary", "#52514e");
@@ -374,8 +335,7 @@
     ctx.fillStyle = css("--ink-muted", "#898781");
     ctx.font = "11px system-ui, sans-serif";
     ctx.textAlign = "center";
-    // No distance here: the axis already labels the far end, and the two
-    // labels landed on top of each other at short range.
+    // No distance label: the axis already labels the far end.
     ctx.fillText("target", aim.sx, top - 6);
   }
 
@@ -443,9 +403,8 @@
     drawGrid(cam);
     drawDropScale(cam);
 
-    // Scaled in far enough and the flight leaves the box. Clipped rather
-    // than allowed to run over the axis labels, the same way any chart
-    // zoomed past its data would.
+    // Clipped to the plot, so a flight scaled past the box does not run
+    // over the axis labels.
     ctx.save();
     ctx.beginPath();
     ctx.rect(PAD.left - 8, PAD.top,
@@ -502,8 +461,7 @@
 
   function play() {
     if (!sim.data) return;
-    // Starting from the end means starting again, which is what pressing
-    // play on a finished flight is asking for.
+    // Play on a finished flight restarts it.
     if (sim.t >= sim.data.flight_time_s) sim.t = 0;
     sim.playing = true;
     sim.lastFrame = performance.now();
@@ -514,8 +472,7 @@
   function stop(finished) {
     sim.playing = false;
     if (sim.raf) cancelAnimationFrame(sim.raf);
-    // Stopping shows the completed flight rather than freezing mid-air:
-    // the whole point of stopping is to look at the trajectory.
+    // Stopping shows the completed flight rather than freezing mid-air.
     if (!finished && sim.data) sim.t = sim.data.flight_time_s;
     $("sim-play").textContent = "Play";
     render();
@@ -523,8 +480,7 @@
 
   // ---- the come-up table, and choosing a range off it -------------------
 
-  // The same rows the Come-up tab shows. Clicking one flies the shot to
-  // that range, so the picture and the number you would dial sit together.
+  // The same rows the Come-up tab shows. Clicking one flies that range.
   function renderTable(card) {
     const drawn = window.SPOTS_PICKER.render($("sim-card"), card, choose);
     $("sim-pick-hint").textContent = drawn
@@ -537,16 +493,14 @@
   }
 
   async function choose(distance) {
-    // A different shot drops a different amount, so a height scale chosen
-    // for the last one stops meaning anything -- and left alone it can put
-    // the whole flight outside the box. Back to the fitted scale.
+    // A different range drops differently, so go back to the fitted scale.
     if (distance !== sim.range) sim.scale = null;
     sim.range = distance;
     markChosen(distance);
     await load();
   }
 
-  // Called by the page when a fresh solution has been worked out.
+  // Called by the page when a fresh solution lands.
   function cardChanged(card) {
     sim.card = card;
     renderTable(card);
@@ -554,7 +508,7 @@
     if (wanted !== null) choose(wanted);
   }
 
-  // Opening the tab: show the solution that exists, or ask for one.
+  // Opening the tab: show the existing solution, or ask for one.
   async function open() {
     const api = window.SPOTS_BALLISTICS;
     const existing = api && api.solved && api.solved();
@@ -603,8 +557,7 @@
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       sim.data = data;
       sim.t = data.flight_time_s;        // show the finished flight first
-      // Name the load. The flight is solved from the selected ammo, and the
-      // whole thing is meaningless if you are looking at the wrong one.
+      // Name the load the flight was solved from.
       const load = data.load || {};
       const kit = data.equipment || {};
       const bullet = load.bullet_grains ? `${load.bullet_grains} gr, ` : "";
@@ -641,8 +594,7 @@
     sim.speed = Number($("sim-speed").value);
   });
   // The slider is the exaggeration itself, on a log scale: the useful
-  // value runs from 1x at 50 m to a few hundred at 2000, which no linear
-  // slider covers usefully.
+  // value runs from 1x to several hundred depending on the range.
   $("sim-exaggeration").addEventListener("input", () => {
     sim.scale = clampScale(Math.pow(10, Number($("sim-exaggeration").value)));
     render();
@@ -655,8 +607,7 @@
 
   function showScale(cam) {
     const slider = $("sim-exaggeration");
-    // Following the fit means the slider has to be moved to wherever that
-    // landed, since the fitted value changes with every range.
+    // While following the fit, the slider tracks wherever it landed.
     if (slider && sim.scale === null) {
       slider.value = Math.log10(cam.exaggeration);
     }
@@ -668,8 +619,7 @@
 
   window.addEventListener("resize", () => { if (sim.data) render(); });
 
-  // The page only draws this once you open the tab, so the canvas has a
-  // measured size to project into.
+  // The page calls these when the tab opens, once the canvas has a size.
   window.SPOTS_SIM = {
     load, open, reset, cardChanged,
     stop: () => stop(false),

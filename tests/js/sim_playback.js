@@ -1,7 +1,7 @@
 // Drives ballistics_sim.js under a stub DOM and a stub canvas.
 //
-// The behaviour worth pinning down is the one that was asked for: stopping
-// shows the completed flight, not a bullet frozen in mid-air.
+// Pins down that stopping shows the completed flight rather than a bullet
+// frozen in mid-air, and that the come-up rows pick the range.
 const fs = require("fs");
 
 function makeEl(id) {

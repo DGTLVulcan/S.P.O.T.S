@@ -1,12 +1,11 @@
 """What's worth recording about a rifle, a scope and a batch of ammo.
 
-The kinds deliberately don't share a field list -- barrel twist means
-nothing to a box of ammo. This is the single definition of those fields:
-the forms are built from it and the API validates against it, so the two
-can't drift.
+Each kind has its own field list; barrel twist means nothing to a box of
+ammo. This is the single definition of those fields: the forms are built
+from it and the API validates against it.
 
 All of it is documentation except the scope's click value, which feeds the
-turret maths and so gets its own column rather than the specs blob.
+turret maths and gets its own column rather than the specs blob.
 """
 from __future__ import annotations
 
@@ -77,8 +76,7 @@ EQUIPMENT_SPECS: dict[str, tuple[SpecField, ...]] = {
         SpecField("focal_plane", "Focal plane", "select",
                   options=(("", "Unspecified"), ("ffp", "First (FFP)"), ("sfp", "Second (SFP)"))),
         # Second focal plane only: the power at which the reticle's spacing
-        # is what it claims. Usually top power, sometimes 10x. Left blank,
-        # the scope picture assumes top power and says so.
+        # is what it claims. Blank assumes top power.
         SpecField("reticle_calibration_x", "Reticle true at", "number", unit="x", step="0.1",
                   placeholder="top power if blank"),
         SpecField("tube_diameter_mm", "Tube diameter", "number", unit="mm", step="0.1",
@@ -112,9 +110,8 @@ EQUIPMENT_SPECS: dict[str, tuple[SpecField, ...]] = {
     ),
 }
 
-# Conditions a string was shot in. Every one is optional -- you often don't
-# know the temperature, and a half-filled record is still worth more than
-# none when comparing two groups weeks apart.
+# Conditions a string was shot in. All optional: a half-filled record is
+# still worth having when comparing two groups weeks apart.
 CONDITION_FIELDS: tuple[SpecField, ...] = (
     SpecField("wind_speed", "Wind speed", "number", unit="kph", step="0.5", placeholder="12"),
     SpecField("wind_direction", "Wind direction", "select", options=(
@@ -219,9 +216,9 @@ EQUIPMENT_NAME_PLACEHOLDER = {
 def clean_rings(raw) -> tuple[list, list[str]]:
     """Validates a target's scoring rings.
 
-    Each is {"value": points, "diameter": across}, the diameter in the same
-    unit as everything else on the target. Sorted smallest first so scoring
-    can take the first ring a shot falls inside.
+    Each is {"value": points, "diameter": across}, the diameter in the
+    target's own unit. Sorted smallest first, so scoring can take the first
+    ring a shot falls inside.
     """
     rings: list = []
     errors: list[str] = []
@@ -256,8 +253,8 @@ def score_shot(distance_from_centre: float, rings: list | None) -> float | None:
     """Points for a shot that landed `distance_from_centre` from the middle.
 
     The first ring it falls within wins, so the smallest scores. Outside
-    every ring is 0; with no rings defined it's None, so "unscored" stays
-    distinguishable from "a miss".
+    every ring is 0, and with no rings defined it is None -- "unscored"
+    rather than "a miss".
     """
     if not rings:
         return None
@@ -320,9 +317,9 @@ def fields_for(kind: str) -> tuple[SpecField, ...]:
 def clean_specs(kind: str, raw: dict) -> tuple[dict, list[str]]:
     """Validates a submitted spec dict against the schema for `kind`.
 
-    Returns (cleaned, errors). Unknown keys are dropped, blanks are omitted
-    entirely rather than stored as empty strings, numbers are parsed, and a
-    select must be one of its declared options.
+    Returns (cleaned, errors). Unknown keys are dropped, blanks omitted
+    rather than stored as empty strings, numbers parsed, and a select must
+    be one of its declared options.
     """
     cleaned: dict = {}
     errors: list[str] = []
@@ -351,11 +348,11 @@ def clean_specs(kind: str, raw: dict) -> tuple[dict, list[str]]:
 
 
 def summarise(item: dict) -> str:
-    """Short one-line description for the sidebar and the header dropdowns --
-    the couple of fields that actually identify a piece of kit at a glance.
+    """    Short one-line description for the sidebar and header dropdowns: the
+    couple of fields that identify a piece of kit at a glance.
 
-    Takes the whole record rather than just its specs because a scope is
-    best identified by its turret, which lives in a column.
+    Takes the whole record rather than its specs, since a scope is
+    identified by its turret, which lives in a column.
     """
     kind = item.get("kind")
     specs = item.get("specs") or {}
@@ -375,9 +372,9 @@ def summarise(item: dict) -> str:
 def normalise_calibre(text: str | None) -> str:
     """Reduces a chambering to something comparable.
 
-    People write the same cartridge half a dozen ways -- ".308 Winchester",
-    ".308 Win", "308win" -- so punctuation, spacing and case are stripped
-    before comparing. Returns "" when nothing is recorded.
+    Punctuation, spacing and case are stripped, so ".308 Winchester",
+    ".308 Win" and "308win" compare equal. Returns "" when nothing is
+    recorded.
     """
     if not text:
         return ""
@@ -387,9 +384,9 @@ def normalise_calibre(text: str | None) -> str:
 def calibres_match(left: str | None, right: str | None) -> bool:
     """Whether two chamberings can be used together.
 
-    An unrecorded calibre matches anything, since a blank field is no
-    proof of a mismatch. Otherwise a prefix counts, so ".308 Win" and
-    ".308 Winchester" agree while ".308" and ".300 Win Mag" don't.
+    An unrecorded calibre matches anything. Otherwise a prefix counts, so
+    ".308 Win" and ".308 Winchester" agree while ".308" and ".300 Win Mag"
+    do not.
     """
     a, b = normalise_calibre(left), normalise_calibre(right)
     if not a or not b:

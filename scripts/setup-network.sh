@@ -25,9 +25,8 @@ if ! command -v nmcli >/dev/null 2>&1; then
 fi
 
 AP_SSID="${SPOTS_AP_SSID:-SPOTS}"
-# A known constant, not a generated one. This gets typed into a phone at a
-# range, and a password that changed on every re-run meant looking it up
-# again every time. Override with SPOTS_AP_PASSWORD if you want your own.
+# A known constant rather than a generated one, since it gets typed into a
+# phone at a range. Override it with SPOTS_AP_PASSWORD.
 AP_PASSWORD="${SPOTS_AP_PASSWORD:-Spots1234}"
 AP_IP="${SPOTS_AP_IP:-192.168.4.1}"
 ETH_IP="${SPOTS_ETH_IP:-192.168.10.1}"
@@ -43,9 +42,8 @@ if [ "$(id -u)" -ne 0 ]; then
   SUDO="sudo"
 fi
 
-# Print the credentials BEFORE touching the network: everything below can
-# drop the SSH session you're running over, and you want them on screen
-# already when it goes.
+# Printed before anything below touches the network, since that can drop
+# the SSH session this is running over.
 echo
 echo "==================================================================="
 echo "  WiFi access point credentials"
@@ -68,16 +66,14 @@ if command -v raspi-config >/dev/null 2>&1; then
 fi
 $SUDO rfkill unblock wifi 2>/dev/null || true
 
-# rfkill only clears the KERNEL block. NetworkManager keeps its own
-# WirelessEnabled flag in NetworkManager.state, and while that is false it
-# holds wlan0 "unavailable" after every reboot however often rfkill is
-# cleared. Only nmcli rewrites that file, so the AP survives a reboot.
+# rfkill clears only the kernel block. NetworkManager's own WirelessEnabled
+# flag holds wlan0 unavailable while it is false, and only nmcli rewrites
+# it, so the AP survives a reboot.
 echo "==> Enabling NetworkManager's WiFi radio (persists across reboots)"
 $SUDO nmcli radio wifi on || true
 
 # A fresh Pi soft-blocks WiFi until a regulatory country is set. The lines
-# above clear that but can fail silently, and nmcli's later errors hide the
-# real cause -- so check here and stop with something actionable.
+# above clear that but can fail silently, so it is checked here.
 if command -v rfkill >/dev/null 2>&1 && rfkill list wifi 2>/dev/null | grep -qi "blocked: yes"; then
   echo "error: WiFi is still rfkill-blocked after attempting to unblock it." >&2
   rfkill list wifi >&2
@@ -90,12 +86,9 @@ if command -v rfkill >/dev/null 2>&1 && rfkill list wifi 2>/dev/null | grep -qi 
   exit 1
 fi
 
-# Stop any other autoconnecting profile grabbing these interfaces -- the
-# default "Wired connection 1", or a saved home-WiFi profile.
-#
-# Deliberately NOT filtered on the DEVICE column: nmcli only fills that in
-# for currently-active connections, which silently skipped every inactive
-# profile -- exactly the ones that compete for the interface next boot.
+# Stops any other autoconnecting profile grabbing these interfaces, such as
+# "Wired connection 1" or a saved home-WiFi profile. Not filtered on the
+# DEVICE column, which nmcli fills in only for active connections.
 disable_competing_profiles() {
   local keep="$1" want_type="$2" want_iface="$3"
   local name type iface
@@ -144,9 +137,8 @@ $SUDO nmcli connection modify spots-eth \
   connection.autoconnect-retries 0
 $SUDO nmcli connection up spots-eth || true
 
-# Confirm both profiles come back on their own: autoconnect has to be
-# "yes" on disk, not merely active now, or a reboot quietly reverts to
-# NetworkManager's default -- better found here than at the range.
+# Confirms both profiles come back on their own: autoconnect has to be
+# "yes" on disk, not merely active now.
 setup_ok=1
 for profile in spots-ap spots-eth; do
   autoconnect="$(nmcli -g connection.autoconnect connection show "$profile" 2>/dev/null || true)"

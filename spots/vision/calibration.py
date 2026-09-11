@@ -2,8 +2,6 @@
 
 A manual two-point measurement: mark two points whose real-world distance
 you know, and everything downstream converts pixel offsets with that scale.
-Being a one-time manual step, it doesn't care about outdoor lighting the way
-auto-detected fiducials would.
 """
 from __future__ import annotations
 
@@ -16,10 +14,9 @@ class Calibration:
     units_per_px: float
     unit_name: str
     origin_px: tuple[float, float]
-    # True only once Mark Center has been used. Two-point calibration puts
-    # the origin on the first click, which is an arbitrary spot on the
-    # target -- offsets measured from it are meaningless as a zero
-    # correction, so scope advice stays hidden until this is set.
+    # True once Mark Center has been used. Two-point calibration leaves the
+    # origin on an arbitrary click, so scope advice stays hidden until a
+    # real point of aim is set.
     origin_is_target_center: bool = False
 
     @classmethod

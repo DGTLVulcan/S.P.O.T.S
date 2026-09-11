@@ -1,8 +1,7 @@
 """Automatic discovery of the Z CAM's IP address on the Pi's Ethernet link.
 
-The Pi hands out DHCP on that link, so the camera's address isn't fixed
-in advance. Rather than parse anyone's lease file, this probes the
-interface's subnet for whatever answers like a Z CAM.
+The Pi hands out DHCP on that link, so the address isn't fixed. This
+probes the interface's subnet for whatever answers like a Z CAM.
 """
 from __future__ import annotations
 
@@ -28,10 +27,9 @@ def _probe(ip: str) -> bool:
 
 
 def _iface_ipv4_network(iface: str) -> ipaddress.IPv4Network | None:
-    """Reads the interface's IPv4 address/prefix via `ip -4 addr show`,
-    since that's present on every Raspberry Pi OS install with no extra
-    Python dependencies. Returns None off-Pi (or if the interface is down/
-    unconfigured) so discovery just fails closed rather than raising.
+    """    Reads the interface's IPv4 address and prefix via `ip -4 addr show`.
+    Returns None off-Pi, or when the interface is down or unconfigured, so
+    discovery fails closed rather than raising.
     """
     try:
         out = subprocess.run(

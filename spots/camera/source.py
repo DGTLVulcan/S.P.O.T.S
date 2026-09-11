@@ -2,7 +2,7 @@
 
 FrameSource is the seam between where video comes from and everything
 downstream. RtspFrameSource pulls the real Z CAM feed; SyntheticFrameSource
-fabricates a paper target so the rest can be developed without hardware.
+fabricates a paper target for development without hardware.
 """
 from __future__ import annotations
 
@@ -28,9 +28,9 @@ class FrameSource(abc.ABC):
     def get_latest_frame(self) -> np.ndarray | None:
         """Returns the most recent BGR frame, or None if none is available yet.
 
-        Implementations MUST return an array the caller owns outright, not
-        a view of a buffer a later frame overwrites: callers draw overlays
-        straight into it, so shared memory would bleed between consumers.
+        Implementations must return an array the caller owns outright,
+        not a view of a buffer a later frame overwrites: callers draw
+        overlays straight into it.
         """
 
 
@@ -86,9 +86,7 @@ class ZoomFrameSource(FrameSource):
 
     Crops around a pan centre and rescales to the original frame size, so
     nothing downstream needs to know zoom exists. 1.0 is a passthrough.
-
-    Changing zoom or pan mid-session invalidates the reference frame and
-    calibration exactly as moving the camera would.
+    Changing zoom or pan invalidates the reference frame and calibration.
     """
 
     def __init__(self, inner: FrameSource, level: float = 1.0, center_x: float = 0.5, center_y: float = 0.5):
@@ -98,9 +96,8 @@ class ZoomFrameSource(FrameSource):
         self._center_y = min(max(center_y, 0.0), 1.0)
 
     def __getattr__(self, name):
-        # Falls through to the wrapped source for anything not defined
-        # here, e.g. SyntheticFrameSource.reset_target(). Only runs when
-        # normal lookup misses, so it never shadows the methods below.
+        # Falls through to the wrapped source for anything not defined here,
+        # such as SyntheticFrameSource.reset_target().
         return getattr(self._inner, name)
 
     def set_zoom(self, level: float, center_x: float, center_y: float) -> None:
@@ -135,17 +132,13 @@ class ZoomFrameSource(FrameSource):
 
 
 class SyntheticFrameSource(FrameSource):
-    """Fabricates a paper target for local development/testing without a
-    real camera or Pi. Holes only appear when placed manually (e.g. a
-    dashboard click via add_hole()) -- this does not spawn any on its own.
+    """Fabricates a paper target for development without a camera. Holes
+    appear only when placed through add_hole(); none spawn on their own.
 
-    Two modes. "simple" is the original: flat rings, black discs for holes,
-    a still frame. "realistic" is the one worth trusting -- a paper sheet
-    pinned in front of a berm, so a hole is a torn edge with the ground
-    showing through rather than a black disc, and the sheet moves in the
-    wind while the ground behind it does not. Those are the two things the
-    detector actually has to cope with outdoors, and the simple mode gives
-    it neither.
+    "simple" draws flat rings with black discs for holes, on a still frame.
+    "realistic" draws a paper sheet pinned in front of a berm, so a hole is
+    a torn edge with ground showing through, and the sheet sways in the
+    wind while the ground behind it does not.
     """
 
     MODES = ("simple", "realistic")
@@ -173,9 +166,7 @@ class SyntheticFrameSource(FrameSource):
         self._seed = seed
         self._frame_index = 0
 
-        # Baked in once so ORB has stable features to match. Regenerating
-        # it per frame would leave no consistent texture at all, which a
-        # real camera's scene detail always has.
+        # Baked in once, so ORB has stable features to match frame to frame.
         self._base = self._build_base_frame(seed)
         # Base with the current holes already drawn in, rebuilt only when the
         # hole list changes rather than re-drawn every single frame.
@@ -189,9 +180,8 @@ class SyntheticFrameSource(FrameSource):
         self._roi = self._sheet_roi()
         self._realistic_composite = None
 
-        # A fresh 1080p gaussian per frame cost ~68 ms, more than a Pi core
-        # once the stream and detector were both pulling. Pre-generating it
-        # once and cycling row-offset views costs ~2 ms.
+        # Pre-generated once and cycled as row-offset views: about 2 ms a
+        # frame, against 68 ms for a fresh 1080p gaussian each time.
         self._dither = np.random.default_rng(seed).integers(
             -self._DITHER_AMPLITUDE,
             self._DITHER_AMPLITUDE + 1,
@@ -248,9 +238,8 @@ class SyntheticFrameSource(FrameSource):
     def _build_backing(self, seed: int) -> np.ndarray:
         """The ground behind the target: what shows through a hole."""
         rng = np.random.default_rng(seed + 1)
-        # A dull earth gradient, darker low down, with coarse mottling. It
-        # matters that this is neither black nor flat -- a hole reads as a
-        # patch of ground, which is the whole point.
+        # A dull earth gradient, darker low down, with coarse mottling, so a
+        # hole reads as a patch of ground rather than a black disc.
         rows = np.linspace(105, 62, self._height, dtype=np.float32)[:, None]
         base = np.repeat(rows, self._width, axis=1)
         coarse = rng.normal(0, 26, (self._height // 24 + 1, self._width // 24 + 1))
@@ -378,9 +367,8 @@ class SyntheticFrameSource(FrameSource):
             else:
                 frame = self._composite
 
-        # Dither well below diff_threshold: enough to look live, not enough
-        # to trigger contours. cv2.add saturates instead of wrapping and
-        # returns a new array, so no clip pass and no mutation of the base.
+        # Dither well below diff_threshold: enough to look live, not enough to
+        # trigger contours. cv2.add saturates rather than wrapping.
         return cv2.add(
             frame, self._dither[offset : offset + self._height], dtype=cv2.CV_8U
         )
@@ -390,15 +378,12 @@ class SyntheticFrameSource(FrameSource):
 
 
 class SwitchableFrameSource(FrameSource):
-    """Live-toggles between the synthetic test target and a real camera
-    without restarting the app.
+    """Toggles between the synthetic target and a real camera without
+    restarting the app.
 
-    The Z CAM connects lazily on the first switch to it, so a dev setup
-    with no camera never tries at startup, and is then kept alive so
-    toggling back and forth is instant.
-
-    Switching feeds changes every pixel, so it invalidates the reference
-    frame and calibration.
+    The Z CAM connects on the first switch to it and is then kept alive, so
+    a setup with no camera never tries at startup. Switching feeds changes
+    every pixel, so it invalidates the reference frame and calibration.
     """
 
     def __init__(self, synthetic: SyntheticFrameSource, zcam_factory):

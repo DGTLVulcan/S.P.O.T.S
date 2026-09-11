@@ -1,11 +1,10 @@
 // Rearranging the dashboard cards.
 //
-// The page already arrives in the saved arrangement (rendered server-side
-// from spots/layout.py), so nothing here runs on a normal load -- this only
-// adds the editing mode: drag handles, the per-column controls, and saving.
-// Rearranging is deliberately a mode you switch on, because the feed is
-// itself a click target for placing shots and a stray drag must never move
-// a card out from under you mid-string.
+// The page arrives in the saved arrangement already, rendered server-side
+// from spots/layout.py, so nothing here runs on a normal load. This adds the
+// editing mode: drag handles, the per-column controls and saving. It is a
+// mode you switch on, since the feed is itself a click target for placing
+// shots.
 (function () {
   const layoutEl = document.getElementById("layout");
   const bar = document.getElementById("layout-bar");
@@ -101,9 +100,8 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         say("Layout saved.");
       } catch (err) {
-        // Worth saying plainly: the arrangement on screen is right but
-        // won't survive a reload, which is otherwise invisible until the
-        // next reboot puts everything back.
+        // Says plainly that the arrangement on screen will not survive a
+        // reload, which is otherwise invisible until the next reboot.
         say(`Could not save the layout (${err.message}). It will revert on reload.`);
       }
     }, 400);
@@ -112,9 +110,8 @@
   // ---- editing furniture, added and removed with the mode ------------
 
   function makeHandle(card) {
-    // A div holding real buttons, not a button holding clickable spans:
-    // there are three controls in here now, and nesting them inside a
-    // button is neither valid nor reachable from a keyboard.
+    // A div holding real buttons rather than a button holding spans:
+    // nested buttons are neither valid nor reachable from a keyboard.
     const handle = document.createElement("div");
     handle.className = "tile-handle";
 

@@ -321,11 +321,10 @@
     }
   }
 
-  // One click handler for the feed, with two coordinate conventions:
-  //  - view space: the current, already-zoomed view the detector and
-  //    calibration work in. Used by Calibrate and Mark Center.
-  //  - native frame fraction: undoes the zoom crop, for anything aimed at
-  //    the synthetic source's own canvas (pan centre, hole placement).
+  // One click handler for the feed, in two coordinate conventions. View
+  // space is the already-zoomed view the detector and calibration work in,
+  // used by Calibrate and Mark Center. Native frame fraction undoes the zoom
+  // crop, for the synthetic source's own canvas.
   feed.addEventListener("click", async (ev) => {
     // The coordinates below come from naturalWidth/Height, which are 0
     // until the first frame decodes -- that would post (0, 0) silently.
@@ -418,9 +417,9 @@
   // renderTargetDiagram lives in diagram.js -- the session history detail
   // page draws the same diagram, so it is shared rather than duplicated.
 
-  // You're behind the rifle, not watching the phone, so a shot needs to
-  // be audible. Synthesised rather than an audio file: nothing to load over
-  // the Pi's WiFi. Browsers block audio until the first user gesture.
+  // A shot needs to be audible when you are behind the rifle rather than
+  // watching the phone. Synthesised rather than loaded as a file. Browsers
+  // block audio until the first user gesture.
   const SOUND_KEY = "spots.shotSound";
   let audioContext = null;
   let soundEnabled = localStorage.getItem(SOUND_KEY) !== "off";
@@ -706,11 +705,9 @@
     renderTargetDiagram("hud-target-diagram", diagramShots, diagramCenter);
   }
 
-  // Pull one frame at a time rather than consume an MJPEG stream. A push
-  // stream has no backpressure: the server keeps emitting whether the link
-  // can carry it or not, and the backlog sits in the socket buffer until
-  // you reload. One frame in flight means latency is a single round trip
-  // and the rate settles at whatever the link sustains.
+  // Pulls one frame at a time rather than consuming an MJPEG stream, which
+  // keeps emitting whether the link can carry it or not. One frame in flight
+  // keeps latency to a round trip and lets the rate follow the link.
   const FRAME_MIN_INTERVAL_MS = 100; // ceiling of ~10 fps on a fast link
   const FRAME_RETRY_MS = 1000;
   let feedObjectUrl = null;

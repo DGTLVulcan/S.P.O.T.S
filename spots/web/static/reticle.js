@@ -1,34 +1,18 @@
 // The scope picture: where the target centre has to sit if you dial nothing.
 //
-// This is the come-up read backwards. If the shot needs 4.3 mrad of UP on
-// the turret, then leaving the turret alone means putting the reticle
-// centre 4.3 mrad above the target -- which is the same thing as saying
-// the target sits 4.3 mrad BELOW the centre. Wind works the same way: a
-// correction of "dial right" becomes "hold right", and the target sits to
-// the left of centre by that much.
+// The hold is the come-up reversed. A shot needing 4.3 mrad of UP on the
+// turret is held by putting the target 4.3 mrad BELOW the centre, and a
+// "dial right" correction puts it to the right. The target therefore lands
+// where the bullet would have, had you aimed dead centre.
 //
-// So the target lands in the picture exactly where the bullet would have
-// landed had you aimed dead centre, which is worth knowing because it is
-// the one part of this that people get backwards.
-//
-// ---- and then there is the magnification -----------------------------
-//
-// The angle you have to hold never changes. What changes with the zoom
-// ring is where that angle falls on the glass, and the two kinds of scope
-// do opposite things:
-//
-//   First focal plane: the reticle is magnified along with the target, so
-//   a mark is always worth the same angle. The hold sits on the same mark
-//   at every power. What zoom changes is how much you can see -- wind the
-//   power up far enough and the hold leaves the field of view.
-//
-//   Second focal plane: the reticle stays the same size on the glass while
-//   the target grows, so each mark is worth LESS angle as you zoom in. The
-//   hold moves: 4.4 mrad might be 4.4 dots at top power and 2.2 at half
-//   it. Hold the same dot at the wrong power and you miss by the ratio.
-//
-// Both fall out of one line -- how many marks the hold works out to -- and
-// that line is the whole reason this view has a zoom control.
+// Magnification only moves where that angle falls on the glass, and the
+// two kinds of scope do opposite things. A first focal plane reticle is
+// magnified with the target, so a mark is worth the same angle at every
+// power and the hold never leaves its mark; zoom only changes how much is
+// in view. A second focal plane reticle keeps its size on the glass while
+// the target grows, so each mark is worth less angle as you zoom in and
+// the hold moves -- 4.4 mrad is 4.4 dots at the calibrated power and 2.2
+// at half of it.
 (function () {
   const canvas = document.getElementById("reticle-canvas");
   if (!canvas) return;
@@ -36,14 +20,13 @@
   const ctx = canvas.getContext("2d");
   const $ = (id) => document.getElementById(id);
 
-  // 1 mrad in MOA. The card comes in whichever unit the scope's turrets
-  // use; the reticle has a unit of its own, and they are often different.
+  // 1 mrad in MOA. The card uses the turret's unit, the reticle its own,
+  // and the two are often different.
   const MOA_PER_MRAD = 3.437746;
 
-  // Apparent field of the eyepiece, in mrad of true field times power.
-  // About 19 degrees, which is typical of a variable scope -- it sets how
-  // much glass the picture shows, and nothing else. Every hold number on
-  // screen is exact regardless of it.
+  // Apparent field of the eyepiece, in mrad of true field times power --
+  // about 19 degrees, typical of a variable scope. It sets how much glass
+  // the picture shows and nothing else; the hold figures do not use it.
   const APPARENT_MRAD = 330;
 
   const view = {
@@ -58,8 +41,7 @@
   // ---- the reticles ----------------------------------------------------
   //
   // `extent` is how far the marks reach from centre, in the reticle's own
-  // unit. Past that there is nothing to hold against, which is a real
-  // limit worth drawing rather than hiding.
+  // unit. Past it there is nothing to hold against.
   const RETICLES = {
     "mil-dot": {
       label: "Mil-Dot", unit: "mrad", extent: 5, marked: true,
@@ -93,8 +75,8 @@
     },
   };
 
-  // What a scope's recorded reticle name most likely is. Only obvious
-  // matches -- guessing wrong here would put the wrong marks on screen.
+  // Maps a scope's recorded reticle name onto one of the drawings above.
+  // Only unambiguous matches; anything else returns null.
   function guess(name) {
     const text = (name || "").toLowerCase();
     if (!text) return null;
@@ -115,22 +97,18 @@
     return getComputedStyle(document.body).getPropertyValue(name).trim() || fallback;
   }
 
-  // The sight picture keeps its own colours rather than following the page
-  // into dark mode. A reticle is black against a daylit target; painting
-  // it in page ink meant dark marks on a dark field, invisible.
+  // The sight picture has its own palette rather than following the page
+  // theme: a reticle is black against a daylit target in either mode.
   const FIELD = () => css("--scope-field", "#edebe4");
   const INK = () => css("--scope-ink", "#14130e");
   const RIM = () => css("--scope-rim", "#a9a69e");
   const MARK = () => css("--scope-mark", "#d2352f");
 
-  // Marks closer together than this cannot be told apart. Drawing them
-  // anyway turns the reticle into a smear, which is what a 1 MOA hash did
-  // at top power -- the ticks landed six pixels apart.
+  // Marks closer together than this cannot be told apart on screen.
   const MIN_TICK_PX = 7;
 
-  // How many marks to skip so the ones that are drawn can be read. The
-  // multipliers are per reticle: skipping to every 5th of a half-mrad mark
-  // would put ticks on 2.5s, which is not a number anyone reads a hold in.
+  // How many marks to skip so the ones drawn stay legible. The multipliers
+  // are per reticle, so the surviving ticks land on round numbers.
   function stride(v, step, steps) {
     const usable = steps || [1, 2, 5, 10, 20];
     return usable.find((n) => step * n * v.scale >= MIN_TICK_PX)
@@ -147,8 +125,7 @@
     ctx.stroke();
   }
 
-  // The heavy bars that run in from the edge of the glass on most hunting
-  // and tactical reticles.
+  // The heavy bars running in from the edge of the glass.
   function posts(v, from) {
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -162,8 +139,7 @@
   function tick(v, along, across, vertical) {
     const a = along * v.scale;
     const b = across * v.scale;
-    // Set every time: the posts run at 4px and hash marks drawn after them
-    // inherit it, which turns a fine reticle into a row of blobs.
+    // Set every time, since the posts leave the line width at 4px.
     ctx.lineWidth = 1.4;
     ctx.beginPath();
     if (vertical) {
@@ -192,9 +168,8 @@
   function drawMilDot(v) {
     cross(v, 5, 1.5);
     posts(v, 5);
-    // A real mil-dot is about 0.2 mrad across, which at any sane zoom is
-    // two or three pixels. Floored a little above life size so the dots
-    // stay findable, since counting them is the whole job.
+    // A mil-dot is about 0.2 mrad across -- two or three pixels. Floored a
+    // little above life size so the dots stay countable.
     const r = Math.max(3, 0.1 * v.scale);
     for (let i = 1; i <= 4; i += 1) {
       [[i, 0], [-i, 0], [0, i], [0, -i]].forEach(([x, y]) => dot(v, x, y, r));
@@ -234,8 +209,8 @@
         tick(v, -at, across, false);
       }
     }
-    // The tree itself: a row of wind dots under each whole mrad, widening
-    // with depth because the wind hold grows faster than the drop does.
+    // The tree: a row of wind dots under each whole mrad, widening with
+    // depth as the wind hold grows faster than the drop.
     for (let drop = 1; drop <= 10; drop += 1) {
       const reach = Math.min(4, Math.max(1, Math.round(drop / 2)));
       for (let i = 1; i <= reach; i += 1) {
@@ -276,7 +251,7 @@
 
   // ---- what the zoom ring does -----------------------------------------
 
-  // Half the true field of view, in the reticle's unit, at a given power.
+  // Half the true field of view at a given power, in the reticle's unit.
   function halfField(mag, unit) {
     const mrad = APPARENT_MRAD / (2 * Math.max(mag, 0.1));
     return unit === "moa" ? mrad * MOA_PER_MRAD : mrad;
@@ -286,10 +261,8 @@
     return !!(view.scope && view.scope.focal_plane === "ffp");
   }
 
-  // The power at which a second focal plane reticle means what it says.
-  // Top power unless the scope records otherwise, which is the common case
-  // and, when it is wrong, wrong by a stated assumption rather than a
-  // silent one.
+  // The power at which a second focal plane reticle subtends what it
+  // claims. Top power unless the scope records otherwise.
   function calibration() {
     const scope = view.scope || {};
     const stated = Number(scope.reticle_calibration_x);
@@ -314,12 +287,10 @@
     return { width, height };
   }
 
-  // The hold, in the reticle's own unit and signed the way the picture is
-  // drawn: x right of centre, y above it. Both come out opposite to the
-  // correction you would otherwise have dialled.
-  //
-  // `angle` is the real angle and never moves. `marks` is what to read off
-  // the reticle, which on a second focal plane scope depends on the power.
+  // The hold in the reticle's unit, signed the way the picture is drawn:
+  // x right of centre, y above it, both opposite to the dialled
+  // correction. `angle` is the real angle; `marks` is what to read off the
+  // glass, which on a second focal plane scope depends on the power.
   function hold(reticle) {
     if (!view.row) return null;
     let up = Number(view.row.elevation);
@@ -331,9 +302,9 @@
       right *= factor;
     }
 
-    // A first focal plane mark is worth the same angle at every power, so
-    // the reading is the angle. A second focal plane mark is worth its
-    // nominal angle only at the calibration power, and scales from there.
+    // First focal plane marks are worth the same angle at every power, so
+    // the reading is the angle. Second focal plane marks scale from the
+    // calibration power.
     const cal = calibration();
     let ratio = 1;
     if (!ffp() && cal.mag && view.mag) ratio = view.mag / cal.mag;
@@ -356,9 +327,8 @@
     const cx = size.width / 2;
     const cy = size.height / 2;
 
-    // How much of the reticle the eyepiece actually shows. On a first
-    // focal plane scope that shrinks as you zoom; on a second focal plane
-    // one the reticle is fixed on the glass, so it does not.
+    // How much of the reticle the eyepiece shows: shrinks with zoom on a
+    // first focal plane scope, fixed on a second.
     const cal = calibration();
     let visible = Math.max(reticle.extent, 1) * 1.15;
     if (view.mag) {
@@ -366,8 +336,8 @@
         : (cal.mag ? halfField(cal.mag, reticle.unit) : visible);
     }
 
-    // Zoom the whole picture out if the hold falls outside the glass, so
-    // it can still be seen -- sitting beyond the edge, which is the point.
+    // Zooms the picture out if the hold falls outside the glass, so it is
+    // still visible sitting beyond the edge.
     const need = target
       ? Math.max(Math.abs(target.marks.x), Math.abs(target.marks.y)) : 0;
     const halfUnits = Math.max(visible, need * 1.2, reticle.extent * 1.05, 0.5);
@@ -385,8 +355,8 @@
     reticle.draw(v);
     ctx.restore();
 
-    // The edge of the glass. Anything drawn past it is out of sight in a
-    // real scope, and drawn outside the ring here to say so.
+    // The edge of the glass; anything past it is out of view in a real
+    // scope, and drawn outside the ring here.
     ctx.strokeStyle = RIM();
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -401,8 +371,7 @@
     const x = v.cx + target.marks.x * v.scale;
     const y = v.cy - target.marks.y * v.scale;
 
-    // A line from centre to the hold, so the offset reads as a direction
-    // and not just two marks that happen to be apart.
+    // A line from centre to the hold, so the offset reads as a direction.
     ctx.save();
     ctx.setLineDash([4, 4]);
     ctx.strokeStyle = MARK();
@@ -413,8 +382,7 @@
     ctx.stroke();
     ctx.restore();
 
-    // Fixed size on screen on purpose: this marks a point, and drawing it
-    // at some angular size would be claiming a target size nobody gave us.
+    // Fixed size on screen: it marks a point, and no target size is known.
     ctx.strokeStyle = MARK();
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -433,8 +401,7 @@
 
     ctx.font = "11px system-ui, sans-serif";
     ctx.textAlign = "center";
-    // Under the marker when the hold is small, or the label lands on the
-    // horizontal crosshair and neither can be read.
+    // Under the marker when the hold is small, clear of the crosshair.
     const above = Math.abs(y - v.cy) > 34;
     ctx.fillText(offGlass(target, v) ? "outside the field of view"
       : (pastMarks(target, reticle) ? "past the marks" : "target centre"),
@@ -462,8 +429,7 @@
       if (note) note.textContent = "Pick a range above to work out the hold.";
       return;
     }
-    // Named as a hold, which is the instruction: the sign convention only
-    // confuses things once it is on screen.
+    // Phrased as a hold, which is the instruction, rather than as a sign.
     const up = -target.angle.y;
     const right = -target.angle.x;
     const unitName = target.unit === "moa" ? "MOA" : "mrad";
@@ -472,9 +438,8 @@
       ["Windage", Math.abs(right) < 0.005 ? "none"
         : `${say(right, target.unit)} ${right >= 0 ? "right" : "left"}`],
     ];
-    // What to actually read off the glass. On a first focal plane scope it
-    // is the same number; on a second it is the one that matters, because
-    // the angle is not what the marks are worth at this power.
+    // What to read off the glass. The same number on a first focal plane
+    // scope; on a second it is the one that matters.
     parts.push(["Read off the reticle",
       `${Math.abs(target.marks.y).toFixed(2)} ${unitName} `
       + `${target.marks.y >= 0 ? "up" : "down"}`
@@ -516,7 +481,7 @@
       .map(([key, r]) => `<option value="${key}">${r.label}</option>`).join("");
     picker.value = view.choice;
     picker.addEventListener("change", () => {
-      // Once it has been chosen by hand, stop overriding it from the scope.
+      // Chosen by hand, so stop overriding it from the scope.
       view.touched = true;
       view.choice = picker.value;
       view.matched = false;
@@ -545,8 +510,7 @@
       + `(${(field * 0.1).toFixed(1)} m at 100 m) across the glass`;
   }
 
-  // The scope's own reticle and zoom range, when it is described clearly
-  // enough to be sure of them.
+  // Adopts the selected scope's reticle and zoom range, where recorded.
   function adopt() {
     const api = window.SPOTS_BALLISTICS;
     const scope = api && api.scope ? api.scope() : null;
@@ -576,11 +540,10 @@
         zoom.min = low;
         zoom.max = high;
         // Fine enough to feel continuous, coarse enough to land on the
-        // round numbers the ring is marked with.
+        // numbers the ring is marked with.
         zoom.step = high - low > 12 ? 0.5 : 0.1;
         if (!view.mag || view.mag < low || view.mag > high) {
-          // Top power: where a second focal plane reticle is usually true,
-          // and where anyone reading a hold off the glass would be anyway.
+          // Top power, where a second focal plane reticle is usually true.
           view.mag = high;
         }
         zoom.value = view.mag;
@@ -600,9 +563,8 @@
 
   // ---- the come-up rows above the picture -------------------------------
   //
-  // Its own table rather than a shared reading off the simulation's: the
-  // range you want to see a hold for is rarely the one you last watched a
-  // bullet fly to.
+  // Its own table, independent of the simulation's: the range you want a
+  // hold for is rarely the one you last watched fly.
   function renderTable(card) {
     const drawn = window.SPOTS_PICKER
       && window.SPOTS_PICKER.render($("scope-card"), card, pick);
@@ -628,7 +590,7 @@
     render();
   }
 
-  // Called by the page when a fresh solution has been worked out.
+  // Called by the page when a fresh solution lands.
   function cardChanged(card) {
     view.card = card;
     renderTable(card);
@@ -637,8 +599,8 @@
     else show(null, view.unit);
   }
 
-  // Opening the tab. The canvas has no measured size until its panel is on
-  // screen, so nothing is drawn until this runs.
+  // Opening the tab. The canvas has no measured size until its panel is
+  // shown, so nothing is drawn before this runs.
   async function open() {
     const api = window.SPOTS_BALLISTICS;
     const existing = api && api.solved && api.solved();

@@ -43,9 +43,8 @@ def _make_zcam_factory(settings: Settings):
 def _migrate_equipment_selection(settings: Settings, storage: Storage) -> None:
     """Moves a selection previously kept in config.yaml into the database.
 
-    It used to live in config.yaml while the equipment itself was in the
-    database, so an unwritable config silently lost the choice. This carries
-    an old selection across once, then clears it so there's one owner.
+    Carries a selection written by an older version across once, then
+    clears it so the database is the only owner.
     """
     equipment = getattr(settings, "equipment", None)
     if equipment is None:
@@ -82,9 +81,8 @@ def create_app(settings: Settings) -> Flask:
         _make_zcam_factory(settings),
     )
     if settings.camera.source == "zcam":
-        # Configured default of "zcam" connects eagerly. An unreachable
-        # camera must never take the app down with it, so fall back to
-        # synthetic and let the Live Feed toggle retry.
+        # A configured "zcam" connects eagerly, falling back to synthetic if it
+        # is unreachable so the app still starts. The Live Feed toggle retries.
         try:
             switchable.switch_to("zcam")
         except (requests.RequestException, ZCamError) as exc:

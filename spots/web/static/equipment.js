@@ -1,6 +1,6 @@
-// A sidebar of everything you own plus one detail form for the selection,
-// because all three kinds at once was a wall of inputs. Fields come from
-// the server's schema, which is also what validates them.
+// A sidebar of everything you own, plus a detail form for whatever is
+// selected. The fields come from the server's schema, which is also what
+// validates them.
 (function () {
   const sidebarEl = document.getElementById("equip-sidebar");
   const detailEl = document.getElementById("equip-detail");

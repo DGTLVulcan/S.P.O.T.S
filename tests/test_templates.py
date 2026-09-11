@@ -113,16 +113,13 @@ class SettingsPanelTests(unittest.TestCase):
         self.assertFalse(missing, f"panels with fields but no Save row: {missing}")
 
 
-
 class CanvasColourTests(unittest.TestCase):
     """Every CSS variable a canvas reads has to exist in the stylesheet.
 
     A canvas cannot inherit a colour: it asks getComputedStyle for a token
     by name and falls back to a literal if there is none. That fallback is
-    a single fixed colour, so a misspelt token silently pins one theme's
-    ink onto both -- which is exactly what happened when the scope reticle
-    asked for --ink-primary, a name that has never existed. It drew dark
-    grey marks on a dark field and vanished.
+    one fixed colour, so a misspelt token silently pins one theme's ink
+    onto both.
     """
 
     def test_every_token_a_canvas_asks_for_exists(self):
@@ -150,9 +147,8 @@ class CanvasColourTests(unittest.TestCase):
 class BallisticsPanelTests(unittest.TestCase):
     """Each item in the Ballistics side menu needs a panel behind it.
 
-    The two are matched only by a data-panel string, so a rename or a moved
-    section leaves a menu item that opens onto nothing -- and the page still
-    renders perfectly, just blank.
+    The two are matched only by a data-panel string, so a rename or a
+    moved section leaves a menu item that opens onto a blank page.
     """
 
     def _page(self):

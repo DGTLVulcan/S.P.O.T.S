@@ -1,13 +1,9 @@
 """Where each card sits on the dashboard.
 
-The arrangement is stored server-side rather than in the browser, so it
-follows you from the phone at the bench to the laptop afterwards and
-survives a reboot -- the same reason the equipment selection lives there.
-
 A layout is columns, left to right. Each column has a width weight, a flow
 (stacked, or side by side when they fit) and the cards it holds, in order.
-The default reproduces the original hand-written layout exactly, so an
-install that has never been rearranged looks untouched.
+Stored server-side, so an arrangement follows you between devices and
+survives a reboot.
 """
 from __future__ import annotations
 
@@ -31,10 +27,9 @@ MAX_COLUMNS = 4
 MIN_WEIGHT = 1
 MAX_WEIGHT = 6
 
-# Per-card size. Width is a share of the row it sits in, the same way a
-# column's weight works. Height is a floor in pixels, never a ceiling: a
-# card shorter than its contents would hide them, and on this page that
-# means hiding shots.
+# Per-card size. Width is a share of the row, like a column's weight.
+# Height is a floor in pixels, never a ceiling, so a card is never
+# shorter than its contents.
 MIN_TILE_WIDTH = 1
 MAX_TILE_WIDTH = 6
 MAX_TILE_HEIGHT = 900
@@ -45,10 +40,9 @@ DEFAULT_LAYOUT: dict = {
         {"weight": 2, "flow": "stack", "tiles": ["range", "feed", "score", "scope"]},
         {"weight": 3, "flow": "wrap", "tiles": ["group-stats", "shots", "subgroups"]},
     ],
-    # Cards put away while arranging. Kept as a list rather than dropped, so
-    # a card can be brought back -- and so the "any tile the layout doesn't
-    # mention goes back where it started" rule below can tell "hidden on
-    # purpose" apart from "written before this card existed".
+    # Cards put away while arranging. Listed rather than dropped, so they
+    # can be brought back and so the rule below can tell a card hidden on
+    # purpose from one written before that card existed.
     "hidden": [],
     # tile id -> {"w": share, "h": minimum height in px}. Only cards that
     # differ from the default are listed.
@@ -104,10 +98,9 @@ def clean_layout(raw) -> dict:
     """Whatever was stored, turned into a layout that renders.
 
     Self-healing rather than strict: unknown cards are dropped, duplicates
-    collapse to their first position, and any card the layout never mentions
-    is put back where it started. A stored layout is only ever as new as the
-    version that wrote it, and a card going missing from the dashboard with
-    no way to get it back is a far worse failure than a moved one.
+    collapse to their first position, and any card the layout never
+    mentions goes back where it started. A stored layout is only ever as
+    new as the version that wrote it.
     """
     if not isinstance(raw, dict):
         return default_layout()
@@ -145,9 +138,8 @@ def clean_layout(raw) -> dict:
     columns = [c for c in columns if c["tiles"]]
     if not columns:
         if hidden:
-            # Every card put away is a legitimate arrangement, so keep one
-            # empty column to drop them back into. Falling through to the
-            # default here would quietly un-hide the lot.
+            # Every card hidden is a legitimate arrangement, so keep one empty
+            # column to drop them back into.
             return {"columns": [{"weight": 2, "flow": "stack", "tiles": []}],
                     "hidden": hidden, "sizes": sizes}
         return default_layout()

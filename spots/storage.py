@@ -71,16 +71,13 @@ CREATE TABLE IF NOT EXISTS app_state (
 
 EQUIPMENT_KINDS = ("rifle", "scope", "ammo", "target")
 
-# Seeded once, on a database that has never had equipment, purely so the
-# dropdowns aren't empty on first run. All of it is editable.
-# The kit this install actually runs, with the figures taken from the
-# makers rather than invented. The two that drive every ballistic answer --
-# muzzle velocity and BC -- are Remington's own published numbers for this
-# load, and the solver reproduces their downrange velocities to within 1%.
+# Seeded once, on a database that has never had equipment, so the dropdowns
+# aren't empty on first run. All of it is editable.
 #
-# Sight height is deliberately absent: it depends on the rings and the
-# mount, not the rifle, so it has to be measured off the gun in front of
-# you. The ballistics page names it as missing until it is.
+# The figures come from the makers: muzzle velocity and BC are Remington's
+# published numbers for this load. Sight height is absent, since it depends
+# on the rings and mount rather than the rifle -- the ballistics page names
+# it as missing until it is measured.
 _DEFAULT_EQUIPMENT = [
     ("rifle", "Franchi Horizon Elite .223", None, None, None,
      {"calibre": ".223 Remington", "barrel_length_in": 22.0, "twist_rate": "1:9",
@@ -200,10 +197,8 @@ class Storage:
                 for k, n, notes, cv, cu, specs in _DEFAULT_EQUIPMENT
             ],
         )
-        # Select what was just seeded. There is one of each kind, so leaving
-        # it unselected only makes you pick the sole option by hand before
-        # anything that reads the equipment -- the ballistics page most of
-        # all -- has something to work from.
+        # Select what was just seeded: there is one of each kind, so
+        # anything reading the equipment has something to work from.
         for kind in EQUIPMENT_KINDS:
             row = self._conn.execute(
                 "SELECT id FROM equipment WHERE kind = ? ORDER BY id ASC LIMIT 1", (kind,)
@@ -238,10 +233,9 @@ class Storage:
         return f"selected_{kind}"
 
     def get_selected_equipment(self) -> dict[str, int | None]:
-        """Currently selected id per kind, self-healing: a selection whose
-        equipment has since been deleted (or was written for another kind)
-        is cleared rather than lingering as a dangling reference that shows
-        up as "none" forever.
+        """Currently selected id per kind. A selection whose equipment has
+        since been deleted, or was written for another kind, is cleared
+        rather than left dangling.
         """
         selected: dict[str, int | None] = {}
         for kind in EQUIPMENT_KINDS:
@@ -266,8 +260,8 @@ class Storage:
     def get_range_state(self) -> str:
         """Whether the range is hot or on a cease fire.
 
-        Held server-side so every phone looking at the app agrees, and
-        defaults to hot: assuming live fire is the safe way to be wrong.
+        Held server-side so every phone agrees, and defaults to hot:
+        assuming live fire is the safe way to be wrong.
         """
         value = self.get_state(_RANGE_STATE_KEY, "hot")
         return value if value in RANGE_STATES else "hot"
@@ -281,10 +275,9 @@ class Storage:
     def reset_equipment(self) -> None:
         """Throw the equipment list away and seed it again.
 
-        Seeding only ever happens on an empty table, so an install that has
-        been running keeps whatever it started with -- this is the way to
-        take new defaults on an existing Pi. Sessions keep their own
-        snapshot of what they were shot with, so history is unaffected.
+        Seeding otherwise happens only on an empty table, so this is the
+        way to take new defaults on an install that has been running.
+        Sessions keep their own record of what they were shot with.
         """
         with self._lock:
             self._conn.execute("DELETE FROM equipment")
@@ -433,9 +426,8 @@ class Storage:
     def _next_free_session_id_locked(self) -> int:
         """Smallest positive integer not currently used by a session.
 
-        Deleted sessions free their numbers, so ids track how many you have
-        rather than how many you've ever made. Every existing id + 1, plus 1
-        itself, always contains the answer.
+        Deleted sessions free their numbers, so ids track how many exist
+        rather than how many were ever made.
         """
         row = self._conn.execute(
             """SELECT MIN(candidate) FROM (
@@ -577,8 +569,8 @@ class Storage:
     ) -> None:
         """Re-writes several shots' real-world units in ONE transaction.
 
-        Recalibrating re-derives units for every shot, and a commit (and
-        fsync) each made "Mark Center" visibly slow on a Pi's SD card.
+        Recalibrating re-derives units for every shot, and one commit per
+        shot is slow on a Pi's SD card.
         """
         if not rows:
             return
@@ -698,7 +690,7 @@ class Storage:
         """Most recently CREATED session, by timestamp rather than by id.
 
         Ids are reused after a delete, so the highest is not necessarily
-        the newest -- MAX(id) would resume the wrong session at startup.
+        the newest.
         """
         with self._lock:
             row = self._conn.execute(
@@ -709,9 +701,8 @@ class Storage:
     def backup_to(self, destination_path: str) -> None:
         """Writes a consistent copy of the database to `destination_path`.
 
-        Uses SQLite's backup API, not a file copy: the detector keeps
-        committing while this runs, and a copy can catch a half-written
-        page and produce a backup that won't open.
+        Uses SQLite's backup API rather than a file copy, since the
+        detector keeps committing while this runs.
         """
         with self._lock:
             target = sqlite3.connect(destination_path)

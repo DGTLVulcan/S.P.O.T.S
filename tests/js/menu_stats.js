@@ -1,10 +1,7 @@
 // Drives menu.js under a stub DOM.
 //
-// Two things worth pinning down. The readings have to be right -- a power
-// row that says OK while the Pi is browning out is worse than no row at
-// all. And the polling has to stop when the menu closes: this runs on the
-// same Pi that is doing the detection, on every page, and a dropdown
-// nobody is looking at should cost nothing.
+// Checks the four readings render correctly, and that polling starts when
+// the menu opens and stops when it closes.
 //
 // Usage: node menu_stats.js <menu.js>
 const fs = require("fs");

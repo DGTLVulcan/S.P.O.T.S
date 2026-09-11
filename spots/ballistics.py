@@ -1,16 +1,12 @@
 """Exterior ballistics: where the bullet goes, and what to dial.
 
 A point-mass trajectory integrated against the standard G1/G7 drag
-functions, with real air density and a wind vector. Nothing here is
-guessed at: the drag tables are the published BRL data, the atmosphere is
-the ideal gas law with a humidity term, and the integrator is checked
-against the closed-form vacuum parabola in the tests.
+functions, with real air density and a wind vector. The drag tables are
+the published BRL data and the atmosphere is the ideal gas law with a
+humidity term.
 
-What it cannot do is tell you your muzzle velocity or your bullet's BC.
-Those come off the box or a chronograph, and a solution is only ever as
-good as they are -- which is what true_muzzle_velocity() is for: it bends
-the solution to fit impacts you have actually recorded, rather than
-asking you to trust the inputs.
+Muzzle velocity and BC have to come from the box or a chronograph;
+true_muzzle_velocity() fits them to impacts you have recorded instead.
 """
 from __future__ import annotations
 
@@ -18,9 +14,8 @@ import math
 from dataclasses import dataclass, field
 
 # ---------------------------------------------------------------------
-# Units. Distance is metric because that is how ranges are marked here;
-# velocity and bullet weight stay imperial because that is how boxes and
-# chronographs are labelled.
+# Units. Distances are metric, the way ranges are marked; velocity and
+# bullet weight are imperial, the way boxes and chronographs are labelled.
 # ---------------------------------------------------------------------
 
 FPS_TO_MS = 0.3048
@@ -38,16 +33,14 @@ STANDARD_DENSITY = 1.225
 STANDARD_TEMP_C = 15.0
 STANDARD_PRESSURE_HPA = 1013.25
 
-# Below this Mach the bullet is transonic and the solution stops being
-# trustworthy -- the drag functions are least reliable through the
-# transition, and real bullets can go unstable there.
+# Below this Mach the bullet is transonic: the drag functions are least
+# reliable through the transition, and bullets can go unstable there.
 TRANSONIC_MACH = 1.2
 
 # ---------------------------------------------------------------------
 # Drag functions: Mach number -> drag coefficient of the standard
-# projectile. G1 is the old flat-base reference, G7 the boat-tail one that
-# suits modern match bullets; a BC quoted for one is not valid for the
-# other, which is why the model travels with the number.
+# projectile. G1 is the flat-base reference, G7 the boat-tail one. A BC
+# quoted for one is not valid for the other, so the model travels with it.
 # ---------------------------------------------------------------------
 
 G1_TABLE = (
@@ -129,10 +122,8 @@ def drag_coefficient(mach: float, model: str = "g7") -> float:
 class Atmosphere:
     """Air the bullet flies through.
 
-    `pressure_hpa` must be STATION pressure -- what a barometer at the
-    firing point reads -- not the sea-level figure a weather forecast
-    quotes. Feeding a sea-level number in at altitude makes the air denser
-    than it is and over-predicts drop, silently.
+    `pressure_hpa` is STATION pressure, what a barometer at the firing
+    point reads, not the sea-level figure a forecast quotes.
     """
 
     temperature_c: float = STANDARD_TEMP_C
@@ -181,8 +172,8 @@ class Shot:
     sight_height_mm: float = 40.0
     zero_distance_m: float = 100.0
     twist_rate_in: float = 0.0
-    # Wind as it is called on a range: speed, and the clock direction it
-    # blows FROM. 12 o'clock is a headwind, 3 o'clock comes from the right.
+    # Wind as called on a range: speed, and the clock direction it blows
+    # FROM. 12 o'clock is a headwind, 3 o'clock comes from the right.
     wind_speed_kph: float = 0.0
     wind_clock: float = 3.0
     look_angle_deg: float = 0.0
@@ -191,8 +182,8 @@ class Shot:
     def wind_vector(self) -> tuple[float, float]:
         """(downrange, lateral) components of the wind in m/s.
 
-        A 3 o'clock wind blows from the right, so it pushes the bullet
-        left: lateral is negative.
+        A 3 o'clock wind blows from the right and pushes the bullet left,
+        so lateral is negative.
         """
         speed = self.wind_speed_kph / 3.6
         angle = math.radians((self.wind_clock % 12.0) * 30.0)
@@ -238,13 +229,9 @@ def _integrate(shot: Shot, launch_angle: float, max_distance_m: float,
     """March the bullet downrange, returning (x, y, z, speed, t) samples.
 
     y is measured from the line of sight, so the bullet starts one sight
-    height below it. Drag acts along the bullet's path THROUGH THE AIR,
-    which is why the wind vector is subtracted before the direction is
-    taken -- a headwind slows the bullet as well as a crosswind pushing it.
-
-    Stepped with RK4: plain Euler was out by 1.5 mm at 500 m against the
-    closed-form vacuum case, which is nothing ballistically but is pure
-    arithmetic error, and there is no reason to carry it.
+    height below it. Drag acts along the path THROUGH THE AIR, so the wind
+    vector is subtracted before the direction is taken -- a headwind slows
+    the bullet as well as a crosswind pushing it. Stepped with RK4.
     """
     air = shot.atmosphere
     density = air.density
@@ -254,9 +241,8 @@ def _integrate(shot: Shot, launch_angle: float, max_distance_m: float,
 
     wind_x, wind_z = shot.wind_vector()
     look = math.radians(shot.look_angle_deg)
-    # Gravity is vertical; the line of sight is not, when shooting up or
-    # down a slope. Rotating it into the sight frame is what makes an
-    # inclined shot need less come-up, rather than a fudge factor.
+    # Gravity is vertical, the line of sight is not on a slope. Rotating it
+    # into the sight frame is what makes an inclined shot need less come-up.
     gx = GRAVITY * math.sin(look)
     gy = -GRAVITY * math.cos(look)
 
@@ -328,8 +314,8 @@ def _sample_at(samples, distance_m: float):
 def _zero_angle(shot: Shot) -> float:
     """Launch angle that puts the bullet on the line of sight at the zero.
 
-    Solved rather than approximated: the angle is tiny but the drop at
-    500 m is not, and a closed-form guess drifts badly once drag is in.
+    Solved by bisection rather than approximated, since a closed-form
+    guess drifts once drag is in.
     """
     low, high = math.radians(-0.5), math.radians(3.0)
     for _ in range(40):
@@ -379,9 +365,8 @@ def solve(shot: Shot, distances_m) -> list[TrajectoryPoint]:
 def _spin_drift(shot: Shot, time_s: float) -> float:
     """Litz's approximation, in metres. Right-hand twist pushes right.
 
-    Needs the bullet's length to work out how stable it is, so it is
-    simply left out when that is unknown rather than being guessed -- at
-    500 m it is a few centimetres either way.
+    Needs the bullet's length to work out stability, so it is left out
+    when that is unknown. At 500 m it is a few centimetres either way.
     """
     stability = gyroscopic_stability(shot)
     if stability is None or time_s <= 0:
@@ -402,8 +387,7 @@ def gyroscopic_stability(shot: Shot) -> float | None:
     stability = (30.0 * shot.bullet_grains) / (
         twist_cal ** 2 * diameter_in ** 3 * length_cal * (1.0 + length_cal ** 2)
     )
-    # Corrected to the actual muzzle velocity; Miller's constant assumes
-    # 2800 fps.
+    # Corrected to the actual muzzle velocity; the constant assumes 2800 fps.
     return stability * (shot.muzzle_velocity_fps / 2800.0) ** (1.0 / 3.0)
 
 
@@ -475,16 +459,14 @@ def card(shot: Shot, distances_m, unit: str = "mrad",
 def trajectory(shot: Shot, max_distance_m: float, samples: int = 240) -> dict:
     """The whole flight, densely sampled, for drawing rather than dialling.
 
-    Also reports the launch angle, because a picture of the trajectory is
-    only honest if it can show the barrel pointing above the line of sight
-    -- which is the thing most people are surprised by.
+    Also reports the launch angle, so a drawing can show the barrel
+    pointing above the line of sight.
     """
     _validate(shot)
     samples = max(20, min(600, int(samples)))
     maximum = max(1.0, float(max_distance_m))
-    # Scale each sample rather than accumulating a step, so the last one
-    # lands exactly on the range asked for. Stepping left 500 m reading
-    # 500.00000000000006, which the simulation then printed at the user.
+    # Each sample is scaled rather than accumulated, so the last one lands
+    # exactly on the range asked for.
     points = solve(shot, [maximum * i / samples for i in range(1, samples + 1)])
     angle = _zero_angle(shot)
     sound = shot.atmosphere.speed_of_sound
@@ -504,9 +486,8 @@ def trajectory(shot: Shot, max_distance_m: float, samples: int = 240) -> dict:
         "sight_height_mm": shot.sight_height_mm,
         "zero_distance_m": shot.zero_distance_m,
         "max_distance_m": round(points[-1].distance_m, 2) if points else 0.0,
-        # Rounded the same as the point times, so asking for the sample at
-        # the end of the flight lands on the last point rather than just
-        # short of it.
+        # Rounded like the point times, so a sample at the end of the
+        # flight lands on the last point rather than just short of it.
         "flight_time_s": round(points[-1].time_s, 4) if points else 0.0,
         "impact_velocity_ms": round(points[-1].velocity_ms, 1) if points else 0.0,
         "speed_of_sound_ms": round(sound, 1),
@@ -522,16 +503,10 @@ def true_muzzle_velocity(shot: Shot, observations, unit: str = "mrad",
                          low_fps: float = 1200.0, high_fps: float = 4500.0):
     """Muzzle velocity that best fits come-ups you actually measured.
 
-    Every solution starts from a number off a box, and boxes are optimistic.
-    Rather than trusting it, this bends the one input that is both most
-    uncertain and most influential until the predicted come-ups match what
-    the rifle really did.
-
     `observations` is [(distance_m, elevation_actually_needed)] in `unit`.
-    Velocity is corrected before BC because a chronograph-free velocity is
-    usually wrong by more than a published BC is, and inside 500 m the two
-    are hard to tell apart -- past transonic they separate, and that is
-    where a BC correction would belong instead.
+    The search bends velocity until the predicted come-ups match them.
+    Velocity rather than BC: a velocity taken off a box is usually wrong by
+    more than a published BC, and inside 500 m the two look alike.
     """
     rows = [(float(d), float(e)) for d, e in observations if float(d) > 0]
     if not rows:
@@ -549,7 +524,7 @@ def true_muzzle_velocity(shot: Shot, observations, unit: str = "mrad",
         return total
 
     # A ternary search: the squared error is smooth and single-minimum in
-    # velocity, so this converges without needing a derivative.
+    # velocity, so it converges without a derivative.
     low, high = low_fps, high_fps
     for _ in range(80):
         a = low + (high - low) / 3.0

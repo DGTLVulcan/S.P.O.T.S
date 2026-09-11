@@ -80,10 +80,9 @@ class SessionState:
             self._recompute_units_locked(unit_name)
 
     def set_origin(self, origin_px: tuple[float, float], unit_name: str) -> bool:
-        """Updates just the origin (target center) of the CURRENT calibration,
-        leaving its scale (units_per_px) untouched. Returns False if there's
-        no calibration to update yet (caller should ask for scale calibration
-        first -- an origin alone can't convert pixels to real-world units).
+        """Updates only the origin of the current calibration, leaving its
+        scale untouched. False when there is no calibration to update yet:
+        an origin alone cannot convert pixels to real-world units.
         """
         with self._lock:
             if self._state.calibration is None:
@@ -118,11 +117,9 @@ class SessionState:
             return False
 
     def _recompute_units_locked(self, unit_name: str) -> None:
-        """Re-derives every recorded shot's x_units/y_units from its stored
-        pixel position under the CURRENT calibration. Without this, changing
-        calibration (scale or origin) mid-session would leave already-shown
-        shots computed against the old one -- inconsistent with new shots
-        and with the origin the diagram/overlay now draws around.
+        """Re-derives every recorded shot's units from its stored pixel
+        position under the current calibration, so shots taken before a
+        calibration change stay consistent with those after it.
         """
         cal = self._state.calibration
         for shot in self._state.shots:
@@ -190,11 +187,10 @@ class DetectionWorker:
     def set_paused(self, paused: bool) -> None:
         """Stop or restart detection for a cease fire.
 
-        People walk downrange during a cease fire and targets get patched or
-        replaced, all of it in front of the camera. Detection stops rather
-        than trying to tell that apart from shooting, and coming back off a
-        cease fire re-baselines against the target as it now looks -- so a
-        target that was patched doesn't read as a wall of new holes.
+        People walk downrange and targets get patched during a cease fire,
+        all in front of the camera, so detection stops rather than trying to
+        tell that from shooting. Coming back off one re-baselines against
+        the target as it now looks.
         """
         paused = bool(paused)
         if paused == self._paused:
@@ -219,10 +215,10 @@ class DetectionWorker:
         """Expected hole size in the CURRENT view, from the bullet diameter
         and the calibrated scale.
 
-        None whenever it can't be worked out (auto-sizing off, no
-        calibration, no diameter, an unconvertible unit) and the configured
-        pixel figures are used instead. The window is generous: holes tear
-        larger than the bullet, and two touching ones merge into a blob.
+        None when it cannot be worked out -- auto-sizing off, no
+        calibration, no diameter, an unconvertible unit -- and the
+        configured pixel figures are used instead. The window is generous,
+        since holes tear larger than the bullet and touching ones merge.
         """
         if not self._detection_config.auto_hole_area or not self._bullet_diameter_mm:
             return None
@@ -301,11 +297,10 @@ class DetectionWorker:
     def _save_snapshot(
         self, session_id: int, seq: int, marker_x: float, marker_y: float, frame_bgr: np.ndarray
     ) -> str | None:
-        """Save a marked JPEG at commit time, so a false positive can be
-        confirmed later from history. marker_x/marker_y must be in
-        frame_bgr's own space, not the detector's anchor space. Returns a
-        path relative to the snapshot dir, or None -- never blocking the
-        shot record, which is the source of truth.
+        """Saves a marked JPEG at commit time, so a shot can be checked later
+        from history. marker_x/marker_y are in frame_bgr's own space, not
+        anchor space. Returns a path relative to the snapshot dir, or None;
+        a failure never blocks the shot record.
         """
         try:
             session_dir = os.path.join(self._snapshot_dir, str(session_id))
@@ -342,10 +337,9 @@ class DetectionWorker:
         return get_active() if callable(get_active) else "synthetic"
 
     def rebaseline(self) -> None:
-        """Take the target as it looks now as the new reference, keeping the
+        """Takes the target as it looks now as the new reference, keeping the
         shot numbering. For anything that changes every pixel without a shot
-        being fired -- coming off a cease fire, or swapping the fabricated
-        target for a different one.
+        being fired, such as coming off a cease fire.
         """
         snapshot = self.state.snapshot()
         if snapshot.session_id is not None and self._detector.has_reference:
@@ -377,10 +371,9 @@ class DetectionWorker:
         return get_client() if callable(get_client) else None
 
     def add_simulated_hole(self, x: float, y: float) -> bool:
-        """Places a virtual bullet hole for the synthetic source to render
-        and the detector to pick up next cycle. Returns False (rather than
-        raising) when the active feed isn't synthetic, since that's a
-        routine "wrong mode" case the caller should just report cleanly.
+        """Places a virtual bullet hole for the synthetic source to render and
+        the detector to pick up next cycle. False when the active feed is
+        not synthetic.
         """
         add_hole = getattr(self._frame_source, "add_hole", None)
         if not callable(add_hole):
@@ -428,10 +421,9 @@ class DetectionWorker:
     def resume_last_session(self) -> bool:
         """Restores the most recent session after a restart or Pi reboot.
 
-        The data was always in SQLite, but in-memory state started empty,
-        so a power blip mid-string left the dashboard blank anyway.
-        Detection resumes into the same session rather than forcing a New
-        Target, which would split the string in two.
+        Rebuilds the in-memory state from SQLite so a power blip mid-string
+        does not leave the dashboard blank. Detection resumes into the same
+        session rather than splitting the string in two.
         """
         session_id = self._storage.latest_session_id()
         if session_id is None:
@@ -483,20 +475,18 @@ class DetectionWorker:
         return True
 
     def set_calibration(self, calibration: Calibration | None) -> None:
-        """Pass None to clear calibration entirely (scale + target-center
-        origin) -- e.g. a "reset setup" action. Already-recorded shots keep
-        their pixel positions but lose their real-world units until
-        recalibrated, same as any other calibration change.
+        """Pass None to clear the calibration entirely, scale and origin both.
+        Already-recorded shots keep their pixel positions but lose their
+        real-world units until recalibrated.
         """
         self.state.set_calibration(calibration, self._target_config.unit_name)
         self._persist_shot_units()
         self._persist_calibration()
 
     def set_distance(self, distance_m: float) -> None:
-        """Updates the CURRENT session's distance (not just the config
-        default for the next New Target), and persists it so session
-        history reflects the correction too -- e.g. the target got moved,
-        or the wrong distance was entered to begin with.
+        """Updates the current session's distance, not just the default for the
+        next New Target, and persists it so session history shows the
+        correction too.
         """
         self._target_config.distance_m = distance_m
         self.state.set_distance(distance_m)
@@ -505,11 +495,10 @@ class DetectionWorker:
             self._storage.update_session_distance(snapshot.session_id, distance_m)
 
     def mark_center(self, x_px: float, y_px: float) -> bool:
-        """Sets the target's true center as the calibration origin, so shots
-        are reported (and the target diagram drawn) relative to the actual
-        bullseye rather than wherever the first calibration click landed.
-        Returns False if scale hasn't been calibrated yet -- there's no
-        Calibration object for an origin-only update to attach to.
+        """Sets the target's true centre as the calibration origin, so shots
+        are reported relative to the bullseye rather than wherever the first
+        calibration click landed. False when scale has not been calibrated
+        yet, since there is nothing for an origin to attach to.
         """
         ok = self.state.set_origin((x_px, y_px), self._target_config.unit_name)
         if ok:
@@ -520,9 +509,8 @@ class DetectionWorker:
     def add_test_shot(self, x_px: float, y_px: float) -> bool:
         """Records a shot at a clicked point, for exercising calibration and
         stats without a real impact. Bypasses the detector, so x_px/y_px are
-        in the frame's own space (as with a Calibrate click), not anchor
-        space. Tagged is_test so history can't confuse it for a real impact.
-        False if there's no active session.
+        in the frame's own space rather than anchor space, and is tagged
+        is_test. False when there is no active session.
         """
         state = self.state.snapshot()
         if state.session_id is None:
@@ -576,9 +564,8 @@ class DetectionWorker:
         state = self.state.snapshot()
         if not state.shots:
             return
-        # Only pop the detector's bookkeeping if the last shot came from
-        # it -- a test shot never touched that state, so popping here would
-        # discard the last real detection instead.
+        # Only pop the detector's bookkeeping for a shot that came from it;
+        # a test shot never touched that state.
         if not state.shots[-1].is_test:
             self._detector.undo_last()
         if state.session_id is not None:
@@ -598,10 +585,9 @@ class DetectionWorker:
         return True
 
     def delete_shot(self, seq: int) -> bool:
-        """Removes any shot by sequence number. The last one delegates to
+        """Removes any shot by sequence number. The last one goes through
         undo_last() to keep the detector's bookkeeping correct; an earlier
-        one can't change what that tracks ("was the most recent commit
-        real"), so it's left alone. False if no such seq exists.
+        one cannot affect it. False when no such seq exists.
         """
         state = self.state.snapshot()
         if not state.shots:

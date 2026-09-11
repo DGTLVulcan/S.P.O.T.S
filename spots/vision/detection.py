@@ -1,27 +1,20 @@
-"""Shot detection via frame differencing against a rolling reference frame.
+"""Shot detection by differencing each frame against a reference.
 
-Pipeline per sampled frame:
-  1. absdiff against the reference frame, threshold, morphological close
-  2. contour extraction, filtered by area + circularity
-  3. require a candidate to persist across `debounce_frames` consecutive
-     sampled frames before committing it (rejects wind-flutter / shadow
-     flicker false positives on an outdoor range)
+Per sampled frame: absdiff against the reference, threshold and close;
+extract contours and filter them by area and circularity; then require a
+candidate to persist across `debounce_frames` consecutive frames before
+committing it, which rejects wind flutter and shadow flicker.
 
-Burn-in: a committed hole is painted into the reference, so later diffs
-only measure what's newly changed. Otherwise it keeps diffing against the
-original clean target, a second shot beside it merges into one blob, and the
-merged area outgrows `max_hole_area_px` -- tight groups stop registering
-after a shot or two.
+Committed holes are burned into the reference, so later diffs measure only
+what is newly changed and a second shot beside the first does not merge
+into one oversized blob. Candidates near an existing shot are deliberately
+not rejected, since real groups can be a few pixels apart.
 
-There is deliberately no "reject candidates near a committed shot" filter:
-real tight groups can be a few pixels apart, so it would block the very case
-burn-in exists to handle.
-
-Re-alignment: a target on a stand sways in wind, and a naive diff reads that
-as a wall of new holes. Each frame is matched against the anchor (the clean
-image captured at `reset()`) by ORB/SIFT + RANSAC homography and warped into
-its space. Always the fixed anchor, never the last frame, so error can't
-accumulate; too few matches skips the frame rather than risk a bad warp.
+Re-alignment warps each frame onto the anchor -- the clean image captured
+at `reset()` -- via ORB/SIFT and a RANSAC homography, so a target swaying
+on its stand is not read as new holes. Always the fixed anchor rather than
+the previous frame, so error cannot accumulate; too few matches skips the
+frame rather than risk a bad warp.
 """
 from __future__ import annotations
 
@@ -81,10 +74,9 @@ def invert_homography(homography: np.ndarray | None) -> np.ndarray | None:
 
 def _preprocess(frame_bgr: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
-    # Local contrast normalisation before differencing: a hole on a dark
-    # ring may differ from it by only ~30, against 200+ on white paper, so
-    # one global threshold can't serve both. CLAHE makes a hole read as a
-    # strong local change whatever shade it sits on.
+    # Local contrast normalisation before differencing. A hole on a dark
+    # ring differs from it by only about 30, against 200+ on white paper;
+    # CLAHE makes it a strong local change on either.
     gray = _CLAHE.apply(gray)
     return cv2.GaussianBlur(gray, _BLUR_KERNEL, 0)
 
@@ -102,16 +94,15 @@ class ShotDetector:
         self._config = config
         self._reference: np.ndarray | None = None
         self._committed: list[tuple[float, float]] = []
-        # Radius burned in for each committed shot, and the union of those
-        # discs as a mask. Kept so the reference can be refreshed there on
-        # every frame rather than only once, at commit.
+        # Radius burned in per committed shot, and the union of those discs
+        # as a mask, so the reference can be refreshed there every frame.
         self._burn_radii: list[int] = []
         self._burn_mask: np.ndarray | None = None
         self._pending: list[_PendingCandidate] = []
         self._next_seq = 1
 
-        # The anchor is fixed for the life of the target, so alignment
-        # error can't accumulate the way it would against a drifting frame.
+        # Fixed for the life of the target, so alignment error cannot
+        # accumulate.
         self._anchor: np.ndarray | None = None
         self._anchor_kp = None
         self._anchor_desc = None
@@ -134,10 +125,9 @@ class ShotDetector:
 
     @property
     def last_homography(self) -> np.ndarray | None:
-        """Current-frame -> anchor-frame transform from the most recent
-        successful alignment, or None if realignment is disabled/unavailable.
-        Used by the dashboard to draw shot overlays (stored in anchor space)
-        back onto the raw, unwarped live feed.
+        """Current-frame to anchor-frame transform from the most recent
+        successful alignment, or None when realignment is off. The dashboard
+        uses it to draw anchor-space overlays onto the raw live feed.
         """
         return self._last_homography
 
@@ -172,9 +162,8 @@ class ShotDetector:
 
     def reserve_seq(self) -> int:
         """Reserves the next sequence number for a shot recorded outside the
-        normal detection pipeline (e.g. a manually placed test shot), so it
-        stays unique and ordered alongside real detections without this
-        detector ever knowing the test shot exists.
+        detection pipeline, such as a manually placed test shot, so it stays
+        unique and ordered alongside real detections.
         """
         seq = self._next_seq
         self._next_seq += 1
@@ -187,8 +176,8 @@ class ShotDetector:
         if self._feature_detector is None:
             return gray
         if self._anchor_desc is None or len(self._anchor_desc) < 2:
-            # Anchor itself has too little texture to ever align against;
-            # degrade to "no realignment" rather than skip every frame.
+            # Too little texture in the anchor to align against at all, so
+            # fall back to no re-alignment rather than skipping every frame.
             return gray
 
         kp, desc = self._feature_detector.detectAndCompute(gray, None)
@@ -229,14 +218,11 @@ class ShotDetector:
             logger.warning("Realignment failed (too few feature matches), skipping frame")
             return []
 
-        # Keep the reference current wherever a hole has already been
-        # counted. Burning a hole in once is not enough on a target that
-        # moves: the hole drifts against its burned-in patch, the sliver
-        # left over reads as a fresh change, and -- since a candidate next
-        # to a committed shot is deliberately NOT rejected -- the same hole
-        # gets counted again and again. Repainting those discs every frame
-        # keeps the difference there at zero, without touching the rest of
-        # the target, so genuinely new shots still register normally.
+        # Repaints the reference wherever a hole has been counted. One
+        # burn-in at commit is not enough on a target that moves: the hole
+        # drifts against its patch and the sliver left over reads as a fresh
+        # change. Repainting every frame holds the difference there at zero
+        # while leaving the rest of the target alone.
         self._refresh_burned(gray)
 
         diff = cv2.absdiff(gray, self._reference)
@@ -245,8 +231,7 @@ class ShotDetector:
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         if area_range is not None:
-            # Already in current-view pixels (the calibration behind it was
-            # measured zoomed), so must not be scaled by zoom again.
+            # Already in current-view pixels, so not scaled by zoom again.
             min_area, max_area = area_range
         else:
             # A hole's footprint grows with the square of the zoom level,
@@ -316,8 +301,7 @@ class ShotDetector:
             mask = np.zeros(gray.shape, dtype=np.uint8)
             for (cx, cy), radius in zip(self._committed, self._burn_radii):
                 cv2.circle(mask, (int(cx), int(cy)), radius, 255, thickness=-1)
-            # Cached because it only changes when a shot is added or undone,
-            # and rebuilding it per frame would cost more than the repaint.
+            # Cached: it only changes when a shot is added or undone.
             self._burn_mask = mask.astype(bool)
         np.copyto(self._reference, gray, where=self._burn_mask)
 
@@ -325,8 +309,7 @@ class ShotDetector:
         """Paint a committed hole into the reference so future diffs are
         incremental, letting overlapping/adjacent shots register separately.
         """
-        # Generous enough to cover the hole plus the drift left over after
-        # re-alignment, which is what the refresh above has to swallow.
+        # Covers the hole plus whatever drift survives re-alignment.
         radius = int(math.sqrt(area_px / math.pi)) + self._config.burn_in_margin_px
         self._burn_radii.append(radius)
         self._burn_mask = None

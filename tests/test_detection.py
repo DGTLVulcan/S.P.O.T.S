@@ -191,10 +191,8 @@ class SyntheticModeTests(unittest.TestCase):
 class RepeatedDetectionTests(unittest.TestCase):
     """A hole that has been counted must not keep being counted.
 
-    Burning it into the reference once is not enough on a target that
-    moves: the hole drifts against its burned-in patch and the sliver left
-    over reads as a fresh change. Nothing else stops it, because a
-    candidate beside a committed shot is deliberately not rejected.
+    One burn-in is not enough on a target that moves: the hole drifts
+    against its patch and the sliver left over reads as a fresh change.
     """
 
     def _config(self, **overrides):

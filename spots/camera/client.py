@@ -1,7 +1,7 @@
 """HTTP control client for a Z CAM E2-series camera.
 
-Wraps only the endpoints this project needs -- session control, stream
-configuration, a reachability check -- per imaginevision/Z-Camera-Doc's
+Wraps the endpoints this project needs: session control, stream
+configuration and a reachability check. Follows Z-Camera-Doc's
 E2/protocol/http/http.md.
 """
 from __future__ import annotations
@@ -76,10 +76,10 @@ class ZCamClient:
         return f"rtsp://{ip}/live_stream"
 
     def get_setting(self, key: str) -> dict:
-        """Queries a camera setting via /ctrl/get?k=<key>. Response shape
-        depends on the setting's type: choice ({"value","opts"}), range
-        ({"value","min","max","step"}), or string ({"value"}) -- always
-        includes "ro" (read-only) as documented in Z-Camera-Doc's api.js.
+        """        Queries a camera setting via /ctrl/get?k=<key>. The response shape
+        follows the setting's type: choice ({"value","opts"}), range
+        ({"value","min","max","step"}) or string ({"value"}), always with
+        "ro" for read-only.
         """
         return self._get("/ctrl/get", k=key)
 

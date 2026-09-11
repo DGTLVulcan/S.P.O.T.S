@@ -1,10 +1,9 @@
 // The ballistics page: a come-up solution, a DOPE card, and truing.
 //
-// Everything it can fill in for you, it does -- muzzle velocity and BC off
-// the selected ammo, sight height off the rifle, zero and turret unit off
-// the scope, the air off the running session's conditions. What it cannot
-// find, it asks for by name rather than substituting a default, because a
-// ballistic answer built on a guessed input still looks authoritative.
+// Fields are filled from the selected kit where possible -- velocity and BC
+// off the ammo, sight height off the rifle, zero and turret unit off the
+// scope, the air off the session's conditions. Anything it cannot find is
+// asked for by name rather than defaulted.
 (function () {
   const $ = (id) => document.getElementById(id);
 
@@ -404,10 +403,8 @@
       sim: "Simulation", scope: "Through the scope",
     }[name] || "Ballistics";
     if (name === "true") loadTruing();
-    // Only the first visit reads the saved card. Re-fetching on every
-    // switch raced whatever had just been put in the table -- filling from
-    // the solution showed the rows, then the fetch landed and wiped them --
-    // and threw away un-saved typing on the way past.
+    // Only the first visit reads the saved card, so a later fetch cannot
+    // land on top of rows just filled in or typing not yet saved.
     if (name === "dope" && !state.dopeLoaded) loadDope();
     // Neither canvas has a measured size until its panel is on screen, so
     // both are drawn when their tab is opened rather than up front.
@@ -511,9 +508,8 @@
       if (window.SPOTS_SIM) window.SPOTS_SIM.reset();
       if (window.SPOTS_RETICLE) window.SPOTS_RETICLE.reset();
       await loadInputs();
-      // Changing the load while watching the flight, or reading a hold off
-      // the glass, should work the new one out rather than leave an empty
-      // stage behind.
+      // Re-solve whichever picture is open, so changing the load does not
+      // leave an empty stage behind.
       const showing = (name) => {
         const panel = document.querySelector(`.ball-panel[data-panel="${name}"]`);
         return panel && !panel.hidden;

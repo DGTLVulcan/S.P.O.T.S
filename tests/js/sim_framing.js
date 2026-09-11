@@ -1,16 +1,9 @@
 // Checks that the simulation frames the shot it is given, and that both
 // its scales are readable.
 //
-// The reported fault was that the distance scale along the bottom only
-// appeared once you asked for more than 2000 m, and that 50 m drew nothing
-// worth looking at. Both came from a camera and a height scale that were
-// hard-coded for a 500 m .308. So this drives the real trajectories out of
-// the solver at a spread of ranges and two canvas sizes, and asserts that
-// what gets drawn lands inside the canvas.
-//
-// The drop scale is checked just as hard. The height in this view is
-// stretched, by a factor that changes with the range, so a curve without
-// a scale beside it is a shape and nothing more.
+// Drives real solver output at a spread of ranges and two canvas sizes,
+// asserting that everything drawn lands inside the canvas: the distance
+// scale, the flight, the muzzle and target, and the drop scale up the left.
 //
 // Usage: node sim_framing.js <ballistics_sim.js> <trajectories.json>
 const fs = require("fs");
@@ -109,9 +102,9 @@ eval(fs.readFileSync(PICKER, "utf8"));
 eval(fs.readFileSync(SOURCE, "utf8"));
 
 // ---- what the recorded ops mean ---------------------------------------
-// The module picks colours through css(), and the stub returns nothing, so
-// every mark carries its documented fallback colour. That is what tells
-// the trajectory apart from the grid.
+// The module picks colours through css() and the stub returns nothing, so
+// every mark carries its fallback colour. That is what tells the
+// trajectory apart from the grid.
 const ACCENT = "#2a78d6";       // the flight path
 const MUTED = "#898781";        // the distance axis and its labels
 const GRID = "#e1e0d9";         // the range gridlines

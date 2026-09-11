@@ -1,8 +1,8 @@
 """Renders a shot group as a shareable PNG.
 
-Drawn server-side with OpenCV rather than screenshotting the browser: the
-same picture whichever device asked, and it works for a session nobody has
-open. Deliberately plain -- meant to be legible on a phone and printable.
+Drawn server-side with OpenCV, so it is the same picture whichever device
+asked and works for a session nobody has open. Plain, so it stays legible
+on a phone and prints.
 """
 from __future__ import annotations
 
@@ -65,9 +65,8 @@ def _draw_diagram(img, top, height, shots, center, rings, unit_name):
         for fraction in (0.33, 0.66, 1.0):
             cv2.circle(img, (cx, cy), int(plot_radius * fraction), _GRID, 1, cv2.LINE_AA)
 
-    # Span the drawn content, not the whole panel: a single wide flyer pulls
-    # the scale in, and a crosshair drawn to the full radius then stretches
-    # far beyond anything plotted and reads as an error.
+    # Spans the drawn content rather than the panel, so a crosshair never
+    # stretches beyond the shots after a wide flyer pulls the scale in.
     extent = int(max_abs * scale) + 18
     cv2.line(img, (cx - extent, cy), (cx + extent, cy), _GRID, 1, cv2.LINE_AA)
     cv2.line(img, (cx, cy - extent), (cx, cy + extent), _GRID, 1, cv2.LINE_AA)

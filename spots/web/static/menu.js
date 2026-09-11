@@ -1,8 +1,7 @@
 // The site menu behind the hamburger button.
 //
-// The panel is in the markup and merely hidden, so the links are real links
-// that work with JavaScript off -- this only handles opening, closing, and
-// keyboard use.
+// The panel is in the markup and merely hidden, so the links work with
+// JavaScript off. This handles opening, closing and keyboard use.
 (function () {
   const button = document.getElementById("menu-button");
   const panel = document.getElementById("menu-panel");
@@ -64,9 +63,8 @@
 
   // ---- the system box at the foot of the panel --------------------------
   //
-  // Polled only while the menu is open. A closed dropdown asking the Pi how
-  // it is every few seconds, on every page, all day, is work for nothing --
-  // and this runs on the same Pi that is doing the detection.
+  // Polled only while the menu is open, since this runs on the same Pi that
+  // is doing the detection.
   const rows = document.getElementById("menu-stats-rows");
   let timer = null;
 
@@ -111,9 +109,8 @@
     return `${m}m`;
   }
 
-  // What the power row says. Right now beats since boot: a supply that is
-  // sagging under load is a different problem from one that dipped once on
-  // a cold start, and only the first will ruin the session in front of you.
+  // What the power row says. A supply sagging right now outranks one that
+  // dipped at boot: they are different problems.
   function power(flags) {
     if (!flags) return { text: "&ndash;", note: "not reported", level: "ok" };
     if (flags.under_voltage_now) {

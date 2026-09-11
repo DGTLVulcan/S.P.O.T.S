@@ -1,9 +1,8 @@
 // The range-hot / cease-fire banner.
 //
-// The state is held on the Pi, not in the browser, so every phone looking
-// at S.P.O.T.S shows the same thing -- which is the only way a range
-// indicator is worth anything. Pages other than the dashboard poll for it,
-// since someone else may have called the cease fire.
+// The state is held on the Pi rather than the browser, so every phone shows
+// the same thing. Pages other than the dashboard poll for it, since someone
+// else may have called the cease fire.
 (function () {
   const banner = document.getElementById("range-banner");
   const toggle = document.getElementById("range-toggle");
@@ -85,10 +84,9 @@
   toggle.addEventListener("click", flip);
   if (big) big.addEventListener("click", flip);
 
-  // Space anywhere on the page, when it isn't already doing something else.
-  // A shortcut that flips a safety state must not go off while someone is
-  // typing a session name, nor steal the key from a focused control -- space
-  // presses buttons, ticks checkboxes and opens <summary>.
+  // Space anywhere on the page, unless it is already doing something else:
+  // it must not fire while someone is typing, or steal the key from a focused
+  // control, since space presses buttons and ticks checkboxes.
   function busyElsewhere() {
     const el = document.activeElement;
     if (!el || el === document.body) return false;

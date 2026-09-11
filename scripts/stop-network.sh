@@ -4,13 +4,10 @@
 # range mode with setup-network.sh or `spots -initnetwork`.
 #
 # eth0 goes back to being a DHCP client too, so the Pi is reachable on an
-# ordinary LAN again -- under spots-eth it serves its own DHCP on a fixed
-# address and never appears on your network at all.
-#
-# NOTE: an SSH session over eth0 is on an address from spots-eth's own DHCP,
-# so this drops it; reconnect at whatever the router hands out. The switch
-# runs under systemd so a mid-command hangup can't leave eth0 with no usable
-# profile. SPOTS_KEEP_ETH=1 leaves eth0 in camera-DHCP mode.
+# ordinary LAN again. An SSH session over eth0 is on an address from
+# spots-eth's own DHCP and will drop; reconnect at whatever the router
+# hands out. The switch runs under systemd so a hangup partway cannot leave
+# eth0 with no usable profile. SPOTS_KEEP_ETH=1 leaves eth0 alone.
 #
 # Env vars:
 #   SPOTS_WIFI_SSID      If set, reconnects wlan0 to this network as a client
@@ -60,9 +57,8 @@ if [ "${SPOTS_KEEP_ETH:-0}" = "1" ]; then
 else
   echo "==> Restoring eth0 to a normal DHCP client"
 
-  # Find an ethernet profile to hand eth0 back to, and make one if there
-  # isn't any: disabling spots-eth would otherwise leave eth0 with nothing
-  # to come up on.
+  # Finds an ethernet profile to hand eth0 back to, making one if there is
+  # none, so disabling spots-eth leaves it something to come up on.
   dhcp_profile=""
   while IFS= read -r name; do
     [ -n "$name" ] || continue
@@ -89,9 +85,9 @@ else
     ipv4.method auto connection.autoconnect yes connection.autoconnect-priority 0 || true
   $SUDO nmcli connection modify spots-eth autoconnect no 2>/dev/null || true
 
-  # This activation is what kills an SSH session on eth0, so hand it to
-  # systemd: a hangup partway would otherwise abort with spots-eth down and
-  # the DHCP profile not yet up, leaving the Pi unreachable.
+  # This activation is what kills an SSH session on eth0, so it is handed to
+  # systemd rather than risking a hangup partway leaving eth0 with neither
+  # profile up.
   nmcli_path="$(command -v nmcli)"
   if command -v systemd-run >/dev/null 2>&1; then
     echo "    Switching now (detached, so it survives this session dropping)"

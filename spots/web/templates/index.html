@@ -41,7 +41,7 @@
   </div>
 
 {#- Each card is a macro, so the page can be rendered in whatever order the
-    stored layout asks for without the markup existing twice. -#}
+    stored layout asks for. -#}
 {% macro tile_range() %}
       {%- if range_status.enabled %}
       <div class="card range-card" data-tile="range">
@@ -236,9 +236,8 @@
   "subgroups": tile_subgroups,
 } %}
 
-  {#- Card sizes, as custom properties rather than an attribute on every
-      card, so the macros above stay unaware of the layout entirely. The ids
-      are whitelisted in spots/layout.py, so there is nothing to escape. -#}
+  {#- Card sizes as custom properties, so the macros above stay unaware of
+      the layout. The ids are whitelisted in spots/layout.py. -#}
   {%- if layout.sizes %}
   <style>
     {%- for tile, size in layout.sizes.items() %}
@@ -257,8 +256,8 @@
     {%- endfor %}
   </main>
 
-  {#- Cards put away in the layout editor. They stay in the page so bringing
-      one back is a matter of moving it, not re-rendering it. -#}
+  {#- Cards put away in the layout editor. They stay in the page, so
+      bringing one back is a move rather than a re-render. -#}
   <div id="layout-hidden" hidden>
     {%- for tile in layout.hidden %}
     {{ TILE_MACROS[tile]() }}

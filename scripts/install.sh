@@ -49,9 +49,9 @@ if command -v apt-get >/dev/null 2>&1; then
   fi
   echo "==> Installing OS packages (git, Python venv, OpenCV runtime libs)"
   $SUDO apt-get update
-  # OpenBLAS, not libatlas-base-dev: ATLAS left the archive in Bookworm.
-  # dnsmasq-base is what NetworkManager shells out to for ipv4.method=shared
-  # -- without it the AP comes up but hands out no addresses.
+  # OpenBLAS rather than libatlas-base-dev, which left the Bookworm archive.
+  # dnsmasq-base is what NetworkManager uses for ipv4.method=shared; without
+  # it the AP comes up but hands out no addresses.
   $SUDO apt-get install -y --no-install-recommends \
     git python3-venv python3-pip libopenblas-dev libopenjp2-7 libtiff6 dnsmasq-base
 else

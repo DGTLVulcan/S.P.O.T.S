@@ -81,8 +81,7 @@ _CENTER_MARKER_BGR = (72, 73, 227)  # #e34948
 @bp.route("/")
 def index():
     # Rendered from the stored arrangement rather than reordered in the
-    # browser afterwards, so the page never flashes the default layout
-    # first on a slow link.
+    # browser, so the page never flashes the default layout first.
     return render_template(
         "index.html",
         target=_settings().target,
@@ -110,9 +109,8 @@ def _range_status():
 def _sync_detection_pause():
     """Detection is paused only while a cease fire is actually in force.
 
-    A stored "cease" with the feature switched off would otherwise leave
-    detection silently stopped with no visible banner and a greyed-out
-    button that cannot clear it.
+    A stored "cease" with the feature switched off must not leave
+    detection stopped with no banner to explain it.
     """
     settings = _settings()
     paused = settings.web.range_status_enabled and _storage().get_range_state() == "cease"
@@ -152,9 +150,8 @@ def api_layout_save():
     data = request.get_json(force=True)
     if not isinstance(data, dict) or not isinstance(data.get("columns"), list):
         return jsonify({"error": "layout must be an object with a columns list"}), 400
-    # Stored through the same cleaning the renderer trusts, and the cleaned
-    # version is returned so the page can correct itself if anything was
-    # dropped rather than quietly disagreeing with what was saved.
+    # Cleaned the same way the renderer expects, and the cleaned version is
+    # returned so the page can correct itself if anything was dropped.
     return jsonify({"ok": True, "layout": _storage().set_layout(data)})
 
 
@@ -178,8 +175,7 @@ def _view_to_frame_px(x, y):
 
     The browser measures clicks against the <img>'s natural size, so a
     downscaled stream shrinks every click by that factor. Undone here, at
-    the one boundary view coordinates enter, rather than in four places in
-    the browser.
+    the one boundary view coordinates enter.
     """
     max_width = _settings().web.stream_max_width
     if max_width <= 0:
@@ -195,9 +191,9 @@ def _view_to_frame_px(x, y):
 
 
 def _draw_overlay(frame, snapshot, homography, scale=1.0):
-    # Shots live in the detector's anchor space but the feed shows the raw
-    # frame, so they need the inverse homography to land correctly. Test
-    # shots are already raw-frame points; warping them would misplace them.
+    # Shots are in the detector's anchor space and the feed shows the raw
+    # frame, so they need the inverse homography. Test shots are already
+    # raw-frame points and are left alone.
     homography_inv = invert_homography(homography)
 
     for shot in snapshot.shots:
@@ -257,12 +253,10 @@ def _render_frame_jpeg(worker, quality, max_width):
 def frame_jpeg():
     """One frame, fetched on demand by the dashboard.
 
-    Pulled one at a time rather than served as the MJPEG stream below,
-    which has no backpressure: it emits on a timer regardless of the client
-    and the excess piles into the socket buffer (a couple of MB is ~70
-    frames), so over the Pi's own AP you watch a picture from seconds ago
-    until you reload. One frame in flight means latency is a single round
-    trip and the rate follows the link.
+    Pulled one at a time rather than pushed like the MJPEG stream below,
+    which emits on a timer regardless of the client and piles the excess
+    into the socket buffer. One frame in flight keeps latency to a single
+    round trip and lets the rate follow the link.
     """
     web = _settings().web
     data = _render_frame_jpeg(_worker(), web.stream_quality, web.stream_max_width)
@@ -313,9 +307,9 @@ def _stats_dict(stats, unit_name, distance_m):
 def _score_dict(snapshot, rings):
     """Scores the current group against the selected target face.
 
-    Shots are already offsets from the marked centre, so their distance
-    from the origin is the radius scoring needs -- which is why this is
-    only meaningful once Mark Center has been used.
+    Shots are offsets from the marked centre, so their distance from the
+    origin is the radius scoring needs. Only meaningful once Mark Center
+    has been used.
     """
     calibration = snapshot.calibration
     if not rings or calibration is None or not calibration.origin_is_target_center:
@@ -424,9 +418,8 @@ def _sync_bullet_diameter():
 def _selected_equipment():
     """The currently selected rifle/scope/ammo records, by kind.
 
-    The selection lives in the database alongside the equipment itself, so
-    the two can't drift apart, and a record deleted since being selected
-    reads as None rather than wedging the dashboard.
+    The selection lives in the database alongside the equipment, so the
+    two cannot drift. A record deleted since being selected reads as None.
     """
     storage = _storage()
     selected = storage.get_selected_equipment()
@@ -605,8 +598,8 @@ def api_equipment_select():
 def api_backup():
     """Downloads the whole database -- sessions, shots, equipment, settings.
 
-    It lives on an SD card in a device that travels to a range, and the only
-    other way out is a CSV per session, so a card failure would take the lot.
+    The only other way out is a CSV per session, so this is the way to
+    get everything off the SD card at once.
     """
     storage = _storage()
     handle, temp_path = tempfile.mkstemp(prefix="spots-backup-", suffix=".db")
@@ -1151,9 +1144,8 @@ def export_csv(session_id):
     return resp
 
 
-# Fields that apply immediately, because the worker holds a live reference
-# to the very objects being edited. Everything else is baked in at startup,
-# so it saves to config.yaml but needs a restart.
+# Fields the worker holds a live reference to, so edits apply immediately.
+# Everything else saves to config.yaml but needs a restart.
 _HOT_RELOAD_DETECTION_FIELDS = {
     "diff_threshold",
     "min_hole_area_px",
@@ -1383,7 +1375,7 @@ def api_ballistics_truing():
     """Come-ups measured on past strings, ready to true against.
 
     The group centre comes from shots already recorded, so the only thing
-    this needs a human for is what was on the turret at the time.
+    needed from a human is what was on the turret at the time.
     """
     unit = dope.unit_for(_selected_equipment(), request.args.get("unit"))
     sessions = []
@@ -1457,9 +1449,9 @@ def api_dope_delete():
 def ranges_page(range_id=None):
     """A range's map and its rules.
 
-    Ranges are built in rather than editable: the rules are a safety
-    document, so they come from the range's own published copy or not at
-    all. Named range_item in the template because Jinja already has range().
+    Ranges are built in rather than editable, since the rules are a safety
+    document. Named range_item in the template, because Jinja already has
+    range().
     """
     if range_id is not None and ranges.get_range(range_id) is None:
         abort(404)

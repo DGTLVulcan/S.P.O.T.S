@@ -1,8 +1,7 @@
 """Pi health readings for the dashboard.
 
-Read straight from /proc and /sys rather than via psutil. The point is to
-notice a full SD card or a throttling CPU before it ruins a session, so
-anything unavailable is reported as None rather than raising.
+Read straight from /proc and /sys rather than via psutil. Anything
+unavailable is reported as None rather than raising.
 """
 from __future__ import annotations
 
@@ -41,9 +40,7 @@ def throttled_flags() -> dict | None:
     """Raspberry Pi under-voltage / throttling state.
 
     Firmware bits: 0 under-voltage, 1 frequency capped, 2 throttled, 3
-    soft temp limit, and 16-19 the same "since boot". A cheap supply showing
-    as under-voltage explains a lot of odd Pi behaviour, and is invisible
-    otherwise.
+    soft temp limit, and 16-19 the same "since boot".
     """
     raw = _read_first_line("/sys/devices/platform/soc/soc:firmware/get_throttled")
     if raw is None:
@@ -119,9 +116,8 @@ def collect(storage_path: str, feed_active: str, camera_connected: bool) -> dict
 
     warnings: list[str] = []
     status = "ok"
-    # Per-subsystem, as well as rolled up: the menu shows a row each for CPU,
-    # disk and power, and deciding their colour from the thresholds again in
-    # JavaScript would be two copies of the same numbers waiting to drift.
+    # Per-subsystem as well as rolled up, so the menu can colour its CPU,
+    # disk and power rows without repeating these thresholds.
     levels = {"cpu": "ok", "disk": "ok", "power": "ok", "camera": "ok"}
 
     def escalate(part: str, level: str, message: str) -> None:

@@ -59,10 +59,9 @@ _ARCMINUTES_PER_DEGREE = 60.0
 
 
 def to_moa(size: float, unit_name: str, distance_m: float | None) -> float | None:
-    """Converts a linear group size to MOA (minutes of angle) at a given
-    distance. Returns None if there's no usable distance or the unit isn't
-    one of the fixed conversions above -- callers should treat that as "MOA
-    not available" rather than an error.
+    """Converts a linear group size to MOA at a given distance. Returns None
+    when there is no usable distance, or the unit is not one of the
+    conversions above, which callers treat as "MOA not available".
     """
     if not distance_m or distance_m <= 0:
         return None
@@ -97,7 +96,7 @@ def scope_correction(
 
     `center` is the group centre relative to the marked point of aim, +x
     right and +y up. The dial goes the opposite way to the error: high and
-    right needs DOWN and LEFT. None if the angle can't be worked out.
+    right needs DOWN and LEFT. None when the angle cannot be worked out.
     """
     if click_value <= 0:
         return None
@@ -120,22 +119,17 @@ def scope_correction(
 
 
 def best_subgroup(points: list[tuple[float, float]], n: int, unit_name: str) -> GroupStats | None:
-    """Tightest N-shot subset by extreme spread, out of however many shots
-    exist -- the standard "best N-shot group" precision-shooting metric.
+    """Tightest N-shot subset by extreme spread -- the standard "best N-shot
+    group" metric.
 
-    Still exact, but by depth-first branch and bound over a precomputed
-    distance matrix rather than scoring every subset. Building GroupStats
-    for all C(30,5)=142,506 measured ~3.6 s per dashboard poll; pruning any
-    partial subset that already spans the best diameter found makes it a few
-    milliseconds, since most branches blow the bound in two or three points.
-
-    Callers should still cap the input (TargetConfig.best_subgroup_max_shots)
-    -- the worst case is combinatorial, pruning just makes real groups cheap.
+    Exact, by depth-first branch and bound over a precomputed distance
+    matrix: any partial subset already spanning the best diameter found is
+    pruned. The worst case is still combinatorial, so callers cap the input
+    with TargetConfig.best_subgroup_max_shots.
 
     Ties are common, since the diameter comes from one widest pair that many
-    subsets share, so which optimal subset is reported can differ from the
-    exhaustive version's. The extreme spread is identical either way; only
-    the tied subgroup's own centre/mean radius/std dev can vary.
+    subsets share. The extreme spread is the same either way; only the tied
+    subgroup's own centre, mean radius and std dev can vary.
     """
     count = len(points)
     if n < 1 or count < n:

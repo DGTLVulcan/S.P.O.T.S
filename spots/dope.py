@@ -69,10 +69,9 @@ def parse_twist(raw) -> float | None:
 def parse_magnification(raw) -> tuple[float | None, float | None]:
     """The low and high power out of a scope's description.
 
-    Written "4-16x40", "5-25x56", or "10x42" for a fixed scope, and often
-    with the objective left off entirely. Returns (low, high), equal when
-    the scope does not zoom, and (None, None) when it cannot be read --
-    which is not an error, just a scope nobody has described yet.
+    Written "4-16x40", "5-25x56", or "10x42" for a fixed scope, often with
+    the objective left off. Returns (low, high), equal when the scope does
+    not zoom, and (None, None) when it cannot be read.
     """
     text = str(raw or "").strip().lower().replace("×", "x")
     if not text:
@@ -94,10 +93,9 @@ def shot_from_equipment(equipment: dict, conditions: dict | None = None,
                         overrides: dict | None = None):
     """Build a solver input from the selected kit.
 
-    Returns (shot, missing, used) -- `missing` lists the labels of anything
+    Returns (shot, missing, used). `missing` lists the labels of anything
     required that nobody has recorded, so the page can ask for it rather
-    than quietly substituting a default and producing a confident wrong
-    answer.
+    than substituting a default.
     """
     equipment = equipment or {}
     conditions = conditions or {}
@@ -176,15 +174,13 @@ def shot_from_equipment(equipment: dict, conditions: dict | None = None,
         "ammo": (equipment.get("ammo") or {}).get("name"),
         "unit": scope_item.get("click_unit") or "mrad",
         "click_value": scope_item.get("click_value") or 0.0,
-        # Nothing here reaches the solver. It is for drawing the scope
-        # picture, which needs to know what you are looking through: the
-        # marks, and whether their spacing holds at every magnification.
+        # For the scope picture rather than the solver: which marks are on
+        # the glass, and whether their spacing holds at every power.
         "reticle": (scope.get("reticle") or "").strip(),
         "focal_plane": (scope.get("focal_plane") or "").strip(),
         "magnification": (scope.get("magnification") or "").strip(),
-        # On a second focal plane scope the marks only subtend what they
-        # claim at one power, so the picture needs to know which one. Blank
-        # is left blank rather than guessed: the page says what it assumed.
+        # The power a second focal plane reticle is true at. Left blank
+        # rather than guessed; the page says what it assumed.
         "reticle_calibration_x": _number(scope, "reticle_calibration_x"),
     }
     used["magnification_min"], used["magnification_max"] = parse_magnification(
@@ -203,11 +199,9 @@ def unit_for(equipment: dict, override: str | None = None) -> str:
 def observations_from_sessions(sessions, unit: str) -> list[dict]:
     """Come-ups that were actually measured, pulled out of history.
 
-    A session can be trued against only if it says three things: how far
-    away the target was, what was dialled, and where the group landed. The
-    first two are recorded per session; the third is the group centre the
-    detector already worked out. Anything missing one of them is returned
-    with a reason rather than silently skipped.
+    A session can be trued against only if it records the distance, what
+    was dialled, and a group centre. Anything missing one of the three is
+    returned with a reason rather than skipped.
     """
     rows = []
     for session in sessions or []:
@@ -232,9 +226,8 @@ def observations_from_sessions(sessions, unit: str) -> list[dict]:
                          "why": "elevation dialled wasn't recorded"})
             continue
 
-        # The group landed `centre` from the point of aim. What the rifle
-        # actually needed is what was on the turret plus whatever would
-        # have moved the group onto the aim point.
+        # The group landed `centre` from the point of aim, so what was
+        # needed is what was dialled plus the correction back to centre.
         unit_name = session.get("unit_name") or ""
         offset_m = _to_metres(centre[1], unit_name)
         if offset_m is None:

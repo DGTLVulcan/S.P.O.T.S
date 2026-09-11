@@ -1,10 +1,9 @@
 // The range page: switching between the map and the rules, and the map's
 // own zoom and pan.
 //
-// The map is a scanned site plan -- legible only when you can zoom into the
-// part you care about -- so it gets drag-to-pan, wheel and pinch zoom, and
-// a fit-to-window reset. Pointer events throughout, because this is read on
-// a phone at the range at least as often as on a laptop.
+// The map is a scanned site plan, so it gets drag-to-pan, wheel and pinch
+// zoom, and a fit-to-window reset. Pointer events throughout, since this is
+// read on a phone as often as on a laptop.
 (function () {
   // ---- Map / Rules ---------------------------------------------------
 

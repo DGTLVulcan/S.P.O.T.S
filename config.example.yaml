@@ -5,30 +5,25 @@ camera:
   # "zcam" for a real Z CAM E2-series camera over the network, "synthetic" for
   # local development/testing without any hardware attached.
   source: synthetic
-  # Leave blank to auto-discover the camera on the Ethernet link (the normal
-  # field setup -- see scripts/setup-network.sh and spots/camera/discovery.py).
-  # Set explicitly only to pin a known IP and skip discovery.
+  # Blank auto-discovers the camera on the Ethernet link, which is the normal
+  # field setup. Set it only to pin a known IP and skip discovery.
   ip: ""
   stream_width: 1920
   stream_height: 1080
   stream_bitrate: 8000000
-  # Software crop+resize zoom, for when the lens can't get physically close
-  # enough to fill the frame with the target. 1.0 = no zoom. Adjustable live
-  # from the dashboard; these are just the startup defaults.
+  # Software crop+resize zoom, for when the lens can't get close enough.
+  # 1.0 is no zoom. These are the startup defaults; it is adjustable live.
   digital_zoom: 1.0
   zoom_center_x: 0.5
   zoom_center_y: 0.5
 
 target:
-  # Real-world width of the paper target, used for pixel <-> real-world
-  # calibration. Units are whatever you want shot groups reported in
-  # (cm, mm, ...) - just be consistent.
+  # Real-world width of the paper target, for pixel to real-world
+  # calibration. Units are whatever you want groups reported in.
   width_units: 59.0
   unit_name: cm
-  # Distance to target in meters, for converting group size to MOA (0 =
-  # not set, MOA omitted). Adjustable live from the dashboard; MOA only
-  # works when unit_name is one of mm/cm/m/in/ft, since that's what can be
-  # converted to meters.
+  # Distance to target in metres, for converting group size to MOA; 0 is
+  # unset and MOA is omitted. Needs unit_name to be one of mm/cm/m/in/ft.
   distance_m: 0.0
   # "Best N-shot subgroup" sizes to report once that many shots exist.
   best_subgroup_sizes: [3, 5]
@@ -38,27 +33,22 @@ target:
 
 detection:
   sample_fps: 3
-  # Low enough to catch a hole on a dark printed ring (much less contrast
-  # than on a light ring); noise is rejected by hole area/circularity and
-  # the 2-frame debounce below, not by a high threshold. Raise if outdoor
-  # lighting flicker causes false positives; lower if dark-ring holes still
-  # aren't registering.
+  # Low enough to catch a hole on a dark printed ring; noise is rejected by
+  # area, circularity and the debounce below rather than by a high threshold.
+  # Raise it if lighting flicker causes false positives.
   diff_threshold: 20
-  # Bullet hole size range in pixels-squared, before calibration scaling.
-  # Tune these after seeing real footage; defaults assume a medium pistol
-  # caliber hole at a typical pistol-bay target distance/zoom.
+  # Hole size range in pixels squared, before calibration scaling. The
+  # defaults assume a medium pistol calibre at a typical bay distance.
   min_hole_area_px: 20
   max_hole_area_px: 400
   min_circularity: 0.5
-  # Max pixel drift allowed when matching a candidate hole to the same one
-  # seen on the previous sampled frame, for debounce persistence checking.
-  # Not a "shots must be this far apart" filter -- tight/overlapping groups
-  # are expected and handled via reference burn-in (see vision/detection.py).
+  # Max pixel drift when matching a candidate to the same hole on the
+  # previous frame, for the debounce. Not a minimum spacing between shots:
+  # tight groups are handled by reference burn-in.
   min_shot_spacing_px: 12
   debounce_frames: 2
-  # Re-align each frame onto the reference via ORB feature matching +
-  # homography before diffing, so a target swaying in wind or from a nearby
-  # impact's shockwave doesn't produce false shots or blur real ones.
+  # Re-aligns each frame onto the reference by ORB matching and a homography
+  # before diffing, so a swaying target doesn't produce false shots.
   realignment_enabled: true
   realignment_method: orb  # "orb" or "sift"
   realignment_min_matches: 15
@@ -70,18 +60,12 @@ storage:
 web:
   host: 0.0.0.0
   port: 8080
-  # Dashboard video stream. Each streamed frame costs an overlay draw plus a
-  # full JPEG encode, for every viewer watching -- on a Pi that's the largest
-  # steady CPU cost. This is independent of detection: shots are still found
-  # at detection.sample_fps regardless of what the stream is doing. Raise
-  # stream_fps for a smoother picture if you have CPU headroom, lower it (or
-  # lower stream_quality) if the dashboard feels sluggish.
+  # Dashboard video stream. Each frame costs an overlay draw and a JPEG
+  # encode per viewer, which is the largest steady CPU cost on a Pi. Shots
+  # are still found at detection.sample_fps whatever the stream is doing.
   stream_fps: 10
   stream_quality: 80
-  # Cap the streamed picture's width in pixels (0 = native resolution).
-  # Detection always uses the full-resolution frame regardless of this --
-  # it only affects what is sent to the browser. A native 1080p stream
-  # measured ~18 Mbit/s, more than a Pi hosting its own 2.4GHz WiFi can
-  # carry, so the picture arrives late and new shots look like they only
-  # appear after a page refresh. Raise it if your link has the headroom.
+  # Caps the streamed picture's width in pixels; 0 is native. Only affects
+  # what is sent to the browser, never detection. Native 1080p is about
+  # 18 Mbit/s, more than a Pi hosting its own 2.4GHz WiFi carries.
   stream_max_width: 960

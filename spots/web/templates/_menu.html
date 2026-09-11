@@ -3,9 +3,7 @@
     Set `active` to the endpoint name before including, so the page you are
     on is marked. Every destination lives here: the app bar keeps only the
     controls that act on the page in front of you. -#}
-{#- Order is deliberate and pinned by a test: what you use while shooting
-    first, what you set up before it next, what you look back at after it
-    last. -#}
+{#- Order is pinned by a test: shooting first, setup next, review last. -#}
 {%- set items = [
   ("spots.index",         "&#8962;",  "Live view",       "The target and the shot log"),
   ("spots.ballistics_page", "&#128200;", "Ballistics",   "Come-ups, DOPE, holds and truing"),
@@ -33,9 +31,8 @@
       </span>
     </a>
     {%- endfor %}
-    {#- Not a destination, so it sits outside the list of menu items and
-        stays out of the arrow-key rotation. Filled in by menu.js while the
-        panel is open, and only while it is open. -#}
+    {#- Not a destination, so it sits outside the menu items and out of the
+        arrow-key rotation. Filled in by menu.js while the panel is open. -#}
     <div class="menu-stats" id="menu-stats" role="group" aria-label="System">
       <div class="menu-stats-head">System</div>
       <div class="menu-stats-rows" id="menu-stats-rows">

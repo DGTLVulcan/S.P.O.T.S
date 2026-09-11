@@ -1,16 +1,9 @@
 // Drives reticle.js under a stub DOM and a recording canvas.
 //
-// Two things here are easy to get backwards and impossible to spot by eye,
-// because a wrong picture looks exactly as plausible as a right one.
-//
-// The sign convention: the hold is the OPPOSITE of the dial, so a shot
-// needing "4.4 up, 3.2 left" on the turrets has to be drawn with the
-// target sitting low and RIGHT of the reticle centre. Inverted, it tells
-// you to miss by twice the correction.
-//
-// The zoom ring: on a second focal plane scope the reading changes with
-// the power, and on a first it does not. Invert that ratio and it tells
-// you to hold four dots where you need one.
+// Pins down the two things a wrong picture still looks plausible for. The
+// sign convention: a shot needing "4.4 up, 3.2 left" on the turrets is
+// drawn with the target low and RIGHT of centre. The zoom ring: the
+// reading changes with power on a second focal plane scope, not a first.
 //
 // Usage: node reticle_hold.js <reticle.js>
 const fs = require("fs");
@@ -117,10 +110,9 @@ function pick(key) {
   byId("reticle-type").dispatch("change");
 }
 
-// Real solver output for this .223 at 500 m in a 16 km/h wind. Elevation is
-// what you would dial UP; windage is what you would dial, negative meaning
-// left. A 9 o'clock wind blows from the left and pushes the bullet right,
-// so it is dialled left.
+// Real solver output for this .223 at 500 m in a 16 km/h wind. Elevation
+// is what you would dial UP, windage what you would dial, negative meaning
+// left. A 9 o'clock wind blows from the left and pushes the bullet right.
 const FROM_LEFT = { distance_m: 500, elevation: 4.43, windage: -3.17 };
 const FROM_RIGHT = { distance_m: 500, elevation: 4.43, windage: 3.17 };
 const NO_WIND = { distance_m: 500, elevation: 4.49, windage: 0 };
@@ -218,8 +210,7 @@ if (byId("reticle-type").value !== "mrad-tree") {
 // ---- the zoom ring, and what each kind of scope does with it -----------
 //
 // The angle to hold never changes. What the reticle READS changes only on
-// a second focal plane scope, because there the marks keep their size on
-// the glass while the target grows behind them.
+// a second focal plane scope.
 // Some of these nodes are written as markup and some as plain text.
 const plain = (id) => (byId(id).innerHTML || byId(id).textContent || "")
   .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -318,8 +309,8 @@ console.log("no mag     : " + plain("reticle-zoom-value"));
 
 // ---- the panel's own come-up table ------------------------------------
 //
-// It is a tab in its own right now, so it has to get from a solution to a
-// hold without the simulation having been opened at all.
+// The tab has to get from a solution to a hold on its own, without the
+// simulation being opened.
 const card = {
   unit: "mrad", click_value: 0.1,
   rows: [100, 200, 300, 400, 500].map((d) => ({

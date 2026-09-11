@@ -2,9 +2,8 @@
 # Launcher installed by scripts/install.sh. Run the installed copy
 # (`spots`), not this one, so INSTALL_DIR below is filled in.
 #
-# The two lines below are filled in by matching "^INSTALL_DIR=" and
-# "^REPO_URL=" line-anchored, not the placeholder text: substituting on the
-# token would corrupt the -update sed that contains it as a literal.
+# The installer substitutes the two lines below by matching "^INSTALL_DIR="
+# and "^REPO_URL=" line-anchored, not the placeholder text.
 set -euo pipefail
 
 INSTALL_DIR="/path/set/by/install.sh"

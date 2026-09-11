@@ -1,11 +1,10 @@
 """The shooting ranges built into the app.
 
 One JSON file per range in data/ranges, transcribed from that range's own
-published rules -- there is no way to add a range from the app, because a
-range's rules are a safety document and having them typed in by whoever is
-holding the phone is worse than not having them at all. Each file records
-where its contents came from and when, so a copy that has gone stale can
-be recognised as stale rather than trusted.
+published rules. Ranges cannot be added from the app: the rules are a
+safety document, so they come from the published copy or not at all. Each
+file records where its contents came from and when, so a stale copy can be
+recognised as stale.
 """
 from __future__ import annotations
 
