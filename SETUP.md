@@ -37,6 +37,20 @@ password, the Pi's IP on each interface); it prints the SSID and password
 *before* making any network change, since bringing the access point up
 disconnects an SSH session running over WiFi.
 
+The defaults are fixed, so you know them before you install:
+
+| | |
+|---|---|
+| Network (SSID) | `SPOTS` |
+| Password | `Spots1234` |
+| Dashboard | <http://192.168.4.1:8080/> |
+
+Set `SPOTS_AP_SSID` / `SPOTS_AP_PASSWORD` when running the installer (or
+`setup-network.sh`) to use your own. Anyone within WiFi range who knows the
+default can join the Pi's network and open the dashboard — it is a range
+tool, not a locked-down one, so change the password if that matters where
+you shoot.
+
 Both profiles (`spots-ap`, `spots-eth`) are saved in NetworkManager with
 autoconnect enabled, so the Pi comes back up as its own network on **every
 boot** with nothing to re-run -- it stays that way until you run
@@ -208,9 +222,8 @@ python -m unittest discover -s tests
    Ethernet port, and power it on.
 2. Power on the Pi (a USB power bank works fine). S.P.O.T.S starts itself --
    give it a minute to boot and connect to the camera.
-3. Join the Pi's WiFi network from your phone (SSID/password from the
-   installer output -- see Field network topology above) and load the
-   dashboard.
+3. Join the Pi's WiFi network from your phone (`SPOTS` / `Spots1234` unless
+   you changed it) and load <http://192.168.4.1:8080/>.
 4. If the lens can't get physically close enough to fill the frame with the
    target, use the **Zoom** slider (and **Center Zoom Here** to pan) on the
    live view first -- see Digital zoom below. Do this before calibrating,

@@ -10,9 +10,9 @@
 #
 # Env vars:
 #   SPOTS_AP_SSID       WiFi network name (default: SPOTS)
-#   SPOTS_AP_PASSWORD   WiFi password, 8-63 chars (default: randomly generated
-#                       8-digit PIN -- WPA2-PSK's 8-char minimum rules out
-#                       anything shorter, numeric or not)
+#   SPOTS_AP_PASSWORD   WiFi password, 8-63 chars (default: Spots1234). Fixed
+#                       rather than generated so it is the same on every Pi
+#                       and after every re-run -- set this to change it.
 #   SPOTS_AP_IP         Pi's IP on the WiFi network (default: 192.168.4.1)
 #   SPOTS_ETH_IP        Pi's IP on the Ethernet link to the camera (default: 192.168.10.1)
 #   SPOTS_WIFI_COUNTRY  2-letter WiFi regulatory country code (default: US)
@@ -25,10 +25,10 @@ if ! command -v nmcli >/dev/null 2>&1; then
 fi
 
 AP_SSID="${SPOTS_AP_SSID:-SPOTS}"
-# head -c reads a bounded chunk BEFORE tr filters it. The other order
-# (urandom | tr | head) SIGPIPEs tr when head closes the pipe, and under
-# pipefail that killed the whole script with exit 141 before any output.
-AP_PASSWORD="${SPOTS_AP_PASSWORD:-$(head -c 2048 /dev/urandom | tr -dc '0-9' | head -c 8)}"
+# A known constant, not a generated one. This gets typed into a phone at a
+# range, and a password that changed on every re-run meant looking it up
+# again every time. Override with SPOTS_AP_PASSWORD if you want your own.
+AP_PASSWORD="${SPOTS_AP_PASSWORD:-Spots1234}"
 AP_IP="${SPOTS_AP_IP:-192.168.4.1}"
 ETH_IP="${SPOTS_ETH_IP:-192.168.10.1}"
 WIFI_COUNTRY="${SPOTS_WIFI_COUNTRY:-US}"
@@ -44,11 +44,11 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Print the credentials BEFORE touching the network: everything below can
-# drop the SSH session you're running over, taking a freshly generated
-# password with it.
+# drop the SSH session you're running over, and you want them on screen
+# already when it goes.
 echo
 echo "==================================================================="
-echo "  WiFi access point credentials -- WRITE THESE DOWN NOW"
+echo "  WiFi access point credentials"
 echo "==================================================================="
 echo "    Network (SSID):  $AP_SSID"
 echo "    Password:        $AP_PASSWORD"
