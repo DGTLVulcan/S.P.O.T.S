@@ -119,10 +119,15 @@ def collect(storage_path: str, feed_active: str, camera_connected: bool) -> dict
 
     warnings: list[str] = []
     status = "ok"
+    # Per-subsystem, as well as rolled up: the menu shows a row each for CPU,
+    # disk and power, and deciding their colour from the thresholds again in
+    # JavaScript would be two copies of the same numbers waiting to drift.
+    levels = {"cpu": "ok", "disk": "ok", "power": "ok", "camera": "ok"}
 
-    def escalate(level: str, message: str) -> None:
+    def escalate(part: str, level: str, message: str) -> None:
         nonlocal status
         warnings.append(message)
+        levels[part] = "critical" if level == "critical" else "warn"
         if level == "critical" or status == "critical":
             status = "critical"
         else:
@@ -130,28 +135,29 @@ def collect(storage_path: str, feed_active: str, camera_connected: bool) -> dict
 
     if temperature is not None:
         if temperature >= _TEMP_CRITICAL_C:
-            escalate("critical", f"CPU at {temperature:.0f} C -- throttling likely")
+            escalate("cpu", "critical", f"CPU at {temperature:.0f} C -- throttling likely")
         elif temperature >= _TEMP_WARN_C:
-            escalate("warn", f"CPU at {temperature:.0f} C")
+            escalate("cpu", "warn", f"CPU at {temperature:.0f} C")
     if disk is not None:
         if disk["free_mb"] <= _DISK_CRITICAL_MB:
-            escalate("critical", f"Only {disk['free_mb']:.0f} MB of disk left")
+            escalate("disk", "critical", f"Only {disk['free_mb']:.0f} MB of disk left")
         elif disk["free_mb"] <= _DISK_WARN_MB:
-            escalate("warn", f"{disk['free_mb']:.0f} MB of disk left")
+            escalate("disk", "warn", f"{disk['free_mb']:.0f} MB of disk left")
     if throttled:
         if throttled["under_voltage_now"]:
-            escalate("critical", "Under-voltage right now -- check the power supply")
+            escalate("power", "critical", "Under-voltage right now -- check the power supply")
         elif throttled["throttled_now"]:
-            escalate("critical", "CPU is being throttled right now")
+            escalate("power", "critical", "CPU is being throttled right now")
         elif throttled["under_voltage_since_boot"]:
-            escalate("warn", "Under-voltage seen since boot")
+            escalate("power", "warn", "Under-voltage seen since boot")
         elif throttled["throttled_since_boot"]:
-            escalate("warn", "Throttling seen since boot")
+            escalate("power", "warn", "Throttling seen since boot")
     if feed_active == "zcam" and not camera_connected:
-        escalate("warn", "Live feed selected but the camera isn't connected")
+        escalate("camera", "warn", "Live feed selected but the camera isn't connected")
 
     return {
         "status": status,
+        "levels": levels,
         "warnings": warnings,
         "cpu_temp_c": temperature,
         "load_average": load_average(),

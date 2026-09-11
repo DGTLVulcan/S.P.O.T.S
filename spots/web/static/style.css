@@ -1553,6 +1553,49 @@ a.equip-nav-item { text-decoration: none; }
 .menu-label { font-size: 0.9rem; font-weight: 600; }
 .menu-blurb { font-size: 0.75rem; color: var(--ink-muted); }
 
+/* How the Pi itself is doing, at the foot of the menu. Not a destination,
+   so it is deliberately quieter than the links above it. */
+.menu-stats {
+  margin-top: 0.35rem;
+  padding: 0.5rem 0.55rem 0.35rem;
+  border-top: 1px solid var(--border);
+}
+
+.menu-stats-head {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 0.35rem;
+}
+
+.menu-stat {
+  display: grid;
+  grid-template-columns: 3.6rem auto 1fr;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.12rem 0;
+  font-size: 0.78rem;
+}
+
+.menu-stat-label { color: var(--ink-muted); }
+.menu-stat-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+.menu-stat-note {
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Colour carries the state, but never alone -- the note beside each row
+   says what is wrong in words. */
+.menu-stat.is-warn .menu-stat-value { color: var(--warning); }
+.menu-stat.is-critical .menu-stat-value { color: var(--critical); }
+.menu-stat.is-critical .menu-stat-note { color: var(--critical); }
+
 /* The menu is the first thing in the bar, so the title sits beside it
    rather than being pushed around by it. */
 .appbar .menu + .brand { margin-left: 0.1rem; }
