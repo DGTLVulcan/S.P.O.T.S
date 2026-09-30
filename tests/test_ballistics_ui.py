@@ -180,7 +180,7 @@ class ReticleTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("PASS", result.stdout)
         # Every reticle on the menu gets the same hold put through it.
-        for name in ("mil-dot", "mrad-hash", "mrad-tree", "moa-hash", "duplex"):
+        for name in ("mil-dot", "mrad-hash", "mrad-tree", "moa-hash", "duplex", "bdc-3"):
             self.assertIn(name, result.stdout)
         # A 4.43 mrad hold on a 16x-calibrated second focal plane scope is
         # 4.43 dots at 16x and half that at 8x, because the marks keep
@@ -284,6 +284,50 @@ class ReticleTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(dope.parse_magnification(text), expected)
 
+
+
+@unittest.skipIf(shutil.which("node") is None, "node isn't installed")
+class Bdc3Tests(unittest.TestCase):
+    """Meopta's BDC 3, drawn from the MeoHunter R5 manual's subtensions.
+
+    The harness measures the bars actually drawn and compares them to the
+    published figures, so the picture cannot drift from the real reticle.
+    """
+
+    SCRIPT = os.path.join(ROOT, "tests", "js", "reticle_bdc3.js")
+
+    def _run(self, source):
+        return subprocess.run(["node", self.SCRIPT, source], cwd=ROOT,
+                              capture_output=True, text=True, timeout=60)
+
+    def test_bdc3_matches_the_manual(self):
+        result = self._run(RETICLE_TARGET)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("PASS", result.stdout)
+        self.assertIn("bars       : 0.63, 1.05, 1.54, 2.03, 2.59 mrad down",
+                      result.stdout)
+        self.assertIn("hold 2.61  : bar 5, 0.02 mrad below it", result.stdout)
+
+    def test_the_manuals_misprint_would_be_caught(self):
+        # The manual's FFP column prints bar R as 2.3 mrad; its own cm figure
+        # says 2.03. Copying the misprint must fail the geometry check.
+        with open(RETICLE_TARGET, encoding="utf-8") as fh:
+            source = fh.read()
+        broken = source.replace("{ drop: 2.03, width: 0.52 },",
+                                "{ drop: 2.3, width: 0.52 },")
+        self.assertNotEqual(broken, source, "bar R has moved")
+
+        path = os.path.join(ROOT, "tests", "js", "_broken_bdc3.js")
+        try:
+            with open(path, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(broken)
+            result = self._run(path)
+            self.assertNotEqual(result.returncode, 0,
+                                "the check no longer notices a misplaced bar")
+            self.assertIn("bar 4", result.stdout)
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
 
 if __name__ == "__main__":
     unittest.main()

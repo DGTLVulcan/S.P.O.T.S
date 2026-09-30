@@ -38,10 +38,31 @@
     range: null,        // the row picked off it
   };
 
+  // Meopta BDC 3, from the MeoHunter R5 manual's 5-25x56 FFP column, in
+  // mrad. First focal plane, so every figure holds at every power. Bar R is
+  // printed as 2.3 mrad there, but its 20.3 cm/100 m and the SFP column both
+  // give 2.03.
+  const BDC3 = {
+    dot: 0.2,         // D: illuminated centre dot
+    gap: 0.6,         // G: break in the crosshair around the dot
+    posts: 3.85,      // C / 2: where the heavy posts begin
+    post: 0.5,        // A: post thickness
+    line: 0.05,       // F: fine line thickness
+    cap: 0.18,        // D1: dots on the ends of the long bars
+    bars: [           // drop below centre, and full width
+      { drop: 0.63, width: 1.05, caps: true },    // M1, L1
+      { drop: 1.05, width: 0.52 },                // P, L
+      { drop: 1.54, width: 1.64, caps: true },    // M2, L2
+      { drop: 2.03, width: 0.52 },                // R, L
+      { drop: 2.59, width: 2.28, caps: true },    // M3, L3
+    ],
+  };
+
   // ---- the reticles ----------------------------------------------------
   //
   // `extent` is how far the marks reach from centre, in the reticle's own
-  // unit. Past it there is nothing to hold against.
+  // unit, and `slack` how far past it a hold still counts as on them.
+  // `holds`, where given, are named aiming points the readout points to.
   const RETICLES = {
     "mil-dot": {
       label: "Mil-Dot", unit: "mrad", extent: 5, marked: true,
@@ -73,6 +94,16 @@
       note: "No reference marks: a hold on this is an estimate by eye.",
       draw: drawFine,
     },
+    "bdc-3": {
+      label: "Meopta BDC 3", unit: "mrad", extent: 2.59, marked: true,
+      slack: 0.28,      // half the gap between the last two bars
+      note: "Holdover bars at 0.63, 1.05, 1.54, 2.03 and 2.59 mrad below the "
+        + "dot. Their widths are a windage reference: the widest spans "
+        + "2.28 mrad.",
+      draw: drawBdc3,
+      holds: [{ name: "the dot", drop: 0 }].concat(
+        BDC3.bars.map((bar, i) => ({ name: `bar ${i + 1}`, drop: bar.drop }))),
+    },
   };
 
   // Maps a scope's recorded reticle name onto one of the drawings above.
@@ -80,6 +111,7 @@
   function guess(name) {
     const text = (name || "").toLowerCase();
     if (!text) return null;
+    if (/bdc\s*-?\s*3\b/.test(text)) return "bdc-3";
     if (text.includes("mil-dot") || text.includes("mil dot")
         || text.includes("mildot")) return "mil-dot";
     if (text.includes("tree") || text.includes("ebr") || text.includes("tremor")
@@ -249,6 +281,59 @@
     cross(v, v.halfUnits, 1.2);
   }
 
+  // Drawn at true subtension throughout, so on a first focal plane scope
+  // the whole reticle grows with the zoom the way the real one does. Each
+  // size has a pixel floor so it stays visible zoomed out.
+  function drawBdc3(v) {
+    const px = (mrad) => mrad * v.scale;
+    const sides = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+    // Fine crosshair, broken around the dot, out to the posts.
+    ctx.lineWidth = Math.max(1.2, px(BDC3.line));
+    ctx.beginPath();
+    sides.forEach(([dx, dy]) => {
+      ctx.moveTo(v.cx + dx * px(BDC3.gap / 2), v.cy + dy * px(BDC3.gap / 2));
+      ctx.lineTo(v.cx + dx * px(BDC3.posts), v.cy + dy * px(BDC3.posts));
+    });
+    ctx.stroke();
+
+    // Heavy posts from there to the edge of the glass.
+    ctx.lineWidth = Math.max(3, px(BDC3.post));
+    ctx.beginPath();
+    sides.forEach(([dx, dy]) => {
+      ctx.moveTo(v.cx + dx * px(BDC3.posts), v.cy + dy * px(BDC3.posts));
+      ctx.lineTo(v.cx + dx * v.half, v.cy + dy * v.half);
+    });
+    ctx.stroke();
+
+    // Holdover bars below the dot. Their thickness is not given, so they
+    // are drawn a little heavier than the fine line to read as bars.
+    const cap = Math.max(1.8, px(BDC3.cap) / 2);
+    BDC3.bars.forEach((bar) => {
+      const y = v.cy + px(bar.drop);
+      const half = px(bar.width) / 2;
+      ctx.lineWidth = Math.max(1.8, px(BDC3.line) * 2);
+      ctx.beginPath();
+      ctx.moveTo(v.cx - half, y);
+      ctx.lineTo(v.cx + half, y);
+      ctx.stroke();
+      if (bar.caps) {
+        [-half, half].forEach((x) => {
+          ctx.beginPath();
+          ctx.arc(v.cx + x, y, cap, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+    });
+
+    // The illuminated dot.
+    ctx.fillStyle = MARK();
+    ctx.beginPath();
+    ctx.arc(v.cx, v.cy, Math.max(2, px(BDC3.dot) / 2), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = INK();
+  }
+
   // ---- what the zoom ring does -----------------------------------------
 
   // Half the true field of view at a given power, in the reticle's unit.
@@ -408,9 +493,12 @@
       x, above ? y - 21 : y + 30);
   }
 
+  // Past the last mark by more than the reticle's `slack`, which lets a
+  // hold sitting just under the last mark still count as on it.
   function pastMarks(target, reticle) {
     return reticle.marked
-      && Math.max(Math.abs(target.marks.x), Math.abs(target.marks.y)) > reticle.extent;
+      && Math.max(Math.abs(target.marks.x), Math.abs(target.marks.y))
+        > reticle.extent + (reticle.slack || 0);
   }
 
   function offGlass(target, v) {
@@ -446,6 +534,17 @@
       + (Math.abs(target.marks.x) < 0.005 ? ""
         : `, ${Math.abs(target.marks.x).toFixed(2)} `
           + `${target.marks.x >= 0 ? "right" : "left"}`)]);
+    // A holdover reticle is read by its marks, so name the nearest one.
+    if (reticle.holds) {
+      const down = -target.marks.y;
+      const near = reticle.holds.reduce((a, b) =>
+        (Math.abs(b.drop - down) < Math.abs(a.drop - down) ? b : a));
+      const off = down - near.drop;
+      parts.push(["Nearest mark", Math.abs(off) < 0.005
+        ? `${near.name}, dead on`
+        : `${near.name}, ${Math.abs(off).toFixed(2)} ${unitName} `
+          + `${off > 0 ? "below" : "above"} it`]);
+    }
     $("reticle-readout").innerHTML = parts.map(([label, text]) =>
       `<span class="sim-stat"><span class="sim-stat-label">${label}</span>${text}</span>`
     ).join("");
