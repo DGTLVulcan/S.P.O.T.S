@@ -120,7 +120,7 @@ const NO_WIND = { distance_m: 500, elevation: 4.49, windage: 0 };
 // ---- the scope's own reticle gets picked -------------------------------
 // First, because choosing by hand deliberately stops this happening again.
 registry["reticle-type"].value = "";
-SCOPE = { scope: "Simmons Pro Target 4-16x40 30mm", reticle: "Mil-Dot",
+SCOPE = { scope: "Test SFP 4-16x40 Mil-Dot", reticle: "Mil-Dot",
           focal_plane: "sfp", magnification: "4-16x40" };
 window.SPOTS_RETICLE.show({ distance_m: 100, elevation: 0, windage: 0 }, "mrad");
 if (byId("reticle-type").value !== "mil-dot") {

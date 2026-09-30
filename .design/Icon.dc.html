@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; }
+    a { color: #3987e5; } a:hover { color: #6aa6ee; }
+  </style>
+</helmet>
+
+<!-- Reduced for small sizes: no group ellipse, no centroid, two target rings.
+     At 64px what has to survive is the black bull, the reticle and the
+     cluster of accent rings. -->
+<div style="width: 512px; height: 512px; background: #0b0b0b; position: relative; overflow: hidden;">
+
+  <svg viewBox="0 0 640 640" style="position: absolute; inset: 0; width: 512px; height: 512px; display: block;">
+    <defs>
+      <radialGradient id="i-field" cx="46%" cy="40%" r="62%">
+        <stop offset="0%" stop-color="#f5f3ec"></stop>
+        <stop offset="64%" stop-color="#edebe4"></stop>
+        <stop offset="100%" stop-color="#c6c3b9"></stop>
+      </radialGradient>
+      <clipPath id="i-clip"><circle cx="320" cy="320" r="301"></circle></clipPath>
+    </defs>
+
+    <circle cx="320" cy="320" r="310" fill="none" stroke="#1c1c1a" stroke-width="18"></circle>
+    <circle cx="320" cy="320" r="302" fill="none" stroke="#6f6c65" stroke-width="4"></circle>
+    <circle cx="320" cy="320" r="301" fill="url(#i-field)"></circle>
+
+    <g clip-path="url(#i-clip)">
+      <g fill="none" stroke="#14130e" stroke-width="3" opacity="0.55">
+        <circle cx="320" cy="320" r="160"></circle>
+        <circle cx="320" cy="320" r="228"></circle>
+      </g>
+      <circle cx="320" cy="320" r="98" fill="#14130e"></circle>
+      <circle cx="320" cy="320" r="46" fill="none" stroke="#edebe4" stroke-width="2.4" opacity="0.4"></circle>
+
+      <g stroke-linecap="butt">
+        <g stroke="#edebe4" stroke-width="9" opacity="0.32">
+          <line x1="176" y1="320" x2="464" y2="320"></line>
+          <line x1="320" y1="176" x2="320" y2="464"></line>
+        </g>
+        <g stroke="#14130e" stroke-width="3.4" opacity="0.9">
+          <line x1="176" y1="320" x2="464" y2="320"></line>
+          <line x1="320" y1="176" x2="320" y2="464"></line>
+        </g>
+        <g stroke="#14130e" stroke-width="17">
+          <line x1="4" y1="320" x2="176" y2="320"></line>
+          <line x1="464" y1="320" x2="636" y2="320"></line>
+          <line x1="320" y1="4" x2="320" y2="176"></line>
+          <line x1="320" y1="464" x2="320" y2="636"></line>
+        </g>
+      </g>
+
+      <g fill="#050506" stroke="#cfcbbf" stroke-width="2.2">
+        <circle cx="240" cy="238" r="8"></circle>
+        <circle cx="290" cy="252" r="8"></circle>
+        <circle cx="258" cy="290" r="8"></circle>
+        <circle cx="296" cy="212" r="8"></circle>
+      </g>
+
+      <g fill="none" stroke="{{accent}}" stroke-width="4.6">
+        <circle cx="240" cy="238" r="18"></circle>
+        <circle cx="290" cy="252" r="18"></circle>
+        <circle cx="258" cy="290" r="18"></circle>
+        <circle cx="296" cy="212" r="18"></circle>
+      </g>
+    </g>
+  </svg>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#3987e5","options":["#3987e5","#0ca30c","#fab219","#e66767"]},"$preview":{"width":512,"height":512}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#3987e5' };
+  }
+}
+</script>
+</body>
+</html>

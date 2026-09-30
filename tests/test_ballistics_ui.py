@@ -252,7 +252,7 @@ class ReticleTests(unittest.TestCase):
         # payload as the solver inputs, and neither is a solver value --
         # easy to drop when that dict gets tidied.
         from spots import dope
-        equipment = {"scope": {"name": "Simmons Pro Target 4-16x40 30mm",
+        equipment = {"scope": {"name": "Test SFP 4-16x40 Mil-Dot",
                                "click_value": 0.1, "click_unit": "mrad",
                                "specs": {"reticle": "Mil-Dot", "focal_plane": "sfp",
                                          "magnification": "4-16x40"}}}

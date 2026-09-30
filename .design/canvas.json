@@ -1,0 +1,11 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1000, "h": 1000, "title": "Tile 1:1", "print": "fixed" },
+    { "file": "Card.dc.html", "x": 1120, "y": 0, "w": 1600, "h": 900, "title": "Card 16:9", "print": "fixed" },
+    { "file": "Icon.dc.html", "x": 1120, "y": 1120, "w": 512, "h": 512, "title": "Icon 1:1, no text", "print": "fixed" }
+  ],
+  "annotations": [
+    { "id": "sizes", "x": 0, "y": 1120, "w": 300, "text": "Three crops of the same mark.\n\nTile 1:1 - square grid thumbnail, name under the mark.\n\nCard 16:9 - wide slot or a hero banner.\n\nIcon - mark only, stripped back so it still reads at favicon size." }
+  ],
+  "launch": { "view": "canvas" }
+}

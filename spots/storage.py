@@ -82,8 +82,17 @@ _DEFAULT_EQUIPMENT = [
     ("rifle", "Franchi Horizon Elite .223", None, None, None,
      {"calibre": ".223 Remington", "barrel_length_in": 22.0, "twist_rate": "1:9",
       "action": "bolt", "muzzle_device": "thread_protector"}),
-    ("scope", "Simmons Pro Target 4-16x40 30mm", None, 0.1, "mrad",
-     {"magnification": "4-16x40", "reticle": "Mil-Dot", "focal_plane": "sfp",
+    # From Meopta's MeoHunter R5 manual (1082039 rev. A), 5-25x56 FFP column.
+    # First focal plane, so the reticle is true at every power and needs no
+    # calibration magnification.
+    ("scope", "Meopta MeoHunter R5 5-25x56 FFP RD BDC 3",
+     "0.1 mrad per click (1 cm at 100 m, 0.34 MOA); 18.9 mrad (65 MOA) total"
+     " adjustment. Parallax 20 m to infinity. Eye relief 100 mm, diopter -3/+2."
+     " Field of view 7.28 m at 100 m (5x) to 1.45 m at 100 m (25x)."
+     " Illuminated BDC 3 reticle, 11 levels, CR2032, auto-off after 2 hours."
+     " Length 367.5 mm, weight 680 g with battery. Filter thread M57.5x0.75.",
+     0.1, "mrad",
+     {"magnification": "5-25x56", "reticle": "BDC 3", "focal_plane": "ffp",
       "tube_diameter_mm": 30.0, "zero_distance_m": 100.0}),
     ("ammo", "Remington UMC .223 55gr FMJ", None, None, None,
      {"calibre": ".223 Remington", "bullet_grains": 55.0, "bullet_diameter_mm": 5.69,

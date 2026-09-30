@@ -370,6 +370,20 @@ class EquipmentSelectionTests(StorageTestCase):
         self.assertTrue(scope["click_value"])
         self.assertIn(scope["click_unit"], ("moa", "mrad"))
 
+    def test_the_default_scope_passes_the_forms_own_validation(self):
+        # Seeded specs skip the form, so a value it would reject -- "FFP" for
+        # "ffp", say -- would be stored anyway and silently ignored later.
+        from spots import dope
+        from spots.equipment_specs import clean_specs
+        specs = self.storage.list_equipment("scope")[0]["specs"]
+        cleaned, errors = clean_specs("scope", specs)
+        self.assertEqual(errors, [])
+        self.assertEqual(cleaned, specs, "a seeded spec was dropped by validation")
+        # The zoom control reads its range from this string.
+        low, high = dope.parse_magnification(specs["magnification"])
+        self.assertIsNotNone(low)
+        self.assertLess(low, high)
+
     def test_selection_can_be_cleared(self):
         ammo = self.storage.list_equipment("ammo")[0]
         self.storage.set_selected_equipment("ammo", ammo["id"])
