@@ -374,6 +374,12 @@ class DetectionWorker:
         check = getattr(self._frame_source, "is_live_connected", None)
         return bool(check()) if callable(check) else False
 
+    def get_camera_status(self) -> dict | None:
+        """The live camera's exposure and gain, from cameras that report
+        them; None for the others and for the simulated target."""
+        status = getattr(self._frame_source, "status", None)
+        return status() if callable(status) else None
+
     def add_simulated_hole(self, x: float, y: float) -> bool:
         """Places a virtual bullet hole for the synthetic source to render and
         the detector to pick up next cycle. False when the active feed is

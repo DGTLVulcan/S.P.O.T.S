@@ -694,6 +694,20 @@ input[type="range"] { accent-color: var(--accent); }
 }
 .checkbox-field label { font-weight: 500; }
 
+/* The ZWO camera's live readout on the settings page. */
+.asi-status {
+  margin: 0 0 0.9rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--page);
+  font-size: 0.82rem;
+  color: var(--ink-secondary);
+}
+.asi-status:empty { display: none; }
+.asi-status.is-warn { border-color: var(--warning); }
+.asi-status.is-bad { border-color: var(--critical); color: var(--critical); }
+
 /* A sub-heading splitting one settings panel by device. */
 .settings-group {
   margin: 1.4rem 0 0.6rem;

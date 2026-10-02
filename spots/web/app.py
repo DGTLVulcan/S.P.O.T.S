@@ -50,6 +50,7 @@ def _make_asi_factory(settings: Settings):
             exposure_ms=camera.asi_exposure_ms,
             max_exposure_ms=camera.asi_max_exposure_ms,
             gain=camera.asi_gain,
+            max_gain=camera.asi_max_gain,
         ), None
 
     return factory

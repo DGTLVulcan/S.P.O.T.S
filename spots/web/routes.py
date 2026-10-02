@@ -720,6 +720,14 @@ def api_feed_set():
     return jsonify({"ok": True, "active": target})
 
 
+@bp.route("/api/camera/status")
+def api_camera_status():
+    status = _worker().get_camera_status()
+    if status is None:
+        return jsonify({"available": False})
+    return jsonify(dict(status, available=True))
+
+
 @bp.route("/api/simulate/mode", methods=["POST"])
 def api_simulate_mode():
     data = request.get_json(force=True)
@@ -1238,12 +1246,15 @@ def _apply_settings_form(settings, form) -> list[str]:
     asi_exposure_ms = _parse_float(form, "camera.asi_exposure_ms", errors)
     asi_max_exposure_ms = _parse_float(form, "camera.asi_max_exposure_ms", errors)
     asi_gain = _parse_int(form, "camera.asi_gain", errors)
+    asi_max_gain = _parse_int(form, "camera.asi_max_gain", errors)
     if asi_exposure_ms is not None and asi_exposure_ms <= 0:
         errors.append("ASI exposure must be more than 0 ms")
     if asi_max_exposure_ms is not None and asi_max_exposure_ms <= 0:
         errors.append("ASI longest exposure must be more than 0 ms")
     if asi_gain is not None and asi_gain < 0:
         errors.append("ASI gain can't be negative")
+    if asi_gain is not None and asi_max_gain is not None and asi_max_gain < asi_gain:
+        errors.append("ASI highest gain can't be below the gain it starts from")
 
     if (
         min_hole_area_px is not None
@@ -1286,6 +1297,7 @@ def _apply_settings_form(settings, form) -> list[str]:
     settings.camera.asi_exposure_ms = asi_exposure_ms
     settings.camera.asi_max_exposure_ms = asi_max_exposure_ms
     settings.camera.asi_gain = asi_gain
+    settings.camera.asi_max_gain = asi_max_gain
 
     settings.web.range_status_enabled = "web.range_status_enabled" in form
     settings.web.range_status_spacebar = "web.range_status_spacebar" in form

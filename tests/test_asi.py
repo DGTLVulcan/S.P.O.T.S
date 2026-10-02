@@ -4,7 +4,11 @@ No camera is needed: ZWO's SDK is replaced by a fake that mirrors the
 zwoasi binding's real interface (its constants, Camera methods and frame
 shape), so the frame source is exercised end to end.
 """
+import io
+import json
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -15,16 +19,29 @@ from unittest import mock
 import numpy as np
 
 from spots.camera import asi
-from spots.camera.asi import AsiError, AsiFrameSource, next_exposure_us
+from spots.camera.asi import (AsiError, AsiFrameSource, meter, next_exposure_us,
+                              next_settings)
 from spots.camera.source import SwitchableFrameSource, SyntheticFrameSource
 from spots.config import LIVE_CAMERAS, CameraConfig, Settings
+
+EXAMPLE_CONFIG = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                              "config.example.yaml")
+
+
+def example_settings():
+    """Settings from config.example.yaml whose save() is a mock: the settings
+    form saves on success, and a plain save() writes the real config.yaml."""
+    settings = Settings.load(EXAMPLE_CONFIG, env_path=None)
+    settings.save = mock.Mock()
+    return settings
 
 
 # ---- a stand-in for the zwoasi binding ---------------------------------
 
 class FakeCamera:
     """Records what it is told, and returns frames whose brightness follows
-    the exposure the way a sensor's would."""
+    exposure and gain the way a sensor's would: in proportion to exposure,
+    and by ZWO's 0.1 dB gain units."""
 
     WIDTH, HEIGHT = 64, 32
 
@@ -63,7 +80,8 @@ class FakeCamera:
             self.sdk.fail_next_capture -= 1
             raise RuntimeError("ASI_ERROR_TIMEOUT")
         exposure = self.controls.get(self.sdk.ASI_EXPOSURE, 1000)
-        level = min(255.0, exposure * self.sdk.brightness_per_us)
+        gain = self.controls.get(self.sdk.ASI_GAIN, 0)
+        level = min(255.0, exposure * self.sdk.brightness_per_us * 10 ** (gain / 200))
         return np.full((self.HEIGHT, self.WIDTH, 3), level, dtype=np.uint8)
 
     def close(self):
@@ -124,6 +142,63 @@ class ExposureTests(unittest.TestCase):
         self.assertTrue(all(abs(l - asi.TARGET_LEVEL) <= asi.DEADBAND for l in settled),
                         settled)
         self.assertEqual(len(set(round(l) for l in settled)), 1, "it kept moving once settled")
+
+
+class GainTests(unittest.TestCase):
+    """Exposure first, gain only once exposure can go no longer."""
+
+    LIMITS = dict(floor_us=32, ceiling_us=20000, min_gain=50, max_gain=300)
+
+    def test_a_dark_picture_lengthens_the_exposure_before_adding_gain(self):
+        exposure, gain = next_settings(5000, 50, 30, **self.LIMITS)
+        self.assertGreater(exposure, 5000)
+        self.assertEqual(gain, 50)
+
+    def test_gain_rises_once_the_exposure_is_at_its_longest(self):
+        exposure, gain = next_settings(20000, 50, 30, **self.LIMITS)
+        self.assertEqual(exposure, 20000)
+        self.assertGreater(gain, 50)
+
+    def test_a_bright_picture_takes_gain_off_before_shortening(self):
+        exposure, gain = next_settings(20000, 200, 220, **self.LIMITS)
+        self.assertEqual(exposure, 20000)
+        self.assertLess(gain, 200)
+        exposure, gain = next_settings(20000, 50, 220, **self.LIMITS)
+        self.assertLess(exposure, 20000)
+        self.assertEqual(gain, 50)
+
+    def test_nothing_moves_past_its_limits(self):
+        self.assertEqual(next_settings(20000, 300, 5, **self.LIMITS), (20000, 300))
+        self.assertEqual(next_settings(32, 50, 250, **self.LIMITS), (32, 50))
+
+    def test_holds_still_inside_the_deadband(self):
+        self.assertEqual(next_settings(8000, 120, asi.TARGET_LEVEL, **self.LIMITS),
+                         (8000, 120))
+
+    def _settle(self, exposure, gain, light, steps=80):
+        for _ in range(steps):
+            level = min(255.0, exposure * light * 10 ** (gain / 200))
+            exposure, gain = next_settings(exposure, gain, level, **self.LIMITS)
+        return exposure, gain, min(255.0, exposure * light * 10 ** (gain / 200))
+
+    def test_settles_in_poor_light_using_gain(self):
+        # Too dark to reach the target on exposure alone.
+        exposure, gain, level = self._settle(2000, 50, light=0.0012)
+        self.assertEqual(exposure, 20000)
+        self.assertGreater(gain, 50)
+        self.assertLessEqual(abs(level - asi.TARGET_LEVEL), asi.DEADBAND)
+
+    def test_hands_gain_back_when_the_light_returns(self):
+        exposure, gain, _ = self._settle(2000, 50, light=0.0012)
+        exposure, gain, level = self._settle(exposure, gain, light=0.05)
+        self.assertEqual(gain, 50, "gain should go before the exposure shortens")
+        self.assertLess(exposure, 20000)
+        self.assertLessEqual(abs(level - asi.TARGET_LEVEL), asi.DEADBAND)
+
+    def test_meters_the_middle_not_a_bright_edge(self):
+        frame = np.full((100, 200, 3), 250, np.uint8)      # bright sky all round
+        frame[25:75, 50:150] = 40                           # the target, centred
+        self.assertAlmostEqual(meter(frame), 40.0, delta=0.5)
 
 
 # ---- loading the SDK ---------------------------------------------------
@@ -222,7 +297,7 @@ class AsiFrameSourceTests(unittest.TestCase):
 
     def test_auto_exposure_brings_a_dark_picture_up(self):
         sdk = fake_sdk(brightness_per_us=0.01)          # 2 ms reads as 20/255
-        source = self._source(sdk, exposure_ms=2.0, max_exposure_ms=50.0)
+        source = self._source(sdk, exposure_ms=2.0, max_exposure_ms=50.0, gain=0)
         source.start()
         camera = sdk.opened[0]
         self.assertTrue(wait_for(
@@ -231,12 +306,43 @@ class AsiFrameSourceTests(unittest.TestCase):
 
     def test_auto_exposure_never_passes_the_longest_allowed(self):
         sdk = fake_sdk(brightness_per_us=0.0005)        # far too dark to ever reach
-        source = self._source(sdk, exposure_ms=2.0, max_exposure_ms=8.0)
+        source = self._source(sdk, exposure_ms=2.0, max_exposure_ms=8.0, gain=0, max_gain=0)
         source.start()
         camera = sdk.opened[0]
         self.assertTrue(wait_for(lambda: camera.controls[sdk.ASI_EXPOSURE] == 8000))
         time.sleep(0.1)
         self.assertEqual(camera.controls[sdk.ASI_EXPOSURE], 8000)
+
+    def test_poor_light_raises_the_gain(self):
+        sdk = fake_sdk(brightness_per_us=0.0012)         # dark even at 20 ms
+        source = self._source(sdk, exposure_ms=2.0, max_exposure_ms=20.0,
+                              gain=50, max_gain=300)
+        source.start()
+        camera = sdk.opened[0]
+        self.assertTrue(wait_for(lambda: camera.controls[sdk.ASI_GAIN] > 50, timeout=5.0))
+        self.assertEqual(camera.controls[sdk.ASI_EXPOSURE], 20000)
+        self.assertTrue(wait_for(
+            lambda: source.status()["level"] is not None
+            and abs(source.status()["level"] - asi.TARGET_LEVEL) <= asi.DEADBAND,
+            timeout=5.0), source.status())
+
+    def test_status_reports_exposure_gain_and_brightness(self):
+        sdk = fake_sdk(brightness_per_us=0.02)
+        source = self._source(sdk, auto_exposure=False, exposure_ms=3.0, gain=0)
+        source.start()
+        self.assertTrue(wait_for(lambda: source.status()["level"] is not None))
+        status = source.status()
+        self.assertEqual(status["exposure_ms"], 3.0)
+        self.assertEqual(status["gain"], 0)
+        self.assertAlmostEqual(status["level"], 60.0, delta=1.0)   # 3000 us x 0.02
+        self.assertTrue(status["connected"])
+        self.assertFalse(status["auto"])
+
+    def test_gain_limits_stay_inside_the_cameras(self):
+        sdk = fake_sdk()
+        source = self._source(sdk, gain=50, max_gain=5000)  # past the camera's 600
+        source.start()
+        self.assertEqual(source.status()["max_gain"], 600)
 
     def test_a_fixed_exposure_stays_fixed(self):
         sdk = fake_sdk(brightness_per_us=0.01)
@@ -331,7 +437,7 @@ class CameraConfigTests(unittest.TestCase):
     def test_asi_settings_survive_a_save(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "config.yaml")
-            settings = Settings.load(env_path=None)
+            settings = Settings.load(EXAMPLE_CONFIG, env_path=None)
             settings.camera.live_camera = "asi"
             settings.camera.asi_gain = 120
             settings.camera.asi_max_exposure_ms = 12.5
@@ -346,7 +452,7 @@ class CameraConfigTests(unittest.TestCase):
 
 def _form(**overrides):
     from werkzeug.datastructures import MultiDict
-    settings = Settings.load(env_path=None)
+    settings = example_settings()
     fields = {
         "target.unit_name": "cm", "target.width_units": "59",
         "target.best_subgroup_sizes": "3, 5", "target.best_subgroup_max_shots": "30",
@@ -359,7 +465,8 @@ def _form(**overrides):
         "camera.stream_width": "1920", "camera.stream_height": "1080",
         "camera.stream_bitrate": "8000000", "camera.asi_sdk_path": "",
         "camera.asi_exposure_ms": "2", "camera.asi_max_exposure_ms": "20",
-        "camera.asi_gain": "50", "camera.asi_auto_exposure": "on",
+        "camera.asi_gain": "50", "camera.asi_max_gain": "300",
+        "camera.asi_auto_exposure": "on",
     }
     fields.update(overrides)
     return settings, MultiDict({k: v for k, v in fields.items() if v is not None})
@@ -375,6 +482,7 @@ class SettingsFormTests(unittest.TestCase):
         settings, errors = self._apply(**{"camera.source": "live",
                                           "camera.live_camera": "asi"})
         self.assertEqual(errors, [])
+        settings.save.assert_called_once_with()          # the mock, not config.yaml
         self.assertEqual(settings.camera.source, "asi")
         self.assertEqual(settings.camera.live_camera, "asi")
 
@@ -386,6 +494,13 @@ class SettingsFormTests(unittest.TestCase):
         self.assertEqual(settings.camera.asi_gain, 90)
         self.assertEqual(settings.camera.asi_exposure_ms, 0.5)
         self.assertFalse(settings.camera.asi_auto_exposure)
+
+    def test_the_highest_gain_is_saved_and_checked(self):
+        settings, errors = self._apply(**{"camera.asi_max_gain": "250"})
+        self.assertEqual(errors, [])
+        self.assertEqual(settings.camera.asi_max_gain, 250)
+        _, errors = self._apply(**{"camera.asi_gain": "100", "camera.asi_max_gain": "40"})
+        self.assertTrue(any("highest gain" in e for e in errors), errors)
 
     def test_impossible_values_are_refused(self):
         _, errors = self._apply(**{"camera.asi_exposure_ms": "0",
@@ -400,11 +515,7 @@ class FeedRouteTests(unittest.TestCase):
         from spots.web.routes import bp
         app = Flask("test")
         app.register_blueprint(bp)
-        self.settings = Settings.load(env_path=None)
-        self.settings.save = mock.Mock()          # never touch the real config.yaml
-        # Whatever this machine's config starts on, a live source would take
-        # precedence over the camera these tests choose.
-        self.settings.camera.source = "synthetic"
+        self.settings = example_settings()
         self.worker = mock.Mock()
         self.worker.get_active_feed.return_value = "synthetic"
         app.config.update(SETTINGS=self.settings, WORKER=self.worker, STORAGE=mock.Mock())
@@ -429,10 +540,63 @@ class FeedRouteTests(unittest.TestCase):
                          400)
         self.worker.switch_feed.assert_not_called()
 
+    def test_camera_status_comes_from_the_live_camera(self):
+        self.worker.get_camera_status.return_value = {"exposure_ms": 20.0, "gain": 120}
+        reply = self.client.get("/api/camera/status").get_json()
+        self.assertTrue(reply["available"])
+        self.assertEqual(reply["gain"], 120)
+        self.worker.get_camera_status.return_value = None
+        self.assertFalse(self.client.get("/api/camera/status").get_json()["available"])
+
     def test_the_page_is_told_which_camera_is_live(self):
         self.settings.camera.live_camera = "asi"
         self.assertEqual(self.client.get("/api/feed").get_json()["live_camera"], "asi")
 
+
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+@unittest.skipIf(shutil.which("node") is None, "node isn't installed")
+class ReadoutTests(unittest.TestCase):
+    """What the settings page says about the picture's brightness."""
+
+    def setUp(self):
+        result = subprocess.run(
+            ["node", os.path.join(ROOT, "tests", "js", "camera_status.js"),
+             os.path.join(ROOT, "spots", "web", "static", "camera_status.js")],
+            capture_output=True, text=True, encoding="utf-8", timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.views = json.loads(result.stdout)
+
+    def test_a_settled_picture_is_fine(self):
+        self.assertEqual(self.views["settled"]["level"], "ok")
+        self.assertIn("6.40 ms", self.views["settled"]["text"])
+        self.assertIn("gain 50", self.views["settled"]["text"])
+
+    def test_says_why_a_picture_is_dark(self):
+        self.assertIn("gain is rising", self.views["gaining"]["text"])
+        self.assertIn("Auto exposure is off", self.views["fixed_dark"]["text"])
+
+    def test_out_of_light_says_what_to_change(self):
+        view = self.views["out_of_light"]
+        self.assertEqual(view["level"], "bad")
+        self.assertIn("Highest gain", view["text"])
+        self.assertIn("(longest)", view["text"])
+        self.assertIn("(highest)", view["text"])
+
+    def test_without_the_camera_it_says_so(self):
+        self.assertIn("ZWO ASI camera is the live feed", self.views["none"]["text"])
+
+
+class SettingsMarkupTests(unittest.TestCase):
+    def test_the_camera_panel_carries_the_readout_and_gain_ceiling(self):
+        with io.open(os.path.join(ROOT, "spots", "web", "templates", "settings.html"),
+                     encoding="utf-8") as fh:
+            html = fh.read()
+        self.assertIn('id="asi-status"', html)
+        self.assertIn('name="camera.asi_max_gain"', html)
+        self.assertIn("camera_status.js", html)
 
 if __name__ == "__main__":
     unittest.main()

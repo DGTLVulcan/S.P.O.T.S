@@ -11,6 +11,7 @@ milliseconds in another, while ASI_EXPOSURE is microseconds throughout.
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 
@@ -53,21 +54,60 @@ def load_sdk(library_path: str = ""):
     return zwoasi
 
 
+def brightness_step(level: float, target: float = TARGET_LEVEL,
+                    deadband: float = DEADBAND) -> float:
+    """The factor to change brightness by: 1.0 inside the deadband, else at
+    most a factor of two either way, damped so it settles rather than hunts.
+    """
+    if abs(level - target) <= deadband:
+        return 1.0
+    ratio = 2.0 if level < 1.0 else target / level
+    return min(2.0, max(0.5, ratio)) ** 0.6
+
+
 def next_exposure_us(current_us: float, level: float, floor_us: float,
                      ceiling_us: float, target: float = TARGET_LEVEL,
                      deadband: float = DEADBAND) -> int:
-    """The exposure that moves the picture's mean brightness toward `target`.
-
-    Holds still inside the deadband. Outside it, steps by at most a factor
-    of two, damped so it settles rather than hunting, and never leaves
-    [floor_us, ceiling_us].
-    """
-    if abs(level - target) <= deadband:
+    """The exposure that moves the picture's mean brightness toward `target`,
+    never leaving [floor_us, ceiling_us]."""
+    step = brightness_step(level, target, deadband)
+    if step == 1.0:
         return int(round(current_us))
-    ratio = 2.0 if level < 1.0 else target / level
-    ratio = min(2.0, max(0.5, ratio))
-    proposed = current_us * ratio ** 0.6
-    return int(round(min(ceiling_us, max(floor_us, proposed))))
+    return int(round(min(ceiling_us, max(floor_us, current_us * step))))
+
+
+def next_settings(exposure_us: float, gain: float, level: float,
+                  floor_us: float, ceiling_us: float,
+                  min_gain: float, max_gain: float) -> tuple[int, int]:
+    """Exposure and gain that move the picture's brightness toward target.
+
+    Too dark: lengthen the exposure up to its ceiling, then add gain. Too
+    bright: take gain off first, then shorten the exposure. So gain, and
+    its noise, is only used once the exposure can go no longer.
+
+    Gain steps assume ZWO's 0.1 dB units; the loop re-measures after each
+    step, so it settles even if a camera's units differ.
+    """
+    step = brightness_step(level)
+    exposure, gain = int(round(exposure_us)), int(round(gain))
+    if step == 1.0:
+        return exposure, gain
+    gain_change = 200.0 * math.log10(step)
+    if step > 1.0:
+        if exposure < ceiling_us:
+            return next_exposure_us(exposure_us, level, floor_us, ceiling_us), gain
+        return exposure, int(round(min(max_gain, gain + max(1.0, gain_change))))
+    if gain > min_gain:
+        return exposure, int(round(max(min_gain, gain + min(-1.0, gain_change))))
+    return next_exposure_us(exposure_us, level, floor_us, ceiling_us), gain
+
+
+def meter(frame: np.ndarray) -> float:
+    """Mean brightness of the central half of the frame, where the target
+    is, so a bright sky or window at the edges doesn't darken it."""
+    height, width = frame.shape[:2]
+    middle = frame[height // 4: height - height // 4, width // 4: width - width // 4]
+    return float(middle[::4, ::4].mean())
 
 
 class AsiFrameSource(FrameSource):
@@ -84,12 +124,17 @@ class AsiFrameSource(FrameSource):
 
     def __init__(self, library_path: str = "", auto_exposure: bool = True,
                  exposure_ms: float = 2.0, max_exposure_ms: float = 20.0,
-                 gain: int = 50, fps: float = 15.0):
+                 gain: int = 50, max_gain: int = 300, fps: float = 15.0):
         self._library_path = library_path
         self._auto = auto_exposure
         self._exposure_us = max(1.0, exposure_ms * 1000.0)
         self._max_us = max(1.0, max_exposure_ms * 1000.0)
+        # `gain` is the floor auto exposure works up from, or the fixed gain
+        # with auto off.
         self._gain = int(gain)
+        self._min_gain = int(gain)
+        self._max_gain = max(int(gain), int(max_gain))
+        self._level: float | None = None
         self._interval = 1.0 / max(1.0, fps)
 
         self._sdk = None
@@ -131,10 +176,17 @@ class AsiFrameSource(FrameSource):
             raise AsiError(f"Could not open the ZWO ASI camera: {exc}") from exc
         try:
             self._name = camera.get_camera_property().get("Name", "ZWO ASI")
-            exposure = camera.get_controls().get("Exposure", {})
+            controls = camera.get_controls()
+            exposure = controls.get("Exposure", {})
             self._floor_us = float(max(32, exposure.get("MinValue", 32)))
             self._ceiling_us = float(min(self._max_us, exposure.get("MaxValue", self._max_us)))
             self._exposure_us = min(self._ceiling_us, max(self._floor_us, self._exposure_us))
+            # Whatever was asked for, stay inside what this camera allows.
+            caps = controls.get("Gain", {})
+            low, high = caps.get("MinValue", 0), caps.get("MaxValue", self._max_gain)
+            self._min_gain = int(min(high, max(low, self._min_gain)))
+            self._max_gain = int(min(high, max(self._min_gain, self._max_gain)))
+            self._gain = int(min(self._max_gain, max(self._min_gain, self._gain)))
 
             # Full frame, unbinned, debayered by the SDK into BGR -- the
             # byte order OpenCV uses, so frames need no conversion.
@@ -199,24 +251,42 @@ class AsiFrameSource(FrameSource):
             with self._lock:
                 self._frame = frame
                 self._frame_at = time.monotonic()
+            self._level = meter(frame)
             count += 1
             if self._auto and count % self._ADJUST_EVERY == 0:
-                self._adjust_exposure(frame)
+                self._adjust_exposure()
             # Older frames are discarded by the SDK, so reading slower than
             # the camera runs costs nothing but saves the Pi's CPU.
             self._stop.wait(max(0.0, self._interval - (time.monotonic() - started)))
 
-    def _adjust_exposure(self, frame: np.ndarray) -> None:
-        level = float(frame[::8, ::8].mean())
-        exposure = next_exposure_us(self._exposure_us, level,
-                                    self._floor_us, self._ceiling_us)
-        if exposure == int(round(self._exposure_us)):
-            return
+    def _adjust_exposure(self) -> None:
+        exposure, gain = next_settings(
+            self._exposure_us, self._gain, self._level,
+            self._floor_us, self._ceiling_us, self._min_gain, self._max_gain)
         try:
-            self._camera.set_control_value(self._sdk.ASI_EXPOSURE, exposure)
-            self._exposure_us = float(exposure)
+            if exposure != int(round(self._exposure_us)):
+                self._camera.set_control_value(self._sdk.ASI_EXPOSURE, exposure)
+                self._exposure_us = float(exposure)
+            if gain != self._gain:
+                self._camera.set_control_value(self._sdk.ASI_GAIN, gain)
+                self._gain = gain
         except Exception as exc:
-            logger.warning("Could not set ZWO ASI exposure: %s", exc)
+            logger.warning("Could not set ZWO ASI exposure or gain: %s", exc)
+
+    def status(self) -> dict:
+        """What the camera is doing now, for the settings page."""
+        return {
+            "camera": self._name or "ZWO ASI",
+            "connected": self.connected,
+            "auto": self._auto,
+            "exposure_ms": round(self._exposure_us / 1000.0, 3),
+            "max_exposure_ms": round(self._ceiling_us / 1000.0, 3),
+            "gain": self._gain,
+            "min_gain": self._min_gain,
+            "max_gain": self._max_gain,
+            "level": None if self._level is None else round(self._level, 1),
+            "target_level": TARGET_LEVEL,
+        }
 
     def get_latest_frame(self) -> np.ndarray | None:
         with self._lock:

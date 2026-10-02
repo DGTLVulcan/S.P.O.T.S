@@ -129,11 +129,12 @@ with the rest of the requirements; the library you install once:
 4. In **Settings > Camera**, set **Live camera** to **ZWO ASI290MC (USB)**,
    then restart S.P.O.T.S.
 
-Auto exposure is on by default: it holds the picture at a steady brightness,
-never exposing longer than **Longest exposure** (20 ms) so a target moving in
-the wind stays sharp. If passing cloud causes false shots, turn auto exposure
-off and set a fixed **Exposure** instead. Raise **Gain** if the picture is dark
-at the longest exposure.
+Auto exposure is on by default: it holds the picture at a steady brightness.
+It lengthens the exposure up to **Longest exposure** (20 ms, so a target
+moving in the wind stays sharp), then raises gain up to **Highest gain**.
+The camera panel shows the live exposure, gain and brightness, and says
+which limit it has hit if the picture is still dark. If passing cloud causes
+false shots, turn auto exposure off and set a fixed **Exposure** and **Gain**.
 
 The camera is a bare sensor: it needs a lens, or to sit behind a spotting
 scope, to see a target downrange.

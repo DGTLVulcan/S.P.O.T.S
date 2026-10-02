@@ -80,13 +80,15 @@ class CameraConfig:
     stream_bitrate: int = 8_000_000
     # ZWO ASI over USB. Blank finds libASICamera2 on the library path.
     asi_sdk_path: str = ""
-    # Auto exposure holds the picture at a steady brightness, never exposing
-    # longer than asi_max_exposure_ms so a swaying target doesn't blur. With
-    # it off, asi_exposure_ms is used as a fixed exposure.
+    # Auto exposure holds the picture at a steady brightness. It lengthens
+    # the exposure up to asi_max_exposure_ms, so a swaying target doesn't
+    # blur, then raises gain from asi_gain up to asi_max_gain. With it off,
+    # asi_exposure_ms and asi_gain are used as fixed values.
     asi_auto_exposure: bool = True
     asi_exposure_ms: float = 2.0
     asi_max_exposure_ms: float = 20.0
     asi_gain: int = 50
+    asi_max_gain: int = 300
     # Which fabricated target the synthetic source draws: "realistic" is a
     # swaying paper sheet over a berm, "simple" a flat one with black discs.
     synthetic_mode: str = "realistic"

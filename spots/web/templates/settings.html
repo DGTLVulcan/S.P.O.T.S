@@ -283,6 +283,7 @@
             </div>
 
             <h3 class="settings-group">ZWO ASI290MC</h3>
+            <p class="asi-status" id="asi-status" aria-live="polite"></p>
             <div class="field checkbox-field">
               <input type="checkbox" id="asi_auto_exposure" name="camera.asi_auto_exposure" {% if settings.camera.asi_auto_exposure %}checked{% endif %}>
               <label for="asi_auto_exposure">Auto exposure</label>
@@ -301,7 +302,12 @@
             <div class="field">
               <label for="asi_gain">Gain</label>
               <input type="number" id="asi_gain" name="camera.asi_gain" step="1" min="0" value="{{ settings.camera.asi_gain }}" required>
-              <span class="hint">Lower is less noisy. Raise it if the picture is dark at the longest exposure.</span>
+              <span class="hint">Where auto exposure starts, or the fixed gain with it off. Lower is less noisy.</span>
+            </div>
+            <div class="field">
+              <label for="asi_max_gain">Highest gain</label>
+              <input type="number" id="asi_max_gain" name="camera.asi_max_gain" step="1" min="0" value="{{ settings.camera.asi_max_gain }}" required>
+              <span class="hint">Once the exposure is at its longest, auto exposure raises gain up to this. Higher means a brighter but noisier picture in poor light.</span>
             </div>
             <div class="field">
               <label for="asi_sdk_path">SDK library</label>
@@ -365,5 +371,6 @@
   <script src="{{ url_for('static', filename='menu.js') }}"></script>
   <script src="{{ url_for('static', filename='health.js') }}"></script>
   <script src="{{ url_for('static', filename='settings.js') }}"></script>
+  <script src="{{ url_for('static', filename='camera_status.js') }}"></script>
 </body>
 </html>
