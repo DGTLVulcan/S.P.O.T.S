@@ -252,7 +252,20 @@
                 <span class="settings-title">Camera</span>
               </div>
             </div>
-            <div class="restart-note">&#9888; All fields here need an app restart to take effect.</div>
+            <div class="field checkbox-field">
+              <input type="checkbox" id="flip_horizontal" name="camera.flip_horizontal"
+                     {% if settings.camera.flip_horizontal %}checked{% endif %}>
+              <label for="flip_horizontal">Flip the picture left to right</label>
+            </div>
+            <p class="hint" style="margin: -0.4rem 0 0.9rem;">
+              Tick this if the writing on the target reads backwards, as it does through a star
+              diagonal or a telescope's flip mirror. The picture then matches the target, so shots
+              left and right of centre are scored the right way round. It applies to the live
+              camera only, not the simulated target, and takes effect straight away. Set it before
+              calibrating and starting a target, since anything already marked was measured on the
+              mirrored picture.
+            </p>
+            <div class="restart-note">&#9888; The fields below need an app restart to take effect.</div>
             <div class="field">
               <label for="live_camera">Live camera</label>
               <select id="live_camera" name="camera.live_camera">
@@ -358,7 +371,9 @@
             <p class="hint">
               The arrows should move the picture the way they point. A camera straight out the back
               of a Maksutov or Schmidt-Cassegrain sees the target upside down and mirrored, which
-              reverses both; tick whichever goes the wrong way. These take effect straight away.
+              reverses both; tick whichever goes the wrong way. Flipping the camera's picture
+              swaps left and right here too, so the arrows keep matching the screen. These take
+              effect straight away.
             </p>
           </div>
 

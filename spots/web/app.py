@@ -96,6 +96,7 @@ def create_app(settings: Settings) -> Flask:
     switchable = SwitchableFrameSource(
         SyntheticFrameSource(mode=settings.camera.synthetic_mode),
         {"zcam": _make_zcam_factory(settings), "asi": _make_asi_factory(settings)},
+        flip_live=lambda: settings.camera.flip_horizontal,
     )
     if settings.camera.source != "synthetic":
         # A configured live camera connects eagerly, falling back to synthetic

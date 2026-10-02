@@ -171,7 +171,11 @@ into frame and 3 or 4 centre it.
 If an arrow moves the picture the wrong way, tick **Reverse left and right**
 or **Reverse up and down**. A camera straight out the back of a Maksutov
 sees the target upside down; turning the camera 180° in its holder puts the
-picture, and the arrows, the right way up.
+picture, and the arrows, the right way up. If the writing on the target reads
+backwards instead, as it does through a star diagonal or the 4SE's flip
+mirror, tick **Flip the picture left to right** in **Settings > Camera**.
+Shots are then scored the right way round, and the left and right arrows
+swap with the picture. Set it before calibrating and starting a target.
 
 Shot detection waits while the mount moves and for two seconds after. With
 re-alignment on, the moved picture is matched back to the reference;

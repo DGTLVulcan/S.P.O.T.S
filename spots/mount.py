@@ -273,7 +273,12 @@ class MountController:
     def _axis_for(self, direction: str) -> tuple[int, int]:
         axis, sign = DIRECTIONS[direction]
         mount = self._settings.mount
-        reverse = mount.reverse_up_down if axis == ALT else mount.reverse_left_right
+        if axis == ALT:
+            reverse = mount.reverse_up_down
+        else:
+            # A flipped picture swaps left and right on screen, so the arrows
+            # swap with it to keep moving the picture the way they point.
+            reverse = mount.reverse_left_right != self._settings.camera.flip_horizontal
         if reverse:
             sign = NEGATIVE if sign == POSITIVE else POSITIVE
         return axis, sign

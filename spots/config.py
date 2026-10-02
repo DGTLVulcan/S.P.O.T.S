@@ -89,6 +89,9 @@ class CameraConfig:
     asi_max_exposure_ms: float = 20.0
     asi_gain: int = 50
     asi_max_gain: int = 300
+    # Mirror the live camera's picture left to right, for optics that show
+    # the target reversed. The synthetic target is never flipped.
+    flip_horizontal: bool = False
     # Which fabricated target the synthetic source draws: "realistic" is a
     # swaying paper sheet over a berm, "simple" a flat one with black discs.
     synthetic_mode: str = "realistic"

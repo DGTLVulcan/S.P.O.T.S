@@ -384,10 +384,16 @@ class SwitchableFrameSource(FrameSource):
     Each live camera is built on the first switch to it and then kept, so a
     setup with no camera never tries at startup. Switching feeds changes
     every pixel, so it invalidates the reference frame and calibration.
+
+    A live camera's frames are mirrored left to right while `flip_live()`
+    is true, before zoom, detection or display see them. The synthetic
+    target is never flipped.
     """
 
-    def __init__(self, synthetic: SyntheticFrameSource, live_factories: dict):
+    def __init__(self, synthetic: SyntheticFrameSource, live_factories: dict,
+                 flip_live=None):
         self._synthetic = synthetic
+        self._flip_live = flip_live or (lambda: False)
         # name -> () -> (FrameSource, client or None); raises on failure.
         self._factories = dict(live_factories)
         self._live: dict[str, tuple[FrameSource, object]] = {}
@@ -458,4 +464,7 @@ class SwitchableFrameSource(FrameSource):
 
     def get_latest_frame(self) -> np.ndarray | None:
         source = self._current()
-        return source.get_latest_frame() if source is not None else None
+        frame = source.get_latest_frame() if source is not None else None
+        if frame is not None and self._active != "synthetic" and self._flip_live():
+            frame = cv2.flip(frame, 1)
+        return frame

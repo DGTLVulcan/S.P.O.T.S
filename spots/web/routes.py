@@ -1353,6 +1353,7 @@ def _apply_settings_form(settings, form) -> list[str]:
     settings.camera.asi_max_exposure_ms = asi_max_exposure_ms
     settings.camera.asi_gain = asi_gain
     settings.camera.asi_max_gain = asi_max_gain
+    settings.camera.flip_horizontal = "camera.flip_horizontal" in form
 
     settings.web.range_status_enabled = "web.range_status_enabled" in form
     settings.web.range_status_spacebar = "web.range_status_spacebar" in form
@@ -1590,9 +1591,12 @@ def equipment_page():
 def settings_page():
     settings = _settings()
     if request.method == "POST":
+        was_flipped = settings.camera.flip_horizontal
         errors = _apply_settings_form(settings, request.form)
         if errors:
             return redirect(url_for("spots.settings_page", error=" / ".join(errors)))
+        if settings.camera.flip_horizontal != was_flipped:
+            _picture_flipped()
         # Switching the feature off has to lift any cease fire it was
         # holding, or detection stays stopped with nothing on screen saying so.
         _sync_detection_pause()
@@ -1605,6 +1609,21 @@ def settings_page():
         saved=request.args.get("saved"),
         error=request.args.get("error"),
     )
+
+
+def _picture_flipped() -> None:
+    """The live picture has just been mirrored. A zoomed view stays on the
+    same part of the target, and detection takes the picture as it now is
+    as its reference rather than reading the flip as new holes."""
+    worker = _worker()
+    if worker.get_active_feed() == "synthetic":
+        return
+    level, center_x, center_y = worker.get_zoom()
+    worker.set_zoom(level, 1.0 - center_x, center_y)
+    settings = _settings()
+    settings.camera.zoom_center_x = 1.0 - center_x
+    settings.save()
+    worker.rebaseline()
 
 
 def _camera_control_dict(client, control) -> dict | None:
