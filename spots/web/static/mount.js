@@ -4,6 +4,9 @@
 // stops any motor it stops hearing about, so a dropped connection can't
 // leave the mount slewing. Losing the button any other way -- the pointer
 // cancelled, the window losing focus, the page hidden -- stops it here too.
+//
+// With the card's toggle on, the keyboard's arrow keys do the same as the
+// arrows on screen.
 (function () {
   const card = document.getElementById("mount-card");
   if (!card) return;
@@ -11,6 +14,8 @@
   const HEARTBEAT_MS = 300;
   const POLL_MS = 3000;
   const SPEED_KEY = "spots.mountSpeed";
+  const KEYS_KEY = "spots.mountKeys";
+  const ARROW_KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
   const speeds = window.SPOTS_MOUNT_SPEEDS || {};
 
   const arrows = Array.from(card.querySelectorAll(".mount-btn"));
@@ -20,9 +25,12 @@
   const speedRate = document.getElementById("mount-speed-rate");
   const stateEl = document.getElementById("mount-state");
   const connectBtn = document.getElementById("mount-connect");
+  const keysToggle = document.getElementById("mount-keys");
 
   // direction -> { timer, button }
   const held = new Map();
+  // Directions held down on the keyboard, so a key only lets go of its own.
+  const keysHeld = new Set();
   let connected = false;
 
   function speed() {
@@ -172,11 +180,78 @@
     }
   });
 
-  window.addEventListener("blur", () => releaseAll(false));
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") releaseAll(false);
+  // ---- the keyboard's arrow keys -----------------------------------------
+
+  // Where the arrow keys already do something: typing, sliders, dropdowns,
+  // radio buttons and the site menu.
+  function arrowsBusy() {
+    const el = document.activeElement;
+    if (!el || el === document.body) return false;
+    if (el.isContentEditable) return true;
+    if (el.tagName === "TEXTAREA" || el.tagName === "SELECT") return true;
+    if (el.tagName === "INPUT" && !["checkbox", "button", "submit", "reset"].includes(el.type)) {
+      return true;
+    }
+    return Boolean(el.closest && el.closest('[role="menu"], [role="listbox"]'));
+  }
+
+  function arrowFor(direction) {
+    return arrows.find((b) => b.dataset.dir === direction);
+  }
+
+  document.addEventListener("keydown", (ev) => {
+    const direction = ARROW_KEYS[ev.key];
+    if (!direction || !keysToggle.checked) return;
+    if (ev.defaultPrevented || ev.ctrlKey || ev.altKey || ev.metaKey || arrowsBusy()) return;
+    ev.preventDefault();                  // or the page scrolls as well
+    if (ev.repeat || keysHeld.has(direction)) return;
+    keysHeld.add(direction);
+    press(direction, arrowFor(direction));
   });
-  window.addEventListener("pagehide", () => releaseAll(true));
+
+  document.addEventListener("keyup", (ev) => {
+    const direction = ARROW_KEYS[ev.key];
+    if (!direction || !keysHeld.delete(direction)) return;
+    release(direction);
+  });
+
+  function releaseKeys() {
+    keysHeld.forEach((direction) => release(direction));
+    keysHeld.clear();
+  }
+
+  try {
+    keysToggle.checked = localStorage.getItem(KEYS_KEY) === "1";
+  } catch (err) {
+    /* private browsing -- starts off */
+  }
+  keysToggle.addEventListener("change", () => {
+    if (!keysToggle.checked) releaseKeys();
+    try {
+      localStorage.setItem(KEYS_KEY, keysToggle.checked ? "1" : "0");
+    } catch (err) {
+      /* ignore */
+    }
+  });
+  // A dragged speed slider keeps focus, which would give it the arrow keys.
+  speedInput.addEventListener("pointerup", () => {
+    if (keysToggle.checked && speedInput.blur) speedInput.blur();
+  });
+
+  window.addEventListener("blur", () => {
+    keysHeld.clear();
+    releaseAll(false);
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      keysHeld.clear();
+      releaseAll(false);
+    }
+  });
+  window.addEventListener("pagehide", () => {
+    keysHeld.clear();
+    releaseAll(true);
+  });
 
   try {
     const saved = localStorage.getItem(SPEED_KEY);

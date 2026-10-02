@@ -72,6 +72,10 @@
             <label class="mount-speed-label" for="mount-speed">Speed <output id="mount-speed-value">5</output></label>
             <input type="range" id="mount-speed" min="1" max="9" step="1" value="5">
             <span class="hint" id="mount-speed-rate">{{ mount_speeds[5] }}</span>
+            <label class="mount-keys" for="mount-keys">
+              <input type="checkbox" id="mount-keys">
+              Keyboard arrow keys move the mount
+            </label>
             <p class="mount-state" id="mount-state" aria-live="polite">Connecting&hellip;</p>
             <button type="button" id="mount-connect" hidden>Connect</button>
           </div>

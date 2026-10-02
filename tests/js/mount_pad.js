@@ -1,8 +1,9 @@
 // Drives mount.js under a stub DOM with fake timers and a fake server.
 //
 // Checks a held arrow keeps re-sending its move, that letting go -- or
-// losing the button any other way -- stops it, and that a refused move
-// stops the heartbeat.
+// losing the button any other way -- stops it, that the keyboard's arrow
+// keys do the same only when switched on and not wanted elsewhere, and
+// that a refused move stops the heartbeat.
 //
 // Usage: node mount_pad.js <mount.js>
 const fs = require("fs");
@@ -28,7 +29,7 @@ function advance(ms) {
 function makeEl(id, extra) {
   const classes = new Set();
   return Object.assign({
-    id, disabled: false, hidden: false, textContent: "", className: "", value: "",
+    id, tagName: "DIV", disabled: false, hidden: false, textContent: "", className: "", value: "",
     dataset: {}, handlers: {},
     classList: {
       add: (c) => classes.add(c), remove: (c) => classes.delete(c), contains: (c) => classes.has(c),
@@ -37,13 +38,15 @@ function makeEl(id, extra) {
     dispatch(name, ev) {
       const event = Object.assign({ preventDefault() {}, pointerId: 1 }, ev || {});
       (this.handlers[name] || []).forEach((fn) => fn(event));
+      return event;
     },
+    closest: () => null,
     setPointerCapture() {},
   }, extra || {});
 }
 
 const arrows = ["up", "left", "right", "down"].map((dir) => {
-  const el = makeEl("arrow-" + dir);
+  const el = makeEl("arrow-" + dir, { tagName: "BUTTON" });
   el.dataset.dir = dir;
   el.disabled = true;
   return el;
@@ -51,7 +54,11 @@ const arrows = ["up", "left", "right", "down"].map((dir) => {
 const els = {
   "mount-card": makeEl("mount-card", { querySelectorAll: () => arrows }),
   "mount-stop": makeEl("mount-stop"),
-  "mount-speed": makeEl("mount-speed", { value: "5" }),
+  "mount-speed": makeEl("mount-speed", {
+    value: "5", tagName: "INPUT", type: "range",
+    blur() { document.activeElement = document.body; },
+  }),
+  "mount-keys": makeEl("mount-keys", { tagName: "INPUT", type: "checkbox", checked: false }),
   "mount-speed-value": makeEl("mount-speed-value"),
   "mount-speed-rate": makeEl("mount-speed-rate"),
   "mount-state": makeEl("mount-state"),
@@ -62,12 +69,16 @@ const documentEl = makeEl("document");
 
 global.window = global;
 window.addEventListener = windowEl.addEventListener.bind(windowEl);
+const body = makeEl("body", { tagName: "BODY" });
 global.document = {
+  body,
+  activeElement: body,
   visibilityState: "visible",
   getElementById: (id) => els[id] || null,
   addEventListener: documentEl.addEventListener.bind(documentEl),
 };
-global.localStorage = { getItem: () => null, setItem() {} };
+const stored = {};
+global.localStorage = { getItem: () => null, setItem: (k, v) => { stored[k] = v; } };
 const beacons = [];
 // Newer Node has a read-only navigator of its own, so it is replaced outright.
 Object.defineProperty(globalThis, "navigator", {
@@ -80,12 +91,16 @@ window.SPOTS_MOUNT_SPEEDS = { 5: "16× sidereal", 7: "1°/s" };
 const CONNECTED = { connected: true, model: "NexStar 4/5 SE", port: "/dev/ttyUSB0" };
 const posts = [];
 let refuseMoves = false;
+const LOST = { connected: false, error: "Lost the hand controller" };
 global.fetch = async (url, opts) => {
-  if (!opts || opts.method !== "POST") return { ok: true, json: async () => CONNECTED };
+  // Once a move has been refused the mount is gone, and every poll says so.
+  if (!opts || opts.method !== "POST") {
+    return { ok: true, json: async () => (refuseMoves ? LOST : CONNECTED) };
+  }
   const body = JSON.parse(opts.body);
   posts.push({ url, body });
   if (url === "/api/mount/move" && refuseMoves) {
-    return { ok: false, json: async () => ({ connected: false, error: "Lost the hand controller" }) };
+    return { ok: false, json: async () => LOST };
   }
   return { ok: true, json: async () => CONNECTED };
 };
@@ -163,6 +178,101 @@ const reset = () => { posts.length = 0; beacons.length = 0; };
   await settle();
   if (!beacons.length) fail("closing the page didn't send a stop beacon");
   console.log("page closed: stop sent as a beacon");
+
+  // ---- the keyboard's arrow keys -------------------------------------------
+  const keys = els["mount-keys"];
+  const key = (type, name, extra) => documentEl.dispatch(type, Object.assign({
+    key: name, repeat: false, ctrlKey: false, altKey: false, metaKey: false,
+    defaultPrevented: false, prevented: false, preventDefault() { this.prevented = true; },
+  }, extra || {}));
+  const focus = (el) => { document.activeElement = el; };
+
+  reset();
+  let ev = key("keydown", "ArrowUp");
+  await settle();
+  if (moves().length || ev.prevented) fail("arrow keys moved the mount with the toggle off");
+  key("keyup", "ArrowUp");
+
+  keys.checked = true;
+  keys.dispatch("change");
+  if (stored["spots.mountKeys"] !== "1") fail("the toggle wasn't remembered");
+
+  reset();
+  ev = key("keydown", "ArrowUp");
+  await settle();
+  if (moves().length !== 1 || moves()[0].body.direction !== "up") fail("ArrowUp didn't move the mount up");
+  if (!ev.prevented) fail("ArrowUp was left to scroll the page");
+  if (!arrow("up").classList.contains("is-held")) fail("the on-screen arrow didn't light up");
+  key("keydown", "ArrowUp", { repeat: true });
+  await settle();
+  if (moves().length !== 1) fail("key repeat started a second move");
+  advance(1000);
+  await settle();
+  if (moves().length < 4) fail("a held key didn't keep the move alive");
+  key("keyup", "ArrowUp");
+  await settle();
+  if (!stops().some((p) => p.body.direction === "up")) fail("letting go of ArrowUp didn't stop");
+  let before = moves().length;
+  advance(2000);
+  await settle();
+  if (moves().length !== before) fail("moves kept coming after the key was let go");
+  console.log("arrow keys : held ArrowUp moved up, letting go stopped");
+
+  const elsewhere = [
+    ["speed slider focused", () => focus(els["mount-speed"]), {}],
+    ["typing in a field", () => focus(makeEl("f", { tagName: "INPUT", type: "text" })), {}],
+    ["a dropdown focused", () => focus(makeEl("s", { tagName: "SELECT" })), {}],
+    ["in the site menu", () => focus(makeEl("m", { tagName: "A", closest: (sel) => (sel.includes("menu") ? {} : null) })), {}],
+    ["already handled", () => focus(body), { defaultPrevented: true }],
+    ["with Ctrl held", () => focus(body), { ctrlKey: true }],
+  ];
+  for (const [what, setUp, extra] of elsewhere) {
+    reset();
+    setUp();
+    ev = key("keydown", "ArrowLeft", extra);
+    await settle();
+    if (moves().length) fail(`${what}: the arrow key moved the mount`);
+    if (ev.prevented && !extra.defaultPrevented) fail(`${what}: the key was taken from it`);
+    key("keyup", "ArrowLeft");
+  }
+  console.log("elsewhere  : left alone in fields, sliders, dropdowns and the menu");
+
+  reset();
+  focus(arrow("left"));
+  key("keydown", "ArrowLeft");
+  await settle();
+  if (moves().length !== 1) fail("arrow keys didn't work with an on-screen arrow focused");
+  key("keyup", "ArrowLeft");
+  focus(body);
+
+  reset();
+  key("keydown", "ArrowDown");
+  await settle();
+  keys.checked = false;
+  keys.dispatch("change");
+  await settle();
+  if (!stops().some((p) => p.body.direction === "down")) fail("switching the keys off mid-move didn't stop");
+  before = moves().length;
+  advance(2000);
+  await settle();
+  if (moves().length !== before) fail("moves kept coming after the keys were switched off");
+  console.log("toggled off: mid-move stops it");
+
+  keys.checked = true;
+  keys.dispatch("change");
+  reset();
+  arrow("right").dispatch("pointerdown");
+  await settle();
+  key("keyup", "ArrowRight");                 // a key that was never pressed
+  await settle();
+  if (stops().length) fail("a stray keyup stopped a move held on screen");
+  arrow("right").dispatch("pointerup");
+  await settle();
+
+  focus(els["mount-speed"]);
+  els["mount-speed"].dispatch("pointerup");
+  if (document.activeElement === els["mount-speed"]) fail("a dragged slider kept the arrow keys");
+  console.log("focus      : stray keyups ignored, dragged slider hands keys back");
 
   // ---- the stop button ----------------------------------------------------
   reset();

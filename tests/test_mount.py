@@ -581,10 +581,21 @@ class PadTests(unittest.TestCase):
         self.assertIn("re-send", result.stdout)
 
     def test_a_pad_that_ignored_losing_focus_would_be_caught(self):
-        result = self._broken('window.addEventListener("blur", () => releaseAll(false));', "")
+        result = self._broken('window.addEventListener("blur", () => {\n    keysHeld.clear();\n'
+                              '    releaseAll(false);\n  });', "")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("window blurred", result.stdout)
 
+    def test_arrow_keys_that_ignored_the_toggle_would_be_caught(self):
+        result = self._broken("if (!direction || !keysToggle.checked) return;",
+                              "if (!direction) return;")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("toggle off", result.stdout)
+
+    def test_arrow_keys_that_took_over_fields_would_be_caught(self):
+        result = self._broken(" || arrowsBusy()) return;", ") return;")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("the arrow key moved the mount", result.stdout)
 
 class LayoutTests(unittest.TestCase):
     def test_the_card_sits_under_the_feed_by_default(self):

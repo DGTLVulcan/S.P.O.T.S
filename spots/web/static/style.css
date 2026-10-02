@@ -742,6 +742,14 @@ input[type="range"] { accent-color: var(--accent); }
 }
 .mount-side input[type="range"] { width: 100%; }
 .mount-speed-label { font-weight: 600; font-size: 0.9rem; }
+.mount-keys {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
 .mount-state {
   margin: 0.4rem 0 0;
   font-size: 0.85rem;
