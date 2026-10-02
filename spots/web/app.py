@@ -6,6 +6,7 @@ import logging
 import requests
 from flask import Flask
 
+from spots.camera.asi import AsiError, AsiFrameSource
 from spots.camera.client import ZCamClient, ZCamError
 from spots.camera.discovery import discover_zcam_ip
 from spots.camera.source import RtspFrameSource, SwitchableFrameSource, SyntheticFrameSource, ZoomFrameSource
@@ -36,6 +37,20 @@ def _make_zcam_factory(settings: Settings):
         )
         client.connect()
         return RtspFrameSource(client.rtsp_url()), client
+
+    return factory
+
+
+def _make_asi_factory(settings: Settings):
+    def factory():
+        camera = settings.camera
+        return AsiFrameSource(
+            library_path=camera.asi_sdk_path,
+            auto_exposure=camera.asi_auto_exposure,
+            exposure_ms=camera.asi_exposure_ms,
+            max_exposure_ms=camera.asi_max_exposure_ms,
+            gain=camera.asi_gain,
+        ), None
 
     return factory
 
@@ -78,19 +93,20 @@ def _migrate_equipment_selection(settings: Settings, storage: Storage) -> None:
 def create_app(settings: Settings) -> Flask:
     switchable = SwitchableFrameSource(
         SyntheticFrameSource(mode=settings.camera.synthetic_mode),
-        _make_zcam_factory(settings),
+        {"zcam": _make_zcam_factory(settings), "asi": _make_asi_factory(settings)},
     )
-    if settings.camera.source == "zcam":
-        # A configured "zcam" connects eagerly, falling back to synthetic if it
-        # is unreachable so the app still starts. The Live Feed toggle retries.
+    if settings.camera.source != "synthetic":
+        # A configured live camera connects eagerly, falling back to synthetic
+        # if it is unreachable so the app still starts. The Live Feed toggle
+        # retries.
         try:
-            switchable.switch_to("zcam")
-        except (requests.RequestException, ZCamError) as exc:
+            switchable.switch_to(settings.camera.source)
+        except (requests.RequestException, ZCamError, AsiError, ValueError) as exc:
             logger.warning(
-                "Could not connect to Z CAM at startup (%s) -- starting on the "
-                "synthetic feed instead. Use the Live Feed toggle once the "
-                "camera is reachable.",
-                exc,
+                "Could not connect to the %s camera at startup (%s) -- starting "
+                "on the synthetic feed instead. Use the Live Feed toggle once "
+                "the camera is reachable.",
+                settings.camera.source, exc,
             )
 
     frame_source = ZoomFrameSource(

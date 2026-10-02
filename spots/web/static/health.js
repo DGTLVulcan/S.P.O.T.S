@@ -47,8 +47,8 @@ function renderHealth(rootId, data) {
   tiles.push(healthTile("Uptime", formatUptime(data.uptime_s)));
   tiles.push(healthTile(
     "Feed",
-    data.feed_active === "zcam" ? "Live" : "Simulated",
-    data.feed_active === "zcam"
+    data.feed_active !== "synthetic" ? "Live" : "Simulated",
+    data.feed_active !== "synthetic"
       ? (data.camera_connected ? "camera connected" : "camera NOT connected")
       : ""
   ));

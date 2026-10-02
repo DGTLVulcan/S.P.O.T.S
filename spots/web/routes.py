@@ -24,7 +24,9 @@ from flask import (
 )
 
 from spots import ballistics, dope, health, ranges
+from spots.camera.asi import AsiError
 from spots.camera.source import SyntheticFrameSource
+from spots.config import LIVE_CAMERAS
 from spots.layout import TILES
 from spots.camera.client import ZCamError
 from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
@@ -628,7 +630,7 @@ def api_health():
         health.collect(
             settings.storage.snapshot_dir,
             _worker().get_active_feed(),
-            _worker().get_zcam_client() is not None,
+            _worker().is_live_connected(),
         )
     )
 
@@ -687,22 +689,31 @@ def api_simulate_mode_get():
                     "modes": list(SyntheticFrameSource.MODES)})
 
 
+_CAMERA_NAMES = {"zcam": "Z CAM", "asi": "ZWO ASI camera"}
+
+
 @bp.route("/api/feed")
 def api_feed_get():
-    return jsonify({"active": _worker().get_active_feed()})
+    return jsonify({"active": _worker().get_active_feed(),
+                    "live_camera": _settings().camera.live})
 
 
 @bp.route("/api/feed", methods=["POST"])
 def api_feed_set():
     data = request.get_json(force=True)
     target = data.get("target")
-    if target not in ("synthetic", "zcam"):
-        return jsonify({"error": "target must be 'synthetic' or 'zcam'"}), 400
+    # "live" is whichever camera is fitted, so the page needn't know.
+    if target == "live":
+        target = _settings().camera.live
+    if target not in ("synthetic",) + LIVE_CAMERAS:
+        return jsonify({"error": "target must be 'synthetic', 'live', "
+                                 + " or ".join(f"'{c}'" for c in LIVE_CAMERAS)}), 400
 
     try:
         _worker().switch_feed(target)
-    except (requests.RequestException, ZCamError) as exc:
-        return jsonify({"error": f"Could not connect to the Z CAM: {exc}"}), 502
+    except (requests.RequestException, ZCamError, AsiError) as exc:
+        return jsonify({"error": f"Could not connect to the "
+                                 f"{_CAMERA_NAMES.get(target, target)}: {exc}"}), 502
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -1210,13 +1221,29 @@ def _apply_settings_form(settings, form) -> list[str]:
     if realignment_method not in ("orb", "sift"):
         errors.append("Re-alignment method must be 'orb' or 'sift'")
 
+    live_camera = form.get("camera.live_camera", settings.camera.live_camera)
+    if live_camera not in LIVE_CAMERAS:
+        errors.append("Live camera must be " + " or ".join(LIVE_CAMERAS))
+    # The form offers "start on the live camera" rather than naming it again.
     camera_source = form.get("camera.source", "synthetic")
-    if camera_source not in ("zcam", "synthetic"):
-        errors.append("Camera source must be 'zcam' or 'synthetic'")
+    if camera_source == "live":
+        camera_source = live_camera
+    if camera_source not in ("synthetic",) + LIVE_CAMERAS:
+        errors.append("Start on must be the simulated target or the live camera")
     camera_ip = form.get("camera.ip", "").strip()
     stream_width = _parse_int(form, "camera.stream_width", errors)
     stream_height = _parse_int(form, "camera.stream_height", errors)
     stream_bitrate = _parse_int(form, "camera.stream_bitrate", errors)
+    asi_sdk_path = form.get("camera.asi_sdk_path", "").strip()
+    asi_exposure_ms = _parse_float(form, "camera.asi_exposure_ms", errors)
+    asi_max_exposure_ms = _parse_float(form, "camera.asi_max_exposure_ms", errors)
+    asi_gain = _parse_int(form, "camera.asi_gain", errors)
+    if asi_exposure_ms is not None and asi_exposure_ms <= 0:
+        errors.append("ASI exposure must be more than 0 ms")
+    if asi_max_exposure_ms is not None and asi_max_exposure_ms <= 0:
+        errors.append("ASI longest exposure must be more than 0 ms")
+    if asi_gain is not None and asi_gain < 0:
+        errors.append("ASI gain can't be negative")
 
     if (
         min_hole_area_px is not None
@@ -1249,10 +1276,16 @@ def _apply_settings_form(settings, form) -> list[str]:
     settings.detection.realignment_method = realignment_method
 
     settings.camera.source = camera_source
+    settings.camera.live_camera = live_camera
     settings.camera.ip = camera_ip
     settings.camera.stream_width = stream_width
     settings.camera.stream_height = stream_height
     settings.camera.stream_bitrate = stream_bitrate
+    settings.camera.asi_sdk_path = asi_sdk_path
+    settings.camera.asi_auto_exposure = "camera.asi_auto_exposure" in form
+    settings.camera.asi_exposure_ms = asi_exposure_ms
+    settings.camera.asi_max_exposure_ms = asi_max_exposure_ms
+    settings.camera.asi_gain = asi_gain
 
     settings.web.range_status_enabled = "web.range_status_enabled" in form
     settings.web.range_status_spacebar = "web.range_status_spacebar" in form
@@ -1527,7 +1560,10 @@ def _camera_control_dict(client, control) -> dict | None:
 def api_camera_controls_get():
     client = _zcam_client()
     if client is None:
-        return jsonify({"available": False, "reason": "Camera source is synthetic", "controls": []})
+        reason = ("The ZWO ASI camera's exposure and gain are under Settings, Camera"
+                  if _worker().get_active_feed() == "asi"
+                  else "Camera source is synthetic")
+        return jsonify({"available": False, "reason": reason, "controls": []})
 
     controls = [c for c in (_camera_control_dict(client, c) for c in CAMERA_CONTROLS) if c]
     return jsonify({"available": True, "controls": controls})

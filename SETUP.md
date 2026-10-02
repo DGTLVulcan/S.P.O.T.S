@@ -11,12 +11,18 @@ undo all work against it.
 The **Z CAM E2 HTTP/RTSP client** (`spots/camera/client.py`,
 `spots/camera/source.py`'s `RtspFrameSource`) is written against the
 official documented API (`imaginevision/Z-Camera-Doc`, `E2/protocol/http/http.md`)
-but has **not** been tested against a real camera or a Raspberry Pi — that
-needs to happen on-site with your actual hardware. Likely first things to
-check there: the exact RTSP path for your firmware version (`/live_stream` is
-what's documented, but confirm with `ffprobe rtsp://<camera-ip>/live_stream`),
-and whether `stream_setting` needs `index=stream0` instead of `stream1`
-depending on how you have the camera's dual-stream config set.
+and runs on a Raspberry Pi with the camera connected, but has not yet been
+used at a range against a real target. If the stream won't open, check the
+exact RTSP path for your firmware (`/live_stream` is what's documented;
+confirm with `ffprobe rtsp://<camera-ip>/live_stream`), and whether
+`stream_setting` needs `index=stream0` instead of `stream1`.
+
+The **ZWO ASI290MC** support (`spots/camera/asi.py`) is written against ZWO's
+ASICamera2 SDK documentation and the `zwoasi` binding's source, and tested
+against a stand-in for the SDK, but has **not** been run with a real camera.
+First things to check with one: that `install-asi-sdk.sh` found the camera
+(Settings shows a clear error naming the problem if not), and how auto
+exposure behaves as the light changes.
 
 ## Field network topology
 
@@ -92,10 +98,10 @@ git clone https://github.com/DGTLVulcan/S.P.O.T.S.git && cd S.P.O.T.S
 ./scripts/install.sh
 ```
 
-To use the real camera instead of the default synthetic feed, edit
-`~/spots/config.yaml` (or `<your clone>/config.yaml`) and set `camera.source`
-to `zcam` (leave `camera.ip` blank -- it's auto-discovered), then either
-`sudo systemctl restart spots` or reboot for the change to take effect.
+To use the real camera instead of the default synthetic feed, open
+**Settings > Camera**, choose the **Live camera** you have fitted, and set
+**Start on** to **Live camera**. Then `sudo systemctl restart spots` or reboot.
+For the Z CAM, leave the IP blank -- it's auto-discovered.
 
 Once installed, join the WiFi network the installer printed and browse to
 `http://<pi's AP IP>:8080/` (default `http://192.168.4.1:8080/`, or try
@@ -106,6 +112,31 @@ Installer env var overrides (all optional): `SPOTS_DIR`, `REPO_URL`,
 `SPOTS_AP_PASSWORD`, `SPOTS_AP_IP`, `SPOTS_ETH_IP`, `SPOTS_WIFI_COUNTRY` --
 see the comments at the top of `scripts/install.sh` and
 `scripts/setup-network.sh`.
+
+### Using a ZWO ASI290MC over USB
+
+ZWO's cameras aren't ordinary webcams: they need ZWO's own SDK library and a
+udev rule before anything can open them. The `zwoasi` Python package comes in
+with the rest of the requirements; the library you install once:
+
+1. Download **ASI Camera SDK** for Linux & Mac from ZWO's developer page -- a
+   file named like `ASI_linux_mac_SDK_V1.xx.tar.bz2` -- and copy it to the Pi.
+2. Run `bash ~/spots/scripts/install-asi-sdk.sh ~/ASI_linux_mac_SDK_V1.xx.tar.bz2`.
+   It picks the library for the Pi's architecture, installs ZWO's udev rule
+   (camera access without root, and the larger USB buffer ZWO recommends), and
+   installs libusb.
+3. Unplug the camera and plug it back in, into a **blue USB 3 port**.
+4. In **Settings > Camera**, set **Live camera** to **ZWO ASI290MC (USB)**,
+   then restart S.P.O.T.S.
+
+Auto exposure is on by default: it holds the picture at a steady brightness,
+never exposing longer than **Longest exposure** (20 ms) so a target moving in
+the wind stays sharp. If passing cloud causes false shots, turn auto exposure
+off and set a fixed **Exposure** instead. Raise **Gain** if the picture is dark
+at the longest exposure.
+
+The camera is a bare sensor: it needs a lens, or to sit behind a spotting
+scope, to see a target downrange.
 
 ### Updating
 

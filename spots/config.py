@@ -61,23 +61,45 @@ def load_dotenv(path: str = _DEFAULT_ENV_PATH) -> dict[str, str]:
     return applied
 
 
+# The live cameras the app can drive, by the name used in config and routes.
+LIVE_CAMERAS = ("zcam", "asi")
+
+
 @dataclass
 class CameraConfig:
-    source: str = "synthetic"  # "zcam" or "synthetic"
-    # Blank discovers it on the Ethernet link (camera/discovery.py); the Pi
-    # hands out the lease, so the address isn't fixed.
+    # What to start on: "synthetic", or a live camera from LIVE_CAMERAS.
+    source: str = "synthetic"
+    # The camera the dashboard's Live Feed button connects to. A live
+    # `source` takes precedence, so the two can't disagree.
+    live_camera: str = "zcam"
+    # Z CAM. Blank discovers it on the Ethernet link (camera/discovery.py);
+    # the Pi hands out the lease, so the address isn't fixed.
     ip: str = ""
     stream_width: int = 1920
     stream_height: int = 1080
     stream_bitrate: int = 8_000_000
-    # Crop+resize zoom. 1.0 is off; the centres are a fractional pan
-    # position (0-1) within the frame.
+    # ZWO ASI over USB. Blank finds libASICamera2 on the library path.
+    asi_sdk_path: str = ""
+    # Auto exposure holds the picture at a steady brightness, never exposing
+    # longer than asi_max_exposure_ms so a swaying target doesn't blur. With
+    # it off, asi_exposure_ms is used as a fixed exposure.
+    asi_auto_exposure: bool = True
+    asi_exposure_ms: float = 2.0
+    asi_max_exposure_ms: float = 20.0
+    asi_gain: int = 50
     # Which fabricated target the synthetic source draws: "realistic" is a
     # swaying paper sheet over a berm, "simple" a flat one with black discs.
     synthetic_mode: str = "realistic"
+    # Crop+resize zoom. 1.0 is off; the centres are a fractional pan
+    # position (0-1) within the frame.
     digital_zoom: float = 1.0
     zoom_center_x: float = 0.5
     zoom_center_y: float = 0.5
+
+    @property
+    def live(self) -> str:
+        """The live camera in use: the one started on, else the one fitted."""
+        return self.source if self.source in LIVE_CAMERAS else self.live_camera
 
 
 @dataclass
@@ -218,7 +240,7 @@ class Settings:
             setattr(target, field_name, value)
 
     def save(self, path: str | None = None) -> None:
-        """        Persists to config.yaml, never config.example.yaml, whichever was
+        """Persists to config.yaml, never config.example.yaml, whichever was
         loaded. Values that came from the environment are written back as
         whatever the file held, so a .env never rewrites the config.
         """

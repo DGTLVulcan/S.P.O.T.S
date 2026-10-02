@@ -378,39 +378,45 @@ class SyntheticFrameSource(FrameSource):
 
 
 class SwitchableFrameSource(FrameSource):
-    """Toggles between the synthetic target and a real camera without
+    """Toggles between the synthetic target and a live camera without
     restarting the app.
 
-    The Z CAM connects on the first switch to it and is then kept alive, so
-    a setup with no camera never tries at startup. Switching feeds changes
+    Each live camera is built on the first switch to it and then kept, so a
+    setup with no camera never tries at startup. Switching feeds changes
     every pixel, so it invalidates the reference frame and calibration.
     """
 
-    def __init__(self, synthetic: SyntheticFrameSource, zcam_factory):
+    def __init__(self, synthetic: SyntheticFrameSource, live_factories: dict):
         self._synthetic = synthetic
-        self._zcam_factory = zcam_factory  # () -> (FrameSource, ZCamClient), raises on failure
-        self._zcam_source: FrameSource | None = None
-        self._zcam_client = None
+        # name -> () -> (FrameSource, client or None); raises on failure.
+        self._factories = dict(live_factories)
+        self._live: dict[str, tuple[FrameSource, object]] = {}
         self._active = "synthetic"
         self._lock = threading.Lock()
+
+    def _current(self) -> FrameSource | None:
+        if self._active == "synthetic":
+            return self._synthetic
+        entry = self._live.get(self._active)
+        return entry[0] if entry else None
 
     def __getattr__(self, name):
         # Falls through to whichever source is active, so synthetic-only
         # hooks like add_hole() can't reach a real camera.
-        source = self._zcam_source if self._active == "zcam" else self._synthetic
+        source = self._current()
         if source is None:
             raise AttributeError(name)
         return getattr(source, name)
 
     def start(self) -> None:
         # Synthetic has no background work, so switching to it is instant.
-        # The Z CAM source is started in switch_to() on first connect.
+        # A live source is started in switch_to() on first connect.
         self._synthetic.start()
 
     def stop(self) -> None:
         self._synthetic.stop()
-        if self._zcam_source is not None:
-            self._zcam_source.stop()
+        for source, _ in self._live.values():
+            source.stop()
 
     def get_active(self) -> str:
         return self._active
@@ -425,17 +431,31 @@ class SwitchableFrameSource(FrameSource):
         return self._synthetic.set_mode(mode)
 
     def get_zcam_client(self):
-        return self._zcam_client
+        entry = self._live.get("zcam")
+        return entry[1] if entry else None
+
+    def is_live_connected(self) -> bool:
+        """Whether the active feed is a live camera that is delivering."""
+        if self._active == "synthetic":
+            return False
+        entry = self._live.get(self._active)
+        if entry is None:
+            return False
+        source, client = entry
+        connected = getattr(source, "connected", None)
+        return bool(connected) if connected is not None else client is not None
 
     def switch_to(self, target: str) -> None:
-        if target not in ("synthetic", "zcam"):
-            raise ValueError(f"Unknown feed target: {target!r} (expected 'synthetic' or 'zcam')")
+        if target != "synthetic" and target not in self._factories:
+            known = ", ".join(["synthetic"] + sorted(self._factories))
+            raise ValueError(f"Unknown feed target: {target!r} (expected one of {known})")
         with self._lock:
-            if target == "zcam" and self._zcam_source is None:
-                self._zcam_source, self._zcam_client = self._zcam_factory()
-                self._zcam_source.start()
+            if target != "synthetic" and target not in self._live:
+                source, client = self._factories[target]()
+                source.start()
+                self._live[target] = (source, client)
             self._active = target
 
     def get_latest_frame(self) -> np.ndarray | None:
-        source = self._zcam_source if self._active == "zcam" else self._synthetic
+        source = self._current()
         return source.get_latest_frame() if source is not None else None

@@ -348,7 +348,7 @@ def clean_specs(kind: str, raw: dict) -> tuple[dict, list[str]]:
 
 
 def summarise(item: dict) -> str:
-    """    Short one-line description for the sidebar and header dropdowns: the
+    """Short one-line description for the sidebar and header dropdowns: the
     couple of fields that identify a piece of kit at a glance.
 
     Takes the whole record rather than its specs, since a scope is

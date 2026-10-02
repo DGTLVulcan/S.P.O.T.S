@@ -370,6 +370,10 @@ class DetectionWorker:
         get_client = getattr(self._frame_source, "get_zcam_client", None)
         return get_client() if callable(get_client) else None
 
+    def is_live_connected(self) -> bool:
+        check = getattr(self._frame_source, "is_live_connected", None)
+        return bool(check()) if callable(check) else False
+
     def add_simulated_hole(self, x: float, y: float) -> bool:
         """Places a virtual bullet hole for the synthetic source to render and
         the detector to pick up next cycle. False when the active feed is

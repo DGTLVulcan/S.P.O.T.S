@@ -10,7 +10,7 @@
   const zoomValue = document.getElementById("zoom-value");
   const zoomCenterBtn = document.getElementById("zoom-center-btn");
   const feedSyntheticBtn = document.getElementById("feed-synthetic");
-  const feedZcamBtn = document.getElementById("feed-zcam");
+  const feedLiveBtn = document.getElementById("feed-live");
   const badgeFeed = document.getElementById("badge-feed");
   const feedHint = document.getElementById("feed-hint");
   const simBar = document.getElementById("sim-bar");
@@ -243,7 +243,7 @@
     currentFeed = active;
     const isSynthetic = active === "synthetic";
     feedSyntheticBtn.classList.toggle("primary", isSynthetic);
-    feedZcamBtn.classList.toggle("primary", !isSynthetic);
+    feedLiveBtn.classList.toggle("primary", !isSynthetic);
     badgeFeed.className = "badge " + (isSynthetic ? "good" : "");
     badgeFeed.innerHTML = `<span class="dot"></span>${isSynthetic ? "Simulated" : "Live"}`;
     feedHint.textContent = isSynthetic
@@ -295,11 +295,13 @@
     }
   }
 
+  // "live" lets the server pick whichever camera is fitted; the reply
+  // names the one it actually switched to.
   async function switchFeed(target) {
-    if (target === currentFeed) return;
+    if (target === currentFeed || (target === "live" && currentFeed !== "synthetic")) return;
     try {
-      await postJson("/api/feed", { target });
-      updateFeedUI(target);
+      const result = await postJson("/api/feed", { target });
+      updateFeedUI(result.active || target);
       // Nothing to do to the picture: frames are pulled one at a time,
       // so the next one already comes from the new source.
       setStatus("Feed switched -- click New Target, then re-calibrate.");
@@ -309,7 +311,7 @@
   }
 
   feedSyntheticBtn.addEventListener("click", () => switchFeed("synthetic"));
-  feedZcamBtn.addEventListener("click", () => switchFeed("zcam"));
+  feedLiveBtn.addEventListener("click", () => switchFeed("live"));
 
   async function loadFeed() {
     try {

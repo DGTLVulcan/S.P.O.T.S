@@ -27,7 +27,7 @@ def _probe(ip: str) -> bool:
 
 
 def _iface_ipv4_network(iface: str) -> ipaddress.IPv4Network | None:
-    """    Reads the interface's IPv4 address and prefix via `ip -4 addr show`.
+    """Reads the interface's IPv4 address and prefix via `ip -4 addr show`.
     Returns None off-Pi, or when the interface is down or unconfigured, so
     discovery fails closed rather than raising.
     """

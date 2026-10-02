@@ -694,6 +694,18 @@ input[type="range"] { accent-color: var(--accent); }
 }
 .checkbox-field label { font-weight: 500; }
 
+/* A sub-heading splitting one settings panel by device. */
+.settings-group {
+  margin: 1.4rem 0 0.6rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+}
+
 .field-row { display: flex; align-items: center; gap: 0.6rem; }
 .field-row output { font-variant-numeric: tabular-nums; min-width: 3ch; color: var(--ink-secondary); }
 

@@ -3,3 +3,4 @@ opencv-python-headless>=4.9
 numpy>=1.26
 requests>=2.31
 PyYAML>=6.0
+zwoasi>=0.2

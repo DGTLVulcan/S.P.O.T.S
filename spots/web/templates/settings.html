@@ -47,7 +47,7 @@
           <button type="button" class="equip-nav-item settings-nav" data-panel="camera">
             <span class="equip-nav-text">
               <span class="equip-nav-name">Camera</span>
-              <span class="equip-nav-sub">Source, address, stream</span>
+              <span class="equip-nav-sub">Z CAM or ZWO ASI, and its settings</span>
             </span>
           </button>
           <button type="button" class="equip-nav-item settings-nav" data-panel="range">
@@ -248,12 +248,22 @@
             </div>
             <div class="restart-note">&#9888; All fields here need an app restart to take effect.</div>
             <div class="field">
-              <label for="source">Source</label>
+              <label for="live_camera">Live camera</label>
+              <select id="live_camera" name="camera.live_camera">
+                <option value="zcam" {% if settings.camera.live == 'zcam' %}selected{% endif %}>Z CAM E2 (network)</option>
+                <option value="asi" {% if settings.camera.live == 'asi' %}selected{% endif %}>ZWO ASI290MC (USB)</option>
+              </select>
+              <span class="hint">The camera the dashboard's Live Feed button connects to.</span>
+            </div>
+            <div class="field">
+              <label for="source">Start on</label>
               <select id="source" name="camera.source">
-                <option value="synthetic" {% if settings.camera.source == 'synthetic' %}selected{% endif %}>Synthetic (dev/test, no hardware)</option>
-                <option value="zcam" {% if settings.camera.source == 'zcam' %}selected{% endif %}>Z CAM (network)</option>
+                <option value="synthetic" {% if settings.camera.source == 'synthetic' %}selected{% endif %}>Simulated target</option>
+                <option value="live" {% if settings.camera.source != 'synthetic' %}selected{% endif %}>Live camera</option>
               </select>
             </div>
+
+            <h3 class="settings-group">Z CAM E2</h3>
             <div class="field">
               <label for="ip">Camera IP</label>
               <input type="text" id="ip" name="camera.ip" value="{{ settings.camera.ip }}">
@@ -270,6 +280,33 @@
             <div class="field">
               <label for="stream_bitrate">Stream bitrate (bps)</label>
               <input type="number" id="stream_bitrate" name="camera.stream_bitrate" value="{{ settings.camera.stream_bitrate }}" required>
+            </div>
+
+            <h3 class="settings-group">ZWO ASI290MC</h3>
+            <div class="field checkbox-field">
+              <input type="checkbox" id="asi_auto_exposure" name="camera.asi_auto_exposure" {% if settings.camera.asi_auto_exposure %}checked{% endif %}>
+              <label for="asi_auto_exposure">Auto exposure</label>
+            </div>
+            <p class="hint">Holds the picture at a steady brightness. Turn it off for a fixed exposure if changing light causes false shots.</p>
+            <div class="field">
+              <label for="asi_exposure_ms">Exposure (ms)</label>
+              <input type="number" id="asi_exposure_ms" name="camera.asi_exposure_ms" step="0.01" min="0.01" value="{{ settings.camera.asi_exposure_ms }}" required>
+              <span class="hint">Where auto exposure starts, or the fixed exposure with it off.</span>
+            </div>
+            <div class="field">
+              <label for="asi_max_exposure_ms">Longest exposure (ms)</label>
+              <input type="number" id="asi_max_exposure_ms" name="camera.asi_max_exposure_ms" step="0.1" min="0.1" value="{{ settings.camera.asi_max_exposure_ms }}" required>
+              <span class="hint">Auto exposure never goes longer, so a target moving in the wind stays sharp.</span>
+            </div>
+            <div class="field">
+              <label for="asi_gain">Gain</label>
+              <input type="number" id="asi_gain" name="camera.asi_gain" step="1" min="0" value="{{ settings.camera.asi_gain }}" required>
+              <span class="hint">Lower is less noisy. Raise it if the picture is dark at the longest exposure.</span>
+            </div>
+            <div class="field">
+              <label for="asi_sdk_path">SDK library</label>
+              <input type="text" id="asi_sdk_path" name="camera.asi_sdk_path" value="{{ settings.camera.asi_sdk_path }}" placeholder="found automatically">
+              <span class="hint">Path to libASICamera2.so. Leave blank once scripts/install-asi-sdk.sh has installed it.</span>
             </div>
           </div>
 

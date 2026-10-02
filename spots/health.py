@@ -148,7 +148,7 @@ def collect(storage_path: str, feed_active: str, camera_connected: bool) -> dict
             escalate("power", "warn", "Under-voltage seen since boot")
         elif throttled["throttled_since_boot"]:
             escalate("power", "warn", "Throttling seen since boot")
-    if feed_active == "zcam" and not camera_connected:
+    if feed_active != "synthetic" and not camera_connected:
         escalate("camera", "warn", "Live feed selected but the camera isn't connected")
 
     return {

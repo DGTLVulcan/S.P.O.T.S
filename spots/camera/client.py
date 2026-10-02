@@ -76,7 +76,7 @@ class ZCamClient:
         return f"rtsp://{ip}/live_stream"
 
     def get_setting(self, key: str) -> dict:
-        """        Queries a camera setting via /ctrl/get?k=<key>. The response shape
+        """Queries a camera setting via /ctrl/get?k=<key>. The response shape
         follows the setting's type: choice ({"value","opts"}), range
         ({"value","min","max","step"}) or string ({"value"}), always with
         "ro" for read-only.
