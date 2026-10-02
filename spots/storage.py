@@ -106,6 +106,10 @@ _DEFAULT_EQUIPMENT = [
 
 # Rings for the seeded example only, in the app's target unit (cm by
 # default): value and the ring's overall diameter.
+_DEFAULT_SCOPE = next(entry for entry in _DEFAULT_EQUIPMENT if entry[0] == "scope")
+# Set once a database has had the Simmons replaced by the Meopta.
+_DEFAULT_SCOPE_KEY = "default_scope_meopta"
+
 _DEFAULT_TARGET_RINGS = [
     {"value": 10, "diameter": 4.0},
     {"value": 9, "diameter": 8.0},
@@ -147,6 +151,7 @@ class Storage:
             self._conn.executescript(_SCHEMA)
             self._migrate_locked()
             self._seed_equipment_locked()
+            self._ensure_default_scope_locked()
             self._conn.commit()
 
     def _migrate_locked(self) -> None:
@@ -218,6 +223,58 @@ class Storage:
                     " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                     (self._selection_key(kind), str(row[0])),
                 )
+
+    def _ensure_default_scope_locked(self) -> None:
+        """Keeps the Meopta as the default scope.
+
+        Once per database: removes the Simmons that older versions seeded,
+        adds the Meopta if it isn't there, and selects it in place of the
+        Simmons. On every start: adds the Meopta back if there is no scope
+        at all. Past sessions keep their own record of what was used.
+        """
+        changed = False
+        if self._conn.execute("SELECT 1 FROM app_state WHERE key = ?",
+                              (_DEFAULT_SCOPE_KEY,)).fetchone() is None:
+            # LIKE ignores case for plain letters in SQLite.
+            self._conn.execute(
+                "DELETE FROM equipment WHERE kind = 'scope' AND name LIKE '%simmons%'")
+            if self._conn.execute("SELECT 1 FROM equipment WHERE kind = 'scope' AND name = ?",
+                                  (_DEFAULT_SCOPE[1],)).fetchone() is None:
+                self._insert_default_locked(_DEFAULT_SCOPE)
+            self._conn.execute("INSERT INTO app_state (key, value) VALUES (?, '1')",
+                               (_DEFAULT_SCOPE_KEY,))
+            changed = True
+        if self._conn.execute("SELECT 1 FROM equipment WHERE kind = 'scope'").fetchone() is None:
+            self._insert_default_locked(_DEFAULT_SCOPE)
+            changed = True
+        if not changed:
+            return
+
+        # Select the Meopta if the selection now points at nothing.
+        key = self._selection_key("scope")
+        row = self._conn.execute("SELECT value FROM app_state WHERE key = ?", (key,)).fetchone()
+        selected = None
+        if row is not None and str(row[0]).isdigit():
+            selected = self._conn.execute(
+                "SELECT 1 FROM equipment WHERE id = ? AND kind = 'scope'", (int(row[0]),)
+            ).fetchone()
+        if selected is None:
+            meopta = self._conn.execute(
+                "SELECT id FROM equipment WHERE kind = 'scope' AND name = ? ORDER BY id LIMIT 1",
+                (_DEFAULT_SCOPE[1],)).fetchone()
+            if meopta is not None:
+                self._conn.execute(
+                    "INSERT INTO app_state (key, value) VALUES (?, ?)"
+                    " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (key, str(meopta[0])))
+
+    def _insert_default_locked(self, entry) -> None:
+        kind, name, notes, click_value, click_unit, specs = entry
+        self._conn.execute(
+            "INSERT INTO equipment (kind, name, notes, click_value, click_unit, specs, rings,"
+            " created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (kind, name, notes, click_value, click_unit, json.dumps(specs), json.dumps([]),
+             time.time()))
 
     def get_state(self, key: str, default: str | None = None) -> str | None:
         with self._lock:

@@ -418,3 +418,114 @@ class AppStateTests(StorageTestCase):
         self.assertEqual(self.storage.get_state("k"), "v2")
         self.storage.set_state("k", None)
         self.assertIsNone(self.storage.get_state("k"))
+
+
+MEOPTA = "Meopta MeoHunter R5 5-25x56 FFP RD BDC 3"
+SIMMONS = "Simmons Pro Target 4-16x40 30mm"
+
+
+class DefaultScopeTests(unittest.TestCase):
+    """The Meopta replaces the Simmons that older versions seeded."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.path = os.path.join(self.dir, "spots.db")
+
+    def tearDown(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def open(self):
+        storage = Storage(self.path)
+        self.addCleanup(storage.close)
+        return storage
+
+    def old_database(self, simmons_name=SIMMONS, own_scope=None, select_own=False):
+        """A database as an older version left it: seeded with the Simmons,
+        which is selected, and a session shot with it."""
+        storage = Storage(self.path)
+        storage.new_session("cm", 100.0, scope=simmons_name,
+                            equipment_snapshot={"scope": {"name": simmons_name}})
+        storage.close()
+        db = sqlite3.connect(self.path)
+        try:
+            db.execute("DELETE FROM equipment WHERE kind = 'scope'")
+            db.execute("DELETE FROM app_state WHERE key = 'default_scope_meopta'")
+            ids = {}
+            for name in filter(None, (simmons_name, own_scope)):
+                cur = db.execute(
+                    "INSERT INTO equipment (kind, name, click_value, click_unit, specs, rings,"
+                    " created_at) VALUES ('scope', ?, 0.1, 'mrad', '{}', '[]', 0)", (name,))
+                ids[name] = cur.lastrowid
+            chosen = ids[own_scope] if select_own else ids[simmons_name]
+            db.execute("INSERT OR REPLACE INTO app_state (key, value) VALUES ('selected_scope', ?)",
+                       (str(chosen),))
+            db.commit()
+        finally:
+            db.close()
+
+    def scopes(self, storage):
+        return [item["name"] for item in storage.list_equipment("scope")]
+
+    def selected_scope(self, storage):
+        item_id = storage.get_selected_equipment()["scope"]
+        return storage.get_equipment(item_id)["name"] if item_id else None
+
+    def test_a_new_database_has_the_meopta_selected(self):
+        storage = self.open()
+        self.assertEqual(self.scopes(storage), [MEOPTA])
+        self.assertEqual(self.selected_scope(storage), MEOPTA)
+
+    def test_an_old_database_swaps_the_simmons_for_the_meopta(self):
+        self.old_database()
+        storage = self.open()
+        self.assertEqual(self.scopes(storage), [MEOPTA])
+        self.assertEqual(self.selected_scope(storage), MEOPTA)
+        # The Meopta arrives with its full specs, as on a fresh install.
+        meopta = storage.list_equipment("scope")[0]
+        self.assertEqual(meopta["specs"]["reticle"], "BDC 3")
+        self.assertEqual((meopta["click_value"], meopta["click_unit"]), (0.1, "mrad"))
+
+    def test_the_rest_of_the_kit_and_past_sessions_are_left_alone(self):
+        Storage(self.path).close()
+        before = Storage(self.path)
+        kit = {k: before.list_equipment(k) for k in ("rifle", "ammo", "target")}
+        before.close()
+        self.old_database()
+        storage = self.open()
+        for kind, items in kit.items():
+            self.assertEqual(storage.list_equipment(kind), items, kind)
+        session = storage.get_session(storage.list_sessions()[0]["id"])
+        self.assertEqual(session["scope"], SIMMONS, "history was rewritten")
+
+    def test_any_spelling_of_simmons_goes(self):
+        self.old_database(simmons_name="SIMMONS pro target 4-16x40")
+        self.assertEqual(self.scopes(self.open()), [MEOPTA])
+
+    def test_a_scope_of_your_own_stays_and_stays_selected(self):
+        self.old_database(own_scope="Vortex Razor HD Gen III", select_own=True)
+        storage = self.open()
+        self.assertCountEqual(self.scopes(storage), ["Vortex Razor HD Gen III", MEOPTA])
+        self.assertEqual(self.selected_scope(storage), "Vortex Razor HD Gen III")
+
+    def test_it_only_happens_once(self):
+        self.old_database()
+        storage = Storage(self.path)
+        storage.add_equipment("scope", "Simmons 8-Point 3-9x40")      # bought later
+        storage.close()
+        self.assertIn("Simmons 8-Point 3-9x40", self.scopes(self.open()))
+
+    def test_with_no_scope_at_all_the_meopta_comes_back(self):
+        storage = Storage(self.path)
+        for item in storage.list_equipment("scope"):
+            storage.delete_equipment(item["id"])
+        storage.close()
+        storage = self.open()
+        self.assertEqual(self.scopes(storage), [MEOPTA])
+        self.assertEqual(self.selected_scope(storage), MEOPTA)
+
+    def test_a_deleted_meopta_stays_deleted_beside_another_scope(self):
+        storage = Storage(self.path)
+        storage.add_equipment("scope", "Vortex Razor HD Gen III")
+        storage.delete_equipment(storage.list_equipment("scope")[0]["id"])
+        storage.close()
+        self.assertEqual(self.scopes(self.open()), ["Vortex Razor HD Gen III"])
