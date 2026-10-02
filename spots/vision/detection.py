@@ -116,6 +116,11 @@ class ShotDetector:
             self._matcher = None
 
     @property
+    def realigns(self) -> bool:
+        """Whether frames are warped onto the anchor before differencing."""
+        return self._feature_detector is not None
+
+    @property
     def has_reference(self) -> bool:
         return self._reference is not None
 

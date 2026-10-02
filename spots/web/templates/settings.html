@@ -50,6 +50,12 @@
               <span class="equip-nav-sub">Z CAM or ZWO ASI, and its settings</span>
             </span>
           </button>
+          <button type="button" class="equip-nav-item settings-nav" data-panel="mount">
+            <span class="equip-nav-text">
+              <span class="equip-nav-name">Mount</span>
+              <span class="equip-nav-sub">Celestron NexStar over USB</span>
+            </span>
+          </button>
           <button type="button" class="equip-nav-item settings-nav" data-panel="range">
             <span class="equip-nav-text">
               <span class="equip-nav-name">Range status</span>
@@ -314,6 +320,46 @@
               <input type="text" id="asi_sdk_path" name="camera.asi_sdk_path" value="{{ settings.camera.asi_sdk_path }}" placeholder="found automatically">
               <span class="hint">Path to libASICamera2.so. Leave blank once scripts/install-asi-sdk.sh has installed it.</span>
             </div>
+          </div>
+
+          <div class="settings-panel" data-panel="mount" hidden>
+            <div class="equip-detail-head">
+              <div class="equip-detail-titles">
+                <span class="equip-detail-kind">Configuration</span>
+                <span class="settings-title">Mount</span>
+              </div>
+            </div>
+            <div class="field checkbox-field">
+              <input type="checkbox" id="mount_enabled" name="mount.enabled"
+                     {% if settings.mount.enabled %}checked{% endif %}>
+              <label for="mount_enabled">Control a Celestron NexStar mount from Live View</label>
+            </div>
+            <p class="hint" style="margin: -0.4rem 0 0.9rem;">
+              Plug the USB port on the bottom of the hand controller into the Pi, with the hand
+              controller in the mount and the mount switched on. Connecting stops both motors and
+              turns tracking off, since tracking follows the sky and would walk the view off a
+              target on the ground.
+            </p>
+            <div class="field">
+              <label for="mount_port">Serial port</label>
+              <input type="text" id="mount_port" name="mount.port" value="{{ settings.mount.port }}" placeholder="found automatically">
+              <span class="hint">Leave blank to search the USB serial ports, or give one such as /dev/ttyUSB0.</span>
+            </div>
+            <div class="field checkbox-field">
+              <input type="checkbox" id="mount_reverse_left_right" name="mount.reverse_left_right"
+                     {% if settings.mount.reverse_left_right %}checked{% endif %}>
+              <label for="mount_reverse_left_right">Reverse left and right</label>
+            </div>
+            <div class="field checkbox-field">
+              <input type="checkbox" id="mount_reverse_up_down" name="mount.reverse_up_down"
+                     {% if settings.mount.reverse_up_down %}checked{% endif %}>
+              <label for="mount_reverse_up_down">Reverse up and down</label>
+            </div>
+            <p class="hint">
+              The arrows should move the picture the way they point. A camera straight out the back
+              of a Maksutov or Schmidt-Cassegrain sees the target upside down and mirrored, which
+              reverses both; tick whichever goes the wrong way. These take effect straight away.
+            </p>
           </div>
 
           <div class="equip-detail-foot" id="settings-actions">

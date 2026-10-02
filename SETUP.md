@@ -24,6 +24,11 @@ First things to check with one: that `install-asi-sdk.sh` found the camera
 (Settings shows a clear error naming the problem if not), and how auto
 exposure behaves as the light changes.
 
+The **Celestron NexStar** mount control (`spots/mount.py`) is written against
+Celestron's NexStar Communication Protocol document and tested against a
+stand-in hand controller, but has **not** been run with a real mount. First
+things to check with one: that it connects, and which way each arrow moves.
+
 ## Field network topology
 
 The Pi **is** the network -- no separate router needed. The installer
@@ -138,6 +143,47 @@ false shots, turn auto exposure off and set a fixed **Exposure** and **Gain**.
 
 The camera is a bare sensor: it needs a lens, or to sit behind a spotting
 scope, to see a target downrange.
+
+### Driving a Celestron NexStar mount
+
+S.P.O.T.S can move a NexStar mount (written for the 4SE; other NexStar
+hand controllers speak the same protocol) from a card under the live feed.
+
+1. Plug the mini-USB port on the bottom of the hand controller into the Pi.
+   The hand controller stays plugged into the mount, and the mount must be
+   switched on. The port is a Prolific serial adapter, which Raspberry Pi OS
+   supports as it is; it appears as `/dev/ttyUSB0`.
+2. In **Settings > Mount**, tick **Control a Celestron NexStar mount from Live
+   View** and save. It connects straight away, and at every start-up.
+3. Hold an arrow to move, let go to stop. **Stop** stops both motors.
+
+Only the hand controller's direct motor commands are used, which Celestron's
+protocol doesn't list as needing a star alignment. If the card says the hand
+controller didn't answer, get it past its start-up prompts and press
+**Connect**. Connecting turns tracking off, since tracking follows the sky
+and would walk the picture off a target on the ground.
+
+Speeds are the hand controller's 1-9 (0.5x sidereal up to 4°/s). Through the
+4SE with a focal reducer the picture is only around half a degree across, so
+the fast speeds cross it in a fraction of a second: 5 or 6 bring the target
+into frame and 3 or 4 centre it.
+
+If an arrow moves the picture the wrong way, tick **Reverse left and right**
+or **Reverse up and down**. A camera straight out the back of a Maksutov
+sees the target upside down; turning the camera 180° in its holder puts the
+picture, and the arrows, the right way up.
+
+Shot detection waits while the mount moves and for two seconds after. With
+re-alignment on, the moved picture is matched back to the reference;
+otherwise the new view becomes the reference. Either way, aim before
+**New Target**: moving mid-target with re-alignment off shifts the picture
+under the shots and centre already marked.
+
+If the page loses contact while an arrow is held -- WiFi dropping, a phone
+locking -- the Pi stops the mount within a second. If the USB cable comes
+out mid-move the Pi can't reach it, so use the hand controller's buttons or
+switch the mount off. If Connect reports a permission error, add your user
+to the `dialout` group (`sudo usermod -aG dialout $USER`) and reboot.
 
 ### Updating
 

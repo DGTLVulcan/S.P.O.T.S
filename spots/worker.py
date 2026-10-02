@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 # New Target won't start below this, so a forgotten distance is caught
 # before shots are recorded against it rather than after.
 _MIN_DISTANCE_M = 10.0
+# After a mount move, how long detection waits for the shaking to stop.
+MOUNT_SETTLE_S = 2.0
 
 
 @dataclass
@@ -177,6 +179,10 @@ class DetectionWorker:
         self._bullet_diameter_mm: float | None = None
         # Set while the range is on a cease fire.
         self._paused = False
+        # Mount moves: set while it moves, and the time it last stopped.
+        self._view_moving = False
+        self._view_moved = False
+        self._view_still_at = 0.0
 
     def start(self) -> None:
         self._frame_source.start()
@@ -207,6 +213,33 @@ class DetectionWorker:
     @property
     def paused(self) -> bool:
         return self._paused
+
+    def set_view_moving(self, moving: bool) -> None:
+        """Told by the mount when it starts and stops moving the camera."""
+        if moving:
+            self._view_moving = True
+            self._view_moved = True
+        else:
+            self._view_moving = False
+            self._view_still_at = time.monotonic()
+
+    def _view_settling(self) -> bool:
+        """True while the mount moves the view, and for MOUNT_SETTLE_S after.
+
+        A move shifts every pixel. Once settled, re-alignment maps the new
+        view back onto the reference if it is on; otherwise the view as it
+        now is becomes the reference, keeping the shot numbering.
+        """
+        if self._view_moving:
+            return True
+        if not self._view_moved:
+            return False
+        if time.monotonic() - self._view_still_at < MOUNT_SETTLE_S:
+            return True
+        self._view_moved = False
+        if not self._detector.realigns:
+            self.rebaseline()
+        return False
 
     def set_bullet_diameter_mm(self, diameter_mm: float | None) -> None:
         self._bullet_diameter_mm = diameter_mm if diameter_mm else None
@@ -251,6 +284,8 @@ class DetectionWorker:
             if self._paused:
                 # Nothing is diffed while the range is cold, which also
                 # takes the detector's share of the CPU back.
+                continue
+            if self._view_settling():
                 continue
             if self._pending_rearm_seq is not None:
                 # Re-baseline onto the target as it looks now, so the

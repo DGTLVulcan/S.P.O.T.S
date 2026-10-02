@@ -11,6 +11,7 @@ from spots.camera.client import ZCamClient, ZCamError
 from spots.camera.discovery import discover_zcam_ip
 from spots.camera.source import RtspFrameSource, SwitchableFrameSource, SyntheticFrameSource, ZoomFrameSource
 from spots.config import Settings
+from spots.mount import MountController
 from spots.storage import Storage
 from spots.web.routes import bp
 from spots.worker import DetectionWorker
@@ -139,7 +140,13 @@ def create_app(settings: Settings) -> Flask:
         if item:
             worker.set_bullet_diameter_mm((item.get("specs") or {}).get("bullet_diameter_mm"))
 
+    mount = MountController(settings, on_motion=worker.set_view_moving)
+    if settings.mount.enabled:
+        # In the background: finding the port can take a few seconds.
+        mount.connect_in_background()
+
     def _shutdown():
+        mount.close()
         worker.stop()
         zcam_client = switchable.get_zcam_client()
         if zcam_client is not None:
@@ -152,6 +159,7 @@ def create_app(settings: Settings) -> Flask:
     app.config["SETTINGS"] = settings
     app.config["WORKER"] = worker
     app.config["STORAGE"] = storage
+    app.config["MOUNT"] = mount
     app.register_blueprint(bp)
     return app
 

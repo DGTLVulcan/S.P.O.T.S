@@ -193,6 +193,19 @@ def _build(config_class, raw: dict):
 
 
 @dataclass
+class MountConfig:
+    # A Celestron NexStar mount on the hand controller's USB port, moved
+    # from Live View.
+    enabled: bool = False
+    # Serial port, e.g. /dev/ttyUSB0. Blank searches the USB serial ports.
+    port: str = ""
+    # Swap the arrows, for a camera that shows the picture upside down or
+    # mirrored.
+    reverse_left_right: bool = False
+    reverse_up_down: bool = False
+
+
+@dataclass
 class Settings:
     camera: CameraConfig = field(default_factory=CameraConfig)
     target: TargetConfig = field(default_factory=TargetConfig)
@@ -200,6 +213,7 @@ class Settings:
     equipment: EquipmentConfig = field(default_factory=EquipmentConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)
     web: WebConfig = field(default_factory=WebConfig)
+    mount: MountConfig = field(default_factory=MountConfig)
 
     @classmethod
     def load(cls, path: str | None = None, env_path: str | None = _DEFAULT_ENV_PATH) -> "Settings":
@@ -221,6 +235,7 @@ class Settings:
             equipment=_build(EquipmentConfig, raw.get("equipment", {})),
             storage=_build(StorageConfig, raw.get("storage", {})),
             web=_build(WebConfig, raw.get("web", {})),
+            mount=_build(MountConfig, raw.get("mount", {})),
         )
         settings._apply_env_overrides()
         return settings

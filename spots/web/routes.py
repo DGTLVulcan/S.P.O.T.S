@@ -27,6 +27,7 @@ from spots import ballistics, dope, health, ranges
 from spots.camera.asi import AsiError
 from spots.camera.source import SyntheticFrameSource
 from spots.config import LIVE_CAMERAS
+from spots.mount import DIRECTIONS, SPEEDS, MountError, MountNotConnected
 from spots.layout import TILES
 from spots.camera.client import ZCamError
 from spots.camera.controls import CAMERA_CONTROL_KEYS, CAMERA_CONTROLS
@@ -68,6 +69,10 @@ def _storage():
     return current_app.config["STORAGE"]
 
 
+def _mount():
+    return current_app.config["MOUNT"]
+
+
 def _zcam_client():
     # Dynamic, not fixed at startup: the Z CAM connects lazily on the first
     # switch to live, so this can go from None to a real client mid-run.
@@ -89,6 +94,8 @@ def index():
         target=_settings().target,
         layout=_storage().get_layout(),
         tiles=TILES,
+        mount=_settings().mount,
+        mount_speeds=SPEEDS,
     )
 
 
@@ -720,6 +727,54 @@ def api_feed_set():
     return jsonify({"ok": True, "active": target})
 
 
+@bp.route("/api/mount")
+def api_mount():
+    return jsonify(_mount().status())
+
+
+@bp.route("/api/mount/connect", methods=["POST"])
+def api_mount_connect():
+    try:
+        return jsonify(_mount().connect())
+    except MountError as exc:
+        return jsonify(dict(_mount().status(), error=str(exc))), 502
+
+
+@bp.route("/api/mount/move", methods=["POST"])
+def api_mount_move():
+    data = request.get_json(silent=True) or {}
+    direction = data.get("direction")
+    try:
+        speed = int(data.get("speed"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "speed must be a whole number from 1 to 9"}), 400
+    if direction not in DIRECTIONS or not 1 <= speed <= 9:
+        return jsonify({"error": "direction must be up, down, left or right, "
+                                 "and speed 1 to 9"}), 400
+    try:
+        return jsonify(_mount().hold(direction, speed))
+    except MountNotConnected as exc:
+        return jsonify(dict(_mount().status(), error=str(exc))), 409
+    except MountError as exc:
+        return jsonify(dict(_mount().status(), error=str(exc))), 502
+
+
+@bp.route("/api/mount/stop", methods=["POST"])
+def api_mount_stop():
+    # Also sent by navigator.sendBeacon as the page closes, which can't set
+    # a JSON content type.
+    data = request.get_json(silent=True, force=True) or {}
+    direction = data.get("direction")
+    if direction is not None and direction not in DIRECTIONS:
+        return jsonify({"error": "direction must be up, down, left or right"}), 400
+    try:
+        if direction is None:
+            return jsonify(_mount().stop_all())
+        return jsonify(_mount().release(direction))
+    except MountError as exc:
+        return jsonify(dict(_mount().status(), error=str(exc))), 502
+
+
 @bp.route("/api/camera/status")
 def api_camera_status():
     status = _worker().get_camera_status()
@@ -1302,6 +1357,11 @@ def _apply_settings_form(settings, form) -> list[str]:
     settings.web.range_status_enabled = "web.range_status_enabled" in form
     settings.web.range_status_spacebar = "web.range_status_spacebar" in form
 
+    settings.mount.enabled = "mount.enabled" in form
+    settings.mount.port = form.get("mount.port", "").strip()
+    settings.mount.reverse_left_right = "mount.reverse_left_right" in form
+    settings.mount.reverse_up_down = "mount.reverse_up_down" in form
+
     settings.save()
     return []
 
@@ -1536,6 +1596,7 @@ def settings_page():
         # Switching the feature off has to lift any cease fire it was
         # holding, or detection stays stopped with nothing on screen saying so.
         _sync_detection_pause()
+        _mount().apply_settings()
         return redirect(url_for("spots.settings_page", saved=1))
 
     return render_template(

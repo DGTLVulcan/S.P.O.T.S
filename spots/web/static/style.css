@@ -694,6 +694,62 @@ input[type="range"] { accent-color: var(--accent); }
 }
 .checkbox-field label { font-weight: 500; }
 
+/* Live View's mount control: arrows round a stop button, and the speed. */
+.mount-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.4rem;
+}
+.mount-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 3.4rem);
+  grid-template-rows: repeat(3, 3.4rem);
+  gap: 0.35rem;
+  /* A held finger must not scroll the page, select text or open a menu. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.mount-pad button {
+  justify-content: center;
+  padding: 0;
+  font-size: 1.15rem;
+}
+.mount-up { grid-area: 1 / 2; }
+.mount-left { grid-area: 2 / 1; }
+.mount-stop { grid-area: 2 / 2; }
+.mount-right { grid-area: 2 / 3; }
+.mount-down { grid-area: 3 / 2; }
+.mount-btn.is-held {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.mount-pad .mount-stop {
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-color: var(--critical);
+  color: var(--critical);
+}
+.mount-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 10rem;
+}
+.mount-side input[type="range"] { width: 100%; }
+.mount-speed-label { font-weight: 600; font-size: 0.9rem; }
+.mount-state {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-secondary);
+}
+.mount-state.is-bad { color: var(--critical); }
+.mount-hint { margin: 0.8rem 0 0; }
+
 /* The ZWO camera's live readout on the settings page. */
 .asi-status {
   margin: 0 0 0.9rem;

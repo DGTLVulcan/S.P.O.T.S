@@ -56,6 +56,31 @@
       {%- endif %}
 {% endmacro %}
 
+{% macro tile_mount() %}
+      {%- if mount.enabled %}
+      <div class="card mount-card" data-tile="mount" id="mount-card">
+        <h2>Mount</h2>
+        <div class="mount-body">
+          <div class="mount-pad" role="group" aria-label="Move the mount">
+            <button type="button" class="mount-btn mount-up" data-dir="up" aria-label="Move up" disabled>&#9650;</button>
+            <button type="button" class="mount-btn mount-left" data-dir="left" aria-label="Move left" disabled>&#9664;</button>
+            <button type="button" class="mount-stop" id="mount-stop" disabled>Stop</button>
+            <button type="button" class="mount-btn mount-right" data-dir="right" aria-label="Move right" disabled>&#9654;</button>
+            <button type="button" class="mount-btn mount-down" data-dir="down" aria-label="Move down" disabled>&#9660;</button>
+          </div>
+          <div class="mount-side">
+            <label class="mount-speed-label" for="mount-speed">Speed <output id="mount-speed-value">5</output></label>
+            <input type="range" id="mount-speed" min="1" max="9" step="1" value="5">
+            <span class="hint" id="mount-speed-rate">{{ mount_speeds[5] }}</span>
+            <p class="mount-state" id="mount-state" aria-live="polite">Connecting&hellip;</p>
+            <button type="button" id="mount-connect" hidden>Connect</button>
+          </div>
+        </div>
+        <p class="hint mount-hint">Hold an arrow to move, let go to stop. Shot detection waits while the mount moves.</p>
+      </div>
+      {%- endif %}
+{% endmacro %}
+
 {% macro tile_feed() %}
       <div class="card" data-tile="feed">
         <div class="video-frame" id="video-frame">
@@ -229,6 +254,7 @@
 {% set TILE_MACROS = {
   "range": tile_range,
   "feed": tile_feed,
+  "mount": tile_mount,
   "score": tile_score,
   "scope": tile_scope,
   "group-stats": tile_group_stats,
@@ -268,6 +294,7 @@
     window.SPOTS_UNIT_NAME = {{ target.unit_name | tojson }};
     window.SPOTS_LAYOUT = {{ layout | tojson }};
     window.SPOTS_TILES = {{ tiles | tojson }};
+    window.SPOTS_MOUNT_SPEEDS = {{ mount_speeds | tojson }};
   </script>
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
   <script src="{{ url_for('static', filename='range_status.js') }}"></script>
@@ -277,5 +304,6 @@
   <script src="{{ url_for('static', filename='layout.js') }}"></script>
   <script src="{{ url_for('static', filename='equipment_bar.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <script src="{{ url_for('static', filename='mount.js') }}"></script>
 </body>
 </html>

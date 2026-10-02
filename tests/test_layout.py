@@ -21,7 +21,7 @@ class CleanLayoutTests(unittest.TestCase):
     def test_default_matches_the_original_hand_written_page(self):
         columns = layout.DEFAULT_LAYOUT["columns"]
         self.assertEqual(len(columns), 2)
-        self.assertEqual(columns[0]["tiles"], ["range", "feed", "score", "scope"])
+        self.assertEqual(columns[0]["tiles"], ["range", "feed", "mount", "score", "scope"])
         self.assertEqual(columns[1]["tiles"], ["group-stats", "shots", "subgroups"])
         self.assertEqual(columns[0]["flow"], "stack")
         self.assertEqual(columns[1]["flow"], "wrap")
@@ -33,10 +33,10 @@ class CleanLayoutTests(unittest.TestCase):
 
     def test_rearrangement_is_kept(self):
         cleaned = layout.clean_layout({"columns": [
-            {"weight": 4, "flow": "wrap", "tiles": ["shots", "feed", "range"]},
+            {"weight": 4, "flow": "wrap", "tiles": ["shots", "feed", "range", "mount"]},
             {"weight": 1, "flow": "stack", "tiles": ["score", "scope", "group-stats", "subgroups"]},
         ]})
-        self.assertEqual(cleaned["columns"][0]["tiles"], ["shots", "feed", "range"])
+        self.assertEqual(cleaned["columns"][0]["tiles"], ["shots", "feed", "range", "mount"])
         self.assertEqual(cleaned["columns"][0]["weight"], 4)
         self.assertEqual(cleaned["columns"][0]["flow"], "wrap")
 
@@ -80,7 +80,8 @@ class CleanLayoutTests(unittest.TestCase):
     def test_empty_columns_are_dropped(self):
         cleaned = layout.clean_layout({"columns": [
             {"tiles": []},
-            {"tiles": ["range", "feed", "score", "scope", "group-stats", "shots", "subgroups"]},
+            {"tiles": ["range", "feed", "mount", "score", "scope", "group-stats", "shots",
+                       "subgroups"]},
         ]})
         self.assertEqual(len(cleaned["columns"]), 1)
 
