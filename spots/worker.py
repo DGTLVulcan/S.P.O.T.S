@@ -17,6 +17,7 @@ from spots.camera.source import FrameSource
 from spots.config import DetectionConfig, TargetConfig
 from spots.storage import Storage
 from spots.vision.calibration import Calibration
+from spots.vision import depth
 from spots.vision.detection import ShotDetector, invert_homography, warp_point
 from spots.vision.groups import _UNIT_TO_METERS, GroupStats, compute_group_stats
 
@@ -409,6 +410,13 @@ class DetectionWorker:
         check = getattr(self._frame_source, "is_live_connected", None)
         return bool(check()) if callable(check) else False
 
+    def distance_estimate(self, optics) -> dict:
+        """Distance to the target from its calibrated size; see spots.vision.depth."""
+        status = self.get_camera_status() or {}
+        return depth.estimate(self.get_active_feed(), self.is_live_connected(),
+                              self.state.snapshot().calibration,
+                              status.get("pixel_size_um"), optics)
+
     def get_camera_status(self) -> dict | None:
         """The live camera's exposure and gain, from cameras that report
         them; None for the others and for the simulated target."""
@@ -484,6 +492,8 @@ class DetectionWorker:
                 unit_name=session["unit_name"],
                 origin_px=(session["calib_origin_x"], session["calib_origin_y"]),
                 origin_is_target_center=session["calib_center_marked"],
+                zoom_level=session["calib_zoom"] or 1.0,
+                feed=session["calib_feed"] or "",
             )
 
         distance_m = session["distance_m"] or 0.0
@@ -594,6 +604,8 @@ class DetectionWorker:
             cal.units_per_px if cal else None,
             cal.origin_px if cal else None,
             cal.origin_is_target_center if cal else False,
+            cal.zoom_level if cal else None,
+            cal.feed if cal else None,
         )
 
     def _persist_shot_units(self) -> None:

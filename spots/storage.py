@@ -196,6 +196,10 @@ class Storage:
             self._conn.execute(
                 "ALTER TABLE sessions ADD COLUMN calib_center_marked INTEGER NOT NULL DEFAULT 0"
             )
+        if "calib_zoom" not in session_columns:
+            self._conn.execute("ALTER TABLE sessions ADD COLUMN calib_zoom REAL")
+        if "calib_feed" not in session_columns:
+            self._conn.execute("ALTER TABLE sessions ADD COLUMN calib_feed TEXT")
 
     def _seed_equipment_locked(self) -> None:
         existing = self._conn.execute("SELECT COUNT(*) FROM equipment").fetchone()[0]
@@ -585,15 +589,18 @@ class Storage:
         units_per_px: float | None,
         origin_px: tuple[float, float] | None,
         center_marked: bool = False,
+        zoom_level: float | None = None,
+        feed: str | None = None,
     ) -> None:
         origin_x, origin_y = origin_px if origin_px is not None else (None, None)
         with self._lock:
             self._conn.execute(
                 """UPDATE sessions
                    SET calib_units_per_px = ?, calib_origin_x = ?, calib_origin_y = ?,
-                       calib_center_marked = ?
+                       calib_center_marked = ?, calib_zoom = ?, calib_feed = ?
                    WHERE id = ?""",
-                (units_per_px, origin_x, origin_y, int(center_marked), session_id),
+                (units_per_px, origin_x, origin_y, int(center_marked), zoom_level, feed,
+                 session_id),
             )
             self._conn.commit()
 
@@ -729,7 +736,7 @@ class Storage:
                 """SELECT id, created_at, unit_name, distance_m, name,
                           calib_units_per_px, calib_origin_x, calib_origin_y,
                           calib_center_marked, rifle, scope, ammo,
-                          equipment_snapshot, conditions
+                          equipment_snapshot, conditions, calib_zoom, calib_feed
                    FROM sessions WHERE id = ?""",
                 (session_id,),
             ).fetchone()
@@ -750,6 +757,8 @@ class Storage:
             "ammo": row[11],
             "equipment_snapshot": _decode_specs(row[12]),
             "conditions": _decode_specs(row[13]),
+            "calib_zoom": row[14],
+            "calib_feed": row[15],
         }
 
     def latest_session_id(self) -> int | None:

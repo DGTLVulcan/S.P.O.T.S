@@ -24,6 +24,10 @@ First things to check with one: that `install-asi-sdk.sh` found the camera
 (Settings shows a clear error naming the problem if not), and how auto
 exposure behaves as the light changes.
 
+The **distance estimate** (`spots/vision/depth.py`) is tested against targets
+drawn as the 4SE and ASI290MC would see them at known distances, but not yet
+against a real target at a measured one.
+
 The **Celestron NexStar** mount control (`spots/mount.py`) is written against
 Celestron's NexStar Communication Protocol document and tested against a
 stand-in hand controller, but has **not** been run with a real mount. First
@@ -188,6 +192,32 @@ locking -- the Pi stops the mount within a second. If the USB cable comes
 out mid-move the Pi can't reach it, so use the hand controller's buttons or
 switch the mount off. If Connect reports a permission error, add your user
 to the `dialout` group (`sudo usermod -aG dialout $USER`) and reboot.
+
+### Distance estimate
+
+With the ZWO ASI camera on the telescope, the **Distance Estimate** card on
+Live View works out how far away the target is. Calibrating the scale tells
+it how much of the target one pixel covers; the camera's pixel size (2.9 µm,
+read from the camera) and the telescope's focal length say how big that pixel
+is on the sensor, and the lens equation gives the distance.
+
+- Set the optics in **Settings > Optics**: 1325 mm for the 4SE, and the
+  reducer's strength (0.5 for a 0.5x reducer).
+- Calibrate across the widest measurement you know on the target, with the
+  target square to the camera: a tilted target looks narrower, so it reads
+  further away.
+- It needs the ZWO as the live feed, with the scale calibrated through it,
+  and says so on the card otherwise.
+- **Use as target distance** puts the figure in the Distance to target box.
+
+From the specs alone it can be a few percent out: the 4SE focuses by moving
+its mirror, which changes its focal length, and a reducer's strength depends
+on how far it sits from the camera. Correct it once with a target at a
+distance you've measured (a laser rangefinder, or a surveyed range): calibrate,
+press **Correct with a known distance** and enter it. The real focal length is
+worked out and used from then on, until you press **Back to the specs** or
+change the Optics settings. Refocusing a long way shifts the focal length a
+little, so correct it at roughly the distance you shoot.
 
 ### Updating
 

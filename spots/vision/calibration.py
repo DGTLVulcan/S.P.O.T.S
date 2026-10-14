@@ -18,6 +18,10 @@ class Calibration:
     # origin on an arbitrary click, so scope advice stays hidden until a
     # real point of aim is set.
     origin_is_target_center: bool = False
+    # The digital zoom and the feed it was measured on, which the distance
+    # estimate needs. Empty feed: not recorded (older sessions).
+    zoom_level: float = 1.0
+    feed: str = ""
 
     @classmethod
     def from_two_points(
@@ -27,6 +31,8 @@ class Calibration:
         real_distance_units: float,
         unit_name: str,
         origin_px: tuple[float, float],
+        zoom_level: float = 1.0,
+        feed: str = "",
     ) -> "Calibration":
         pixel_distance = math.hypot(p2_px[0] - p1_px[0], p2_px[1] - p1_px[1])
         if pixel_distance <= 0:
@@ -35,6 +41,8 @@ class Calibration:
             units_per_px=real_distance_units / pixel_distance,
             unit_name=unit_name,
             origin_px=origin_px,
+            zoom_level=zoom_level,
+            feed=feed,
         )
 
     def to_units(self, point_px: tuple[float, float]) -> tuple[float, float]:

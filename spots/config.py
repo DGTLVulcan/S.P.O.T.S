@@ -196,6 +196,29 @@ def _build(config_class, raw: dict):
 
 
 @dataclass
+class OpticsConfig:
+    # The telescope in front of the ZWO ASI camera, for the distance
+    # estimate. A NexStar 4SE is 1325 mm.
+    telescope_focal_length_mm: float = 1325.0
+    # Focal reducer strength as printed on it, 0.5 for a 0.5x; 1 for none.
+    reducer: float = 0.5
+    # Used when the camera doesn't report its own. ASI290MC: 2.9 um.
+    pixel_size_um: float = 2.9
+    # Worked out from a target at a measured distance, replacing the specs'
+    # figure; 0 uses the specs. With the distance it was measured at.
+    measured_focal_length_mm: float = 0.0
+    measured_at_m: float = 0.0
+
+    def focal_length_mm(self) -> float:
+        if self.measured_focal_length_mm > 0:
+            return self.measured_focal_length_mm
+        return self.spec_focal_length_mm()
+
+    def spec_focal_length_mm(self) -> float:
+        return self.telescope_focal_length_mm * self.reducer
+
+
+@dataclass
 class MountConfig:
     # A Celestron NexStar mount on the hand controller's USB port, moved
     # from Live View.
@@ -217,6 +240,7 @@ class Settings:
     storage: StorageConfig = field(default_factory=StorageConfig)
     web: WebConfig = field(default_factory=WebConfig)
     mount: MountConfig = field(default_factory=MountConfig)
+    optics: OpticsConfig = field(default_factory=OpticsConfig)
 
     @classmethod
     def load(cls, path: str | None = None, env_path: str | None = _DEFAULT_ENV_PATH) -> "Settings":
@@ -239,6 +263,7 @@ class Settings:
             storage=_build(StorageConfig, raw.get("storage", {})),
             web=_build(WebConfig, raw.get("web", {})),
             mount=_build(MountConfig, raw.get("mount", {})),
+            optics=_build(OpticsConfig, raw.get("optics", {})),
         )
         settings._apply_env_overrides()
         return settings

@@ -140,6 +140,7 @@ class AsiFrameSource(FrameSource):
         self._sdk = None
         self._camera = None
         self._name = ""
+        self._pixel_size_um = 0.0
         self._floor_us = 32.0
         self._ceiling_us = self._max_us
 
@@ -175,7 +176,9 @@ class AsiFrameSource(FrameSource):
         except Exception as exc:
             raise AsiError(f"Could not open the ZWO ASI camera: {exc}") from exc
         try:
-            self._name = camera.get_camera_property().get("Name", "ZWO ASI")
+            prop = camera.get_camera_property()
+            self._name = prop.get("Name", "ZWO ASI")
+            self._pixel_size_um = float(prop.get("PixelSize") or 0.0)
             controls = camera.get_controls()
             exposure = controls.get("Exposure", {})
             self._floor_us = float(max(32, exposure.get("MinValue", 32)))
@@ -286,6 +289,7 @@ class AsiFrameSource(FrameSource):
             "max_gain": self._max_gain,
             "level": None if self._level is None else round(self._level, 1),
             "target_level": TARGET_LEVEL,
+            "pixel_size_um": self._pixel_size_um or None,
         }
 
     def get_latest_frame(self) -> np.ndarray | None:

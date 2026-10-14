@@ -15,6 +15,7 @@ TILES: dict[str, str] = {
     "range": "Range status",
     "feed": "Live feed",
     "mount": "Mount",
+    "depth": "Distance estimate",
     "score": "Score",
     "scope": "Scope correction",
     "group-stats": "Group stats",
@@ -38,7 +39,8 @@ TILE_HEIGHT_STEP = 80
 
 DEFAULT_LAYOUT: dict = {
     "columns": [
-        {"weight": 2, "flow": "stack", "tiles": ["range", "feed", "mount", "score", "scope"]},
+        {"weight": 2, "flow": "stack",
+         "tiles": ["range", "feed", "mount", "depth", "score", "scope"]},
         {"weight": 3, "flow": "wrap", "tiles": ["group-stats", "shots", "subgroups"]},
     ],
     # Cards put away while arranging. Listed rather than dropped, so they

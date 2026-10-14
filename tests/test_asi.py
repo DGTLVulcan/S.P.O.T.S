@@ -54,7 +54,7 @@ class FakeCamera:
         self.timeouts = []
 
     def get_camera_property(self):
-        return {"Name": "ZWO ASI290MC", "MaxWidth": 1936, "MaxHeight": 1096}
+        return {"Name": "ZWO ASI290MC", "MaxWidth": 1936, "MaxHeight": 1096, "PixelSize": 2.9}
 
     def get_controls(self):
         return {"Exposure": {"MinValue": 32, "MaxValue": 2_000_000_000},
@@ -248,6 +248,8 @@ class AsiFrameSourceTests(unittest.TestCase):
         self.assertEqual(camera.controls[sdk.ASI_EXPOSURE], 2000)
         self.assertTrue(camera.capturing)
         self.assertEqual(source.name, "ZWO ASI290MC")
+        # Reported for the distance estimate.
+        self.assertEqual(source.status()["pixel_size_um"], 2.9)
 
     def test_frames_arrive_as_copies(self):
         sdk = fake_sdk()
@@ -467,6 +469,8 @@ def _form(**overrides):
         "camera.asi_exposure_ms": "2", "camera.asi_max_exposure_ms": "20",
         "camera.asi_gain": "50", "camera.asi_max_gain": "300",
         "camera.asi_auto_exposure": "on",
+        "optics.telescope_focal_length_mm": "1325", "optics.reducer": "0.5",
+        "optics.pixel_size_um": "2.9",
     }
     fields.update(overrides)
     return settings, MultiDict({k: v for k, v in fields.items() if v is not None})

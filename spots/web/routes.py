@@ -44,6 +44,7 @@ from spots.equipment_specs import (
     summarise,
 )
 from spots.storage import EQUIPMENT_KINDS
+from spots.vision import depth
 from spots.vision.calibration import Calibration
 from spots.vision.detection import invert_homography, warp_point
 from spots.vision.groupcard import render_group_card
@@ -671,6 +672,46 @@ def api_zoom_set():
     return jsonify({"ok": True, "level": level, "center_x": center_x, "center_y": center_y})
 
 
+@bp.route("/api/depth")
+def api_depth():
+    return jsonify(_worker().distance_estimate(_settings().optics))
+
+
+@bp.route("/api/depth/correct", methods=["POST"])
+def api_depth_correct():
+    """Works out the real focal length from a target at a measured distance."""
+    data = request.get_json(silent=True) or {}
+    try:
+        known = float(data.get("distance_m"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "distance_m must be a number"}), 400
+    if not known > 0:
+        return jsonify({"error": "The distance must be more than 0 m"}), 400
+    optics = _settings().optics
+    estimate = _worker().distance_estimate(optics)
+    if not estimate["available"]:
+        return jsonify(dict(estimate, error=estimate["message"])), 409
+    focal = depth.focal_length_for(known, estimate["magnification"])
+    spec = optics.spec_focal_length_mm()
+    if not depth.correction_allowed(focal, spec):
+        return jsonify({"error": f"That would make the focal length {focal:.0f} mm, against "
+                                 f"{spec:.0f} mm from the specs. Check the distance, and that "
+                                 "the scale was calibrated on a measurement you know."}), 400
+    optics.measured_focal_length_mm = round(focal, 1)
+    optics.measured_at_m = known
+    _settings().save()
+    return jsonify(_worker().distance_estimate(optics))
+
+
+@bp.route("/api/depth/reset", methods=["POST"])
+def api_depth_reset():
+    optics = _settings().optics
+    optics.measured_focal_length_mm = 0.0
+    optics.measured_at_m = 0.0
+    _settings().save()
+    return jsonify(_worker().distance_estimate(optics))
+
+
 @bp.route("/api/distance")
 def api_distance_get():
     return jsonify({"distance_m": _settings().target.distance_m})
@@ -893,7 +934,8 @@ def api_calibration():
 
     try:
         calibration = Calibration.from_two_points(
-            p1, p2, distance, _settings().target.unit_name, origin_px=p1
+            p1, p2, distance, _settings().target.unit_name, origin_px=p1,
+            zoom_level=_worker().get_zoom()[0], feed=_worker().get_active_feed(),
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -1311,6 +1353,16 @@ def _apply_settings_form(settings, form) -> list[str]:
     if asi_gain is not None and asi_max_gain is not None and asi_max_gain < asi_gain:
         errors.append("ASI highest gain can't be below the gain it starts from")
 
+    telescope_mm = _parse_float(form, "optics.telescope_focal_length_mm", errors)
+    reducer = _parse_float(form, "optics.reducer", errors)
+    pixel_um = _parse_float(form, "optics.pixel_size_um", errors)
+    if telescope_mm is not None and telescope_mm <= 0:
+        errors.append("The telescope's focal length must be more than 0 mm")
+    if reducer is not None and not 0 < reducer <= 3:
+        errors.append("The focal reducer must be between 0 and 3 (1 for none)")
+    if pixel_um is not None and not 0 < pixel_um < 50:
+        errors.append("The pixel size must be between 0 and 50 um")
+
     if (
         min_hole_area_px is not None
         and max_hole_area_px is not None
@@ -1354,6 +1406,16 @@ def _apply_settings_form(settings, form) -> list[str]:
     settings.camera.asi_gain = asi_gain
     settings.camera.asi_max_gain = asi_max_gain
     settings.camera.flip_horizontal = "camera.flip_horizontal" in form
+
+    optics = settings.optics
+    if (telescope_mm, reducer, pixel_um) != (optics.telescope_focal_length_mm, optics.reducer,
+                                            optics.pixel_size_um):
+        # A focal length measured with the old figures no longer applies.
+        optics.measured_focal_length_mm = 0.0
+        optics.measured_at_m = 0.0
+    optics.telescope_focal_length_mm = telescope_mm
+    optics.reducer = reducer
+    optics.pixel_size_um = pixel_um
 
     settings.web.range_status_enabled = "web.range_status_enabled" in form
     settings.web.range_status_spacebar = "web.range_status_spacebar" in form

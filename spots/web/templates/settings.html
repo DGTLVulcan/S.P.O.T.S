@@ -56,6 +56,12 @@
               <span class="equip-nav-sub">Celestron NexStar over USB</span>
             </span>
           </button>
+          <button type="button" class="equip-nav-item settings-nav" data-panel="optics">
+            <span class="equip-nav-text">
+              <span class="equip-nav-name">Optics</span>
+              <span class="equip-nav-sub">Telescope and reducer, for the distance estimate</span>
+            </span>
+          </button>
           <button type="button" class="equip-nav-item settings-nav" data-panel="range">
             <span class="equip-nav-text">
               <span class="equip-nav-name">Range status</span>
@@ -333,6 +339,47 @@
               <input type="text" id="asi_sdk_path" name="camera.asi_sdk_path" value="{{ settings.camera.asi_sdk_path }}" placeholder="found automatically">
               <span class="hint">Path to libASICamera2.so. Leave blank once scripts/install-asi-sdk.sh has installed it.</span>
             </div>
+          </div>
+
+          <div class="settings-panel" data-panel="optics" hidden>
+            <div class="equip-detail-head">
+              <div class="equip-detail-titles">
+                <span class="equip-detail-kind">Configuration</span>
+                <span class="settings-title">Optics</span>
+              </div>
+            </div>
+            <p class="hint" style="margin: 0 0 0.9rem;">
+              The Distance Estimate card on Live View works out how far away the target is from
+              its calibrated size, this telescope's focal length and the ZWO ASI camera's pixel
+              size. It needs the ZWO camera as the live feed.
+            </p>
+            <div class="field">
+              <label for="optics_focal">Telescope focal length (mm)</label>
+              <input type="number" id="optics_focal" name="optics.telescope_focal_length_mm" step="any" min="0" value="{{ settings.optics.telescope_focal_length_mm }}" required>
+              <span class="hint">A NexStar 4SE is 1325 mm.</span>
+            </div>
+            <div class="field">
+              <label for="optics_reducer">Focal reducer</label>
+              <input type="number" id="optics_reducer" name="optics.reducer" step="any" min="0" value="{{ settings.optics.reducer }}" required>
+              <span class="hint">As printed on it: 0.5 for a 0.5&times; reducer, 1 for none.</span>
+            </div>
+            <div class="field">
+              <label for="optics_pixel">Camera pixel size (&micro;m)</label>
+              <input type="number" id="optics_pixel" name="optics.pixel_size_um" step="any" min="0" value="{{ settings.optics.pixel_size_um }}" required>
+              <span class="hint">An ASI290MC is 2.9 &micro;m. Only used if the camera doesn't report its own.</span>
+            </div>
+            <p class="hint">
+              {%- if settings.optics.measured_focal_length_mm > 0 %}
+              The estimate is using a focal length of {{ settings.optics.measured_focal_length_mm }} mm,
+              measured from a target at {{ settings.optics.measured_at_m }} m. Changing any field
+              above goes back to the specs.
+              {%- else %}
+              The estimate is using {{ '%g' % settings.optics.spec_focal_length_mm() }} mm from these
+              figures. Correct it on the card with a distance you've measured: the 4SE focuses by
+              moving its mirror, which changes its focal length, and a reducer's strength depends
+              on how far it sits from the camera.
+              {%- endif %}
+            </p>
           </div>
 
           <div class="settings-panel" data-panel="mount" hidden>

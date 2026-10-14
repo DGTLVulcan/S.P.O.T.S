@@ -694,6 +694,28 @@ input[type="range"] { accent-color: var(--accent); }
 }
 .checkbox-field label { font-weight: 500; }
 
+/* Live View's distance estimate. */
+.depth-reading { margin: 0; }
+.depth-value {
+  font-size: 2rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.depth-detail {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-secondary);
+}
+.depth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+.depth-hint { margin: 0.8rem 0 0; }
+.depth-hint:empty { display: none; }
+
 /* Live View's mount control: arrows round a stop button, and the speed. */
 .mount-body {
   display: flex;

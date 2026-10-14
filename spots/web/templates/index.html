@@ -85,6 +85,20 @@
       {%- endif %}
 {% endmacro %}
 
+{% macro tile_depth() %}
+      <div class="card depth-card" data-tile="depth" id="depth-card">
+        <h2>Distance Estimate</h2>
+        <p class="depth-reading"><span class="depth-value" id="depth-value">&ndash;</span></p>
+        <p class="depth-detail" id="depth-detail" aria-live="polite">Checking the camera&hellip;</p>
+        <div class="depth-actions" id="depth-actions" hidden>
+          <button type="button" id="depth-use">Use as target distance</button>
+          <button type="button" id="depth-correct">Correct with a known distance</button>
+          <button type="button" id="depth-reset" hidden>Back to the specs</button>
+        </div>
+        <p class="hint depth-hint" id="depth-hint"></p>
+      </div>
+{% endmacro %}
+
 {% macro tile_feed() %}
       <div class="card" data-tile="feed">
         <div class="video-frame" id="video-frame">
@@ -259,6 +273,7 @@
   "range": tile_range,
   "feed": tile_feed,
   "mount": tile_mount,
+  "depth": tile_depth,
   "score": tile_score,
   "scope": tile_scope,
   "group-stats": tile_group_stats,
@@ -309,5 +324,6 @@
   <script src="{{ url_for('static', filename='equipment_bar.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
   <script src="{{ url_for('static', filename='mount.js') }}"></script>
+  <script src="{{ url_for('static', filename='depth.js') }}"></script>
 </body>
 </html>
